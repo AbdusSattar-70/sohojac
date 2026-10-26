@@ -41,17 +41,17 @@ jobs:
           SERVER_PID=$!
           trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
           for i in $(seq 1 40); do
-            if curl -fsS --max-time 4 http://127.0.0.1:5173/ >/tmp/sohojac-home.html; then break; fi
+            if curl -fsS --max-time 4 http://localhost:5173/ >/tmp/sohojac-home.html; then break; fi
             sleep 1
           done
           for route in / /about /faq /journal /interest /privacy /robots.txt /sitemap.xml; do
-            curl -fsS --max-time 12 "http://127.0.0.1:5173$route" >/dev/null || {
+            curl -fsS --max-time 12 "http://localhost:5173$route" >/dev/null || {
               cat /tmp/sohojac-vite.log
               exit 1
             }
           done
           grep -q "Learning should be" /tmp/sohojac-home.html
-          curl -fsS --max-time 20 -X POST "http://127.0.0.1:5173/api/enquiries" \
+          curl -fsS --max-time 20 -X POST "http://localhost:5173/api/enquiries" \
             -H "Content-Type: application/json" \
             --data '{"intent":"interest","offeringId":"","studentName":"Smoke Test Student","className":"Class 8","guardianName":"Smoke Test Guardian","mobile":"01700000000","subjectNames":["English"],"preferredSchedule":"","preferredDays":[],"trialInterest":false,"consent":true,"website":"","turnstileToken":""}' \
             >/tmp/sohojac-enquiry.json || {
