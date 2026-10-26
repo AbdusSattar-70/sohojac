@@ -5,6 +5,7 @@ import Navbar from "@/components/home-navbar/navbar";
 import { PublicInterestForm } from "@/components/public/interest-form";
 import Logo from "@/components/shared/logo";
 import { LocalizedText } from "@/components/shared/localized-text";
+import { env } from "cloudflare:workers";
 import { getPublicProgrammeOfferings } from "@/modules/offerings/queries";
 
 export const dynamic = "force-dynamic";
@@ -145,6 +146,7 @@ export default async function InterestPage({
                 offerings={publicOfferings ?? []}
                 initialOfferingId={preselected?.id ?? ""}
                 intent={intent}
+                siteKey={(env as unknown as { TURNSTILE_SITE_KEY?: string }).TURNSTILE_SITE_KEY ?? ""}
               />
             </div>
           )}
