@@ -6,18 +6,20 @@ import { env } from "cloudflare:workers";
  * Authentication is separate from staff authorization in the academy database.
  */
 export function createAuth() {
-  if (!env.BETTER_AUTH_SECRET || !env.BETTER_AUTH_URL) {
+  // Locally supplied secrets do not appear in generated types in CI.
+  const bindings = env as typeof env & { BETTER_AUTH_SECRET?: string; BETTER_AUTH_URL?: string };
+  if (!bindings.BETTER_AUTH_SECRET || !bindings.BETTER_AUTH_URL) {
     throw new Error("BETTER_AUTH_SECRET and BETTER_AUTH_URL must be configured");
   }
 
   return betterAuth({
     database: env.DB,
-    secret: env.BETTER_AUTH_SECRET,
-    baseURL: env.BETTER_AUTH_URL,
+    secret: bindings.BETTER_AUTH_SECRET,
+    baseURL: bindings.BETTER_AUTH_URL,
     emailAndPassword: {
       enabled: true,
       disableSignUp: true, // Private staff accounts only; bootstrap separately.
     },
-    trustedOrigins: [env.BETTER_AUTH_URL],
+    trustedOrigins: [bindings.BETTER_AUTH_URL],
   });
 }
