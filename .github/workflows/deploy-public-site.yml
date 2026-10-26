@@ -1,0 +1,65 @@
+name: Deploy Sohojac Public Website
+
+# This is intentionally manual only. No pushes or pull requests deploy production.
+# GitHub requires workflow_dispatch workflows to exist on the default branch.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sohojac-production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build and deploy feature/public_site_port
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CF_SEND_TELEMETRY: "false"
+    steps:
+      - name: Check out public-site branch (not master)
+        uses: actions/checkout@v4
+        with:
+          ref: feature/public_site_port
+          persist-credentials: false
+
+      - name: Install Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "12.15.0"
+          run_install: false
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Worker types
+        run: pnpm run cf-typegen
+
+      - name: Type-check
+        run: pnpm exec tsc --noEmit
+
+      - name: Build production Worker
+        run: pnpm run build
+
+      - name: Validate build without uploading
+        run: pnpm exec cf deploy --prebuilt --mode production --dry-run
+
+      - name: Deploy to Cloudflare Workers
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CLOUDFLARE_API_TOKEN:-}" ] || [ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
+            echo "::error::Add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID to GitHub repository Actions secrets before running this workflow."
+            exit 1
+          fi
+          pnpm exec cf deploy --prebuilt --mode production
