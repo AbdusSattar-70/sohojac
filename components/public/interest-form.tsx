@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
+import Script from "next/script";
 import { useLanguage } from "@/components/providers/language-provider";
 import { AcknowledgementSlip } from "@/components/public/acknowledgement-slip";
 import type { PublicOfferingCard } from "@/modules/offerings/types";
@@ -16,8 +17,8 @@ const subjects = ["Bangla","English","Mathematics","General Science","Physics","
 const offeringName = (o: PublicOfferingCard, bn: boolean) =>
   (bn ? o.showcase_title_bn : o.showcase_title) || o.showcase_title || o.name;
 
-export function PublicInterestForm({ offerings, intent, initialOfferingId = "" }: {
-  offerings: PublicOfferingCard[]; intent: Intent; initialOfferingId?: string;
+export function PublicInterestForm({ offerings, intent, initialOfferingId = "", siteKey = "" }: {
+  offerings: PublicOfferingCard[]; intent: Intent; initialOfferingId?: string; siteKey?: string;
 }) {
   const { locale } = useLanguage();
   const bn = locale === "bn";
@@ -53,6 +54,7 @@ export function PublicInterestForm({ offerings, intent, initialOfferingId = "" }
           trialInterest: data.get("trialInterest") === "on",
           referralNote: get("referralNote"), notes: get("notes"),
           consent: data.get("consent") === "on", website: get("website"),
+          turnstileToken: get("cf-turnstile-response"),
         }),
       });
       const result = await response.json() as { error?: string; ok?: boolean } & Partial<Confirmation>;
@@ -165,6 +167,10 @@ export function PublicInterestForm({ offerings, intent, initialOfferingId = "" }
       <label className={labelClass}>{bn ? "আর কিছু জানাতে চান?" : "Anything else?"}<textarea name="notes" className={inputClass+" min-h-24 py-3"} maxLength={1000} rows={3}/></label>
     </section>
 
+    {siteKey && <div className="space-y-2">
+      <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" strategy="afterInteractive" />
+      <div className="cf-turnstile" data-sitekey={siteKey} data-theme="dark" data-action="public-enquiry" />
+    </div>}
     <div className="sr-only" aria-hidden="true"><label>Website <input name="website" tabIndex={-1} autoComplete="off" /></label></div>
     <label className="flex items-start gap-3 rounded-xl border border-border bg-muted/30 p-4 text-sm leading-6">
       <input type="checkbox" name="consent" required className="mt-1 size-4 accent-blue-600"/>
