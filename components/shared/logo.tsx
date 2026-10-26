@@ -21,7 +21,7 @@ export default function Logo({
     <Image
       src={
         isMark
-          ? "/branding/sohoj-academy-mark.webp"
+          ? "/branding/sohoj-academy-logo.webp"
           : "/branding/sohoj-academy-logo.webp"
       }
       alt={
