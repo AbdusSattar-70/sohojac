@@ -15,3 +15,28 @@ New, simplified version of [Sohoj Academy](https://github.com/AbdusSattar-70/soh
 - Preserve the existing public website visual identity; document and test business rules before porting.
 
 See [Product scope and student costing](docs/PRODUCT_SCOPE_AND_STUDENT_COSTING.md). This repository is **not deployed or production-ready**.
+
+## Public website port (current implementation branch)
+
+See [Public site migration and local D1 setup](docs/PUBLIC_SITE_PORT.md).
+
+The `feature/public_site_port` branch includes the Sohoj Academy homepage,
+About, FAQ, Learning Journal, bilingual controls and original images/favicons;
+a D1-backed programme catalogue; and a registration/acknowledgement flow.
+Public submissions are unverified prospects, not admissions. Programme
+applications start closed.
+
+```bash
+git switch feature/public_site_port
+pnpm install
+cp -n .env.example .env
+pnpm run cf-typegen
+# Apply both SQL migrations to local D1 first, per the linked setup guide.
+pnpm run dev
+pnpm run build
+```
+
+**Do not expose the enquiry endpoint publicly until its D1 migrations and
+Cloudflare Turnstile site key + secret are configured.** The server deliberately
+rejects non-local submissions if Turnstile is missing. Authentication and
+staff-only prospect management remain separate work.
