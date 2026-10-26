@@ -4,7 +4,7 @@ New, simplified version of [Sohoj Academy](https://github.com/AbdusSattar-70/soh
 
 ## Domains
 - `sohojac.com`: public website, programmes, interest and admission applications without guardian accounts.
-- `erp.sohojac.com`: authorized admin/office/teacher portal.
+- `app.sohojac.com`: authorized admin/office/teacher portal.
 
 ## Product principles
 - Simple coaching centre, not a general accounting ERP.
