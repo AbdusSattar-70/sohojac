@@ -60,9 +60,11 @@ Apply **locally** and inspect the resulting tables:
 
 ```bash
 DB=d6f3e4e9-2190-43bf-bc90-969687f6db78
-pnpm exec cf d1 migrations apply "$DB" --local
-pnpm exec cf d1 raw "$DB" --sql "SELECT code, name, application_state FROM public_programme_offerings" --local
+pnpm exec cf d1 migrations apply "$DB" --local --persist-to .cloudflare/state
+pnpm exec cf d1 raw "$DB" --sql "SELECT code, name, application_state FROM public_programme_offerings" --local --persist-to .cloudflare/state
 ```
+
+**Important:** `--persist-to .cloudflare/state` is required here because the current beta `cf` CLI otherwise writes to a global local database that the Vite Worker cannot see. The Cloudflare Vite plugin uses project state under `.cloudflare/state/`.
 
 Both numbered migrations in `migrations/` must apply in order. If your
 installed beta `cf` doesn't yet support migrations, **do not paste SQL in
