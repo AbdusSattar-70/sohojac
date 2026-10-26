@@ -21,6 +21,8 @@ jobs:
           run_install: false
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Generate Cloudflare Worker types
+        run: pnpm run cf-typegen
       - name: Verify types
         run: pnpm exec tsc --noEmit
       - name: Build Cloudflare Worker
