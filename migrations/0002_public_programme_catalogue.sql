@@ -27,6 +27,6 @@ INSERT OR IGNORE INTO public_programme_offerings (
  'SSC A+ Preparation', 'এসএসসি এ+ প্রস্তুতি',
  'Science-focused practice and assessment, with clear feedback on learning gaps and progress.',
  'বিজ্ঞানভিত্তিক অনুশীলন ও মূল্যায়ন, শেখার ঘাটতি এবং অগ্রগতি নিয়ে স্পষ্ট মতামত।',
- 'graduation-cap', '["Physics","Chemistry","Biology","Higher Mathematics"]',
+ 'graduation-cap', '[{"id":"physics","code":"PHY","name":"Physics"},{"id":"chemistry","code":"CHEM","name":"Chemistry"},{"id":"biology","code":"BIO","name":"Biology"},{"id":"higher-maths","code":"HMATH","name":"Higher Mathematics"}]',
  1, 1, 0, 'CLOSED', 20
 );
