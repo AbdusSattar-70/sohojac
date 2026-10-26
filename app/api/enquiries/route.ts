@@ -28,6 +28,7 @@ const schema = z.object({
   notes: optionalText(1000),
   consent: z.literal(true),
   website: optionalText(100), // Hidden honeypot input
+  turnstileToken: optionalText(2048),
 }).strict();
 
 function answer(data: object, status = 200) {
@@ -54,6 +55,28 @@ export async function POST(request: Request) {
   if (!parsed.success) return answer({ error: "Please check the highlighted form fields", fields: z.flattenError(parsed.error).fieldErrors }, 400);
   const d = parsed.data;
   if (d.website) return answer({ ok: true }); // Quietly discard bot submissions.
+
+  // Mandatory protection outside local development; never expose a public form
+  // on a deployed Worker without a configured Turnstile secret.
+  const hostname = new URL(request.url).hostname;
+  const isLocal = hostname === "localhost" || hostname === "127.0.0.1";
+  const turnstileSecret = (env as unknown as { TURNSTILE_SECRET_KEY?: string }).TURNSTILE_SECRET_KEY;
+  if (!isLocal && !turnstileSecret) return answer({ error: "Registration is not configured yet" }, 503);
+  if (turnstileSecret) {
+    if (!d.turnstileToken) return answer({ error: "Please complete the security verification" }, 400);
+    try {
+      const verified = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ secret: turnstileSecret, response: d.turnstileToken }),
+      });
+      const validation = await verified.json() as { success?: boolean; hostname?: string; action?: string };
+      if (!verified.ok || !validation.success || validation.action !== "public-enquiry") {
+        return answer({ error: "Security verification failed. Please refresh and retry." }, 403);
+      }
+    } catch { return answer({ error: "Could not verify the security challenge" }, 503); }
+  }
+
 
   try {
     if (d.intent === "admission" && !d.offeringId) {
