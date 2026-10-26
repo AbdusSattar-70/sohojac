@@ -1,63 +1,128 @@
-# Porting the Sohoj Academy public website
+# Sohojac public website — source port and setup
 
-Source: `AbdusSattar-70/sohoj-academy` at `feature/sohoj_final`.
-Destination: this repository, branch `feature/public_site_port`.
+Source of truth for the visual identity and copy:
+`AbdusSattar-70/sohoj-academy` branch `feature/sohoj_final`.
+Target: `AbdusSattar-70/sohojac` branch `feature/public_site_port`.
+The original repository has not been changed.
 
-## Already copied as source code
+## Implemented
 
-- Homepage layout and sections: `modules/home/page-content.tsx`
-- Navbar, logo React component, language controls, locale provider and text
-- Original `modules/home/program-section.tsx` component design
-- Original `app/globals.css` design tokens
-- Landing route and bilingual fonts
+- Direct source port of the home, about, FAQ and learning-journal pages.
+- Original bilingual (English/Bangla) text, language switch, navigation,
+  logos, home photos, learning-method layout, dark palette and card styles.
+- Original programme-card React layout, now querying Cloudflare D1, not Supabase.
+- Interest/admission landing page based on the original, with a Cloudflare
+  D1-backed form (student, guardian, class, school, subjects, schedule,
+  preferences, consent) and a printable reference acknowledgement.
+- D1 migrations for public offerings and enquiry prospects.
+- Initial 2026 catalogue entries using the academy's programme descriptions.
+  Admissions are **closed by default**; no seats or fee plans are invented.
+- Privacy notice, robots, sitemap and original favicons.
+- Cloudflare Turnstile client widget + mandatory server verification when
+  configured. On non-localhost hosts, submissions fail closed if there is no
+  Turnstile secret, preventing an unprotected form from operating publicly.
+- All form submissions are **prospects only**. No student ID, enrollment,
+  billing, payment confirmation or seat reservation is performed.
+- Public visitors do **not** need accounts.
 
-## Must copy binary assets locally
-
-GitHub's text-file integration cannot copy these WebP binary files. Without them
-the hero image, learning-method image and logo will be missing. In your Sohojac
-clone, with the original repo available alongside it:
+## Checkout
 
 ```bash
 cd ~/all-projects/sohojac
 git fetch origin
-git switch feature/public_site_port 2>/dev/null || git switch --track origin/feature/public_site_port
+git switch feature/public_site_port || git switch --track origin/feature/public_site_port
 git pull --ff-only origin feature/public_site_port
-
-mkdir -p public/images public/branding
-cp ../sohoj-academy/public/images/sohoj-classroom.webp public/images/
-cp ../sohoj-academy/public/images/sohoj-learning.webp public/images/
-cp ../sohoj-academy/public/branding/sohoj-academy-logo.webp public/branding/
-cp ../sohoj-academy/public/branding/sohoj-academy-mark.webp public/branding/
-git add public/images/sohoj-classroom.webp public/images/sohoj-learning.webp public/branding/sohoj-academy-logo.webp public/branding/sohoj-academy-mark.webp
-git commit -m "assets(public): restore original Sohoj Academy photos and logo"
-git push -u origin feature/public_site_port
-
 pnpm install
+cp -n .env.example .env
+```
+
+Fill in the relevant keys in the gitignored **`.env`**. Do not put actual
+secrets in the repository or in a chat transcript. Do not use `.env.local`
+for this project. Keep an existing `.env` rather than overwriting it.
+
+## D1: use ONE existing database
+
+**Database name:** `sohojac`
+
+**Database UUID:** `d6f3e4e9-2190-43bf-bc90-969687f6db78`
+
+The Worker binding is declared as `DB` in `cloudflare.config.ts`.
+This is the same database planned for future Better Auth and academy modules.
+D1 locally simulated state is separate from remote production data.
+
+For your installed Cloudflare CLI, inspect supported flags first:
+
+```bash
+pnpm exec cf d1 migrations apply --help
+```
+
+Apply **locally** and inspect the resulting tables:
+
+```bash
+DB=d6f3e4e9-2190-43bf-bc90-969687f6db78
+pnpm exec cf d1 migrations apply "$DB" --local
+pnpm exec cf d1 raw "$DB" --sql "SELECT code, name, application_state FROM public_programme_offerings" --local
+```
+
+Both numbered migrations in `migrations/` must apply in order. If your
+installed beta `cf` doesn't yet support migrations, **do not paste SQL in
+random tables**: upgrade the CLI or use the documented Wrangler D1 migration
+tool targeting the existing DB.
+
+Test the public site and the POST endpoint against the local database:
+
+```bash
+pnpm run cf-typegen
 pnpm run build
 pnpm run dev
 ```
 
-If the old clone isn't in `../sohoj-academy`, point `cp` at its actual path
-or clone the old repository locally. Copy other favicon and branding assets
-later when needed.
+Open `http://localhost:5173`, then check `/about`, `/faq`,
+`/journal`, `/interest`, `/privacy`, `/sitemap.xml`, `/robots.txt`.
+Use a test contact number when exercising the local enquiry form; keep
+real student information out of test environments.
 
-## Intentionally not yet equivalent
+**Only after local tests pass**, apply the same migrations to the remote
+D1 database (which currently has no tables):
 
-The original public programme section reads from **Supabase** using an RPC.
-In this new app, `modules/offerings/queries.ts` deliberately returns an empty
-published-programme collection until the **Cloudflare D1** equivalent exists.
-It does not pretend programmes are published. This means the **programme-card
-visuals are preserved in source but no cards display yet**.
+```bash
+pnpm exec cf d1 migrations list "$DB"
+pnpm exec cf d1 migrations apply "$DB"
+pnpm exec cf d1 raw "$DB" --sql "SELECT code, application_state FROM public_programme_offerings"
+```
 
-Other public routes linked from the original homepage — `/interest`, `/about`,
-`/faq`, `/journal` — also need porting individually; links presently point to
-these future routes. No form submissions are connected to D1 yet.
+Those commands touch **remote production**, unlike `--local`. Confirm your
+Cloudflare account and DB ID first. Application state remains CLOSED after
+these migrations.
 
-The old site used a theme provider that forced dark mode. The new layout adds
-a dark class and keeps the original CSS tokens but still needs visual QA.
-Authentication stays on the separate `feature/better_auth` branch ancestry;
-we are **not** doing D1 auth setup as part of this visual migration.
+## Turnstile
 
-Do not deploy this as a complete public website until linked routes, assets,
-programme catalogue, SEO metadata and accessibility/mobile visual comparisons
-pass.
+Create a Cloudflare Turnstile widget for the site's allowed hostnames.
+Locally add these to `.env`:
+
+```dotenv
+TURNSTILE_SITE_KEY=<public site key>
+TURNSTILE_SECRET_KEY=<private secret>
+```
+
+In production configure the **site key** as a Worker variable and the
+**secret** as a Cloudflare Worker secret, rather than copying your local
+`.env` to production. Siteverify is mandatory for non-local submissions.
+Do not expose the production enquiry form before Turnstile is ready.
+
+## Known integration limits / next validation
+
+- React source and copy are ported, but **pixel-level browser comparisons**
+  against the original at desktop/mobile sizes have not been performed here.
+- The original interest form read academic master data from Supabase. The D1
+  replacement currently uses fixed class/subject choices and free-text school
+  input, not the full academic master-data database.
+- The original offered more admission-only fields and workflow. The new
+  public page intentionally collects fewer sensitive fields and does not
+  yet enroll a student.
+- Public offerings are seeded as CLOSED. Staff can later publish application
+  intake dates and verified fee plans through authorized D1-backed ERP tools.
+- Better Auth sign-in and the staff administration UI are **not yet ready**.
+  Never expose `public_enquiries` through an unauthenticated read endpoint.
+- Cloudflare secrets, production deployment, form submissions, responsive
+  comparisons and CI remain to be verified in the target environment.
