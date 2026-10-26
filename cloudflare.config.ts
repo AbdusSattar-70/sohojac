@@ -14,7 +14,7 @@ export default defineConfig({
     env: {
       ASSETS: bindings.assets(),
       IMAGES: bindings.images(),
-      DB: bindings.d1({ name: "sohojac" }),
+      DB: bindings.d1({ name: "sohojac", id: "d6f3e4e9-2190-43bf-bc90-969687f6db78" }),
     },
   }),
 });
