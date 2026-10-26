@@ -18,8 +18,8 @@ git pull --ff-only origin feature/better_auth
 pnpm install
 ```
 
-Set `BETTER_AUTH_SECRET` (random 32+ character secret) and
-`BETTER_AUTH_URL=http://localhost:5173` locally. With the Cloudflare Vite
+Copy `.env.example` to `.env`, then set `BETTER_AUTH_SECRET` (random 32+ character secret) and
+`BETTER_AUTH_URL=http://localhost:5173` locally. `.env` is gitignored. With the Cloudflare Vite
 plugin, make these values available as Worker runtime environment variables,
 not just Vite client env values. Configure production Worker secrets and base
 URL on deployment.
