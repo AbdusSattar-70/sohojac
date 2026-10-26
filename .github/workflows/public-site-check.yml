@@ -25,5 +25,10 @@ jobs:
         run: pnpm run cf-typegen
       - name: Verify types
         run: pnpm exec tsc --noEmit
+      - name: Apply public D1 migrations locally
+        run: |
+          DB=d6f3e4e9-2190-43bf-bc90-969687f6db78
+          pnpm exec cf d1 migrations apply "$DB" --local
+          pnpm exec cf d1 raw "$DB" --sql "SELECT COUNT(*) AS published FROM public_programme_offerings WHERE show_on_website = 1" --local
       - name: Build Cloudflare Worker
         run: pnpm run build
