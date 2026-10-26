@@ -28,7 +28,7 @@ export async function getPublicProgrammeOfferings(): Promise<PublicOfferingCard[
     const result = await env.DB.prepare(
       "SELECT * FROM public_programme_offerings WHERE show_on_website = 1 AND is_active = 1 ORDER BY showcase_sort_order, created_at DESC LIMIT 48"
     ).all<RawOffering>();
-    return (result.results ?? []).map(row => ({
+    return (result.results ?? []).map((row: RawOffering) => ({
       ...row,
       is_accepting_applications: Boolean(row.is_accepting_applications && row.application_state === "OPEN"),
       subjects: decode<{ id: string; code: string; name: string }[]>(row.subjects_json, []),
