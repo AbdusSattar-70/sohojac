@@ -69,7 +69,7 @@ export async function POST(request: Request) {
       }
     }
     const duplicate = await env.DB.prepare(
-      "SELECT reference FROM public_enquiries WHERE mobile = ? AND submitted_at >= datetime('now', '-1 minute') LIMIT 1"
+      "SELECT reference FROM public_enquiries WHERE mobile = ? AND submitted_at >= strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 minute') LIMIT 1"
     ).bind(d.mobile).first<{reference:string}>();
     if (duplicate) return answer({ error: "A registration was just received for this number. Please try again shortly." }, 429);
 
