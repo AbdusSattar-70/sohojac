@@ -28,8 +28,8 @@ jobs:
       - name: Apply public D1 migrations locally
         run: |
           DB=d6f3e4e9-2190-43bf-bc90-969687f6db78
-          pnpm exec cf d1 migrations apply "$DB" --local
-          pnpm exec cf d1 raw "$DB" --sql "SELECT COUNT(*) AS published FROM public_programme_offerings WHERE show_on_website = 1" --local
+          pnpm exec cf d1 migrations apply "$DB" --local --persist-to .cloudflare/state
+          pnpm exec cf d1 raw "$DB" --sql "SELECT COUNT(*) AS published FROM public_programme_offerings WHERE show_on_website = 1" --local --persist-to .cloudflare/state
       - name: Build Cloudflare Worker
         run: pnpm run build
 
