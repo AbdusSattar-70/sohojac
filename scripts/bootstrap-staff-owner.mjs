@@ -13,11 +13,6 @@ const DB = "d6f3e4e9-2190-43bf-bc90-969687f6db78";
 const email = (process.env.SOHOJAC_INITIAL_OWNER_EMAIL ?? "").trim().toLowerCase();
 const password = process.env.SOHOJAC_INITIAL_OWNER_PASSWORD ?? "";
 const name = (process.env.SOHOJAC_INITIAL_OWNER_NAME ?? "Sohojac Owner").trim();
-if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
-    password.length < 16 || password.length > 128 ||
-    name.length < 2 || name.length > 100) {
-  throw new Error("Set valid owner email, name and a 16-128 character owner password as CI secrets.");
-}
 const escapeSql = (str) => "'" + str.replaceAll("'", "''") + "'";
 function runSql(sql) {
   try {
@@ -42,9 +37,20 @@ function count(sql) {
   if (typeof number !== "number") throw new Error("Unexpected D1 query format.");
   return number;
 }
+// Do not ask for first-owner credentials again after initialization.
+const existingOwners = count("SELECT COUNT(*) FROM staff_memberships WHERE role='OWNER' AND active=1");
+if (process.env.SOHOJAC_AUTO_BOOTSTRAP === "1" && existingOwners === 1) {
+  console.log("Existing active OWNER detected; skipping first-owner provisioning.");
+  process.exit(0);
+}
 const current = count('SELECT (SELECT COUNT(*) FROM "user") + (SELECT COUNT(*) FROM staff_memberships)');
 if (current !== 0) {
-  throw new Error("Refusing to bootstrap: an auth user or staff member already exists. Use authorized staff-management procedures instead.");
+  throw new Error("Refusing bootstrap: existing auth records without a valid active OWNER. Review D1 manually, do not reset accounts.");
+}
+if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) ||
+    password.length < 16 || password.length > 128 ||
+    name.length < 2 || name.length > 100) {
+  throw new Error("First release requires OWNER email, name and a unique 16-128 character password as GitHub Actions secrets.");
 }
 
 const id = randomUUID();
