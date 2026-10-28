@@ -42,6 +42,11 @@ jobs:
           SOHOJAC_INITIAL_OWNER_EMAIL: staff-ci@example.invalid
           SOHOJAC_INITIAL_OWNER_PASSWORD: "ci-test-owner-password-NotForProduction-1234"
         run: node scripts/bootstrap-staff-owner.mjs
+      - name: Verify owner is not recreated after setup
+        env:
+          SOHOJAC_D1_LOCAL: "1"
+          SOHOJAC_AUTO_BOOTSTRAP: "1"
+        run: node scripts/bootstrap-staff-owner.mjs
       - name: Build Cloudflare Worker
         run: pnpm run build
 
