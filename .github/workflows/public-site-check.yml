@@ -168,6 +168,26 @@ jobs:
           echo "admission_status: $admission_status"
           test "$admission_status" = "409"
 
+          # Regression: status notices come from the selected programme, not
+          # a stale server-side alert. All changes here are LOCAL test D1 only.
+          curl -fsS "http://localhost:4173/interest" > /tmp/interest-general.html
+          if grep -q "Applications are closed for the programme you selected" /tmp/interest-general.html; then
+            echo "Unexpected closed-offering warning on general interest"; exit 1
+          fi
+          curl -fsS "http://localhost:4173/interest?intent=interest&offering=sa-ssc-science" > /tmp/interest-closed.html
+          grep -q "Applications are closed for this programme" /tmp/interest-closed.html
+          curl -fsS "http://localhost:4173/interest?intent=admission&offering=sa-ssc-science" > /tmp/admission-closed.html
+          grep -q "Applications are closed for the programme you selected" /tmp/admission-closed.html
+
+          # Simulate reopening one offering and verify the same deep link now
+          # reflects D1's current application status without a code change.
+          pnpm exec cf d1 raw "$DB" --sql "UPDATE public_programme_offerings SET is_accepting_applications=1, application_state='OPEN' WHERE id='sa-ssc-science'" --local --persist-to .cloudflare/state > /tmp/reopened-offering.json
+          curl -fsS "http://localhost:4173/interest?intent=interest&offering=sa-ssc-science" > /tmp/interest-open.html
+          grep -q "Applications are currently open for this programme" /tmp/interest-open.html
+          if grep -q "Applications are closed for this programme" /tmp/interest-open.html; then
+            echo "Open programme still displays closed status"; exit 1
+          fi
+
           # Invalid contact information and untrusted request origins must be rejected.
           invalid_status=$(curl -sS -o /tmp/enquiry-invalid.json -w '%{http_code}' -X POST "http://localhost:4173/api/enquiries" \
             -H "Content-Type: application/json" \
