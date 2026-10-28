@@ -103,22 +103,22 @@ export function StaffShell({ staff, children }: { staff: StaffAccess; children: 
     }
   }
 
-  const navigation = (
+  const renderNavigation = (minimized: boolean) => (
     <>
       <div className="border-b border-slate-200 px-3 py-3">
         <Link href="/app" onClick={() => setMobileOpen(false)}
           className="flex min-h-12 items-center gap-3 rounded-xl px-2 text-slate-900 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
           aria-label="Sohoj Academy staff dashboard">
           <Logo variant="mark" size={40} priority />
-          {!collapsed && <div className="min-w-0">
+          {!minimized && <div className="min-w-0">
             <p className="truncate text-[13px] font-extrabold tracking-tight">Sohoj Academy</p>
             <p className="truncate text-[11px] font-medium text-slate-500">Digital Campus · ERP</p>
           </div>}
         </Link>
         <button type="button" onClick={() => setCollapsed(value => !value)}
           className="mt-2 hidden h-8 w-full items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 md:flex"
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} title={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
-          {collapsed ? <PanelLeftOpen size={17} /> : <><PanelLeftClose size={17}/><span className="ml-2 text-xs">Collapse menu</span></>}
+          aria-label={minimized ? "Expand sidebar" : "Collapse sidebar"} title={minimized ? "Expand sidebar" : "Collapse sidebar"}>
+          {minimized ? <PanelLeftOpen size={17} /> : <><PanelLeftClose size={17}/><span className="ml-2 text-xs">Collapse menu</span></>}
         </button>
       </div>
       <nav aria-label="Staff workspace navigation" className="min-h-0 flex-1 space-y-4 overflow-y-auto px-2 py-4">
@@ -126,7 +126,7 @@ export function StaffShell({ staff, children }: { staff: StaffAccess; children: 
           const visible = group.items.filter(item => !item.restricted || canManage);
           if (!visible.length) return null;
           return <section key={group.title}>
-            {!collapsed && <p className="mb-1 px-3 text-[10px] font-bold uppercase tracking-[0.13em] text-slate-400">
+            {!minimized && <p className="mb-1 px-3 text-[10px] font-bold uppercase tracking-[0.13em] text-slate-400">
               {display(group.title, group.bn)}
             </p>}
             <div className="space-y-0.5">
@@ -139,17 +139,17 @@ export function StaffShell({ staff, children }: { staff: StaffAccess; children: 
                   return <div key={item.label} title={item.label + " · planned module"} aria-disabled="true"
                     className={base + " cursor-not-allowed text-slate-400"} >
                     <Icon size={17} className="shrink-0 opacity-70" aria-hidden="true"/>
-                    {!collapsed && <><span className="min-w-0 flex-1 truncate">{label}</span><span className="text-[9px] font-medium uppercase tracking-wider text-slate-400">Soon</span></>}
+                    {!minimized && <><span className="min-w-0 flex-1 truncate">{label}</span><span className="text-[9px] font-medium uppercase tracking-wider text-slate-400">Soon</span></>}
                   </div>;
                 }
                 return <Link key={item.label} href={item.href} onClick={() => setMobileOpen(false)}
-                  title={collapsed ? label : undefined}
+                  title={minimized ? label : undefined}
                   aria-current={current ? "page" : undefined}
                   className={base + (current
                     ? " bg-blue-50 text-blue-800 ring-1 ring-blue-100"
                     : " text-slate-600 hover:bg-slate-100 hover:text-slate-950")}>
                   <Icon size={17} className="shrink-0" aria-hidden="true"/>
-                  {!collapsed && <span className="truncate">{label}</span>}
+                  {!minimized && <span className="truncate">{label}</span>}
                 </Link>;
               })}
             </div>
@@ -161,16 +161,16 @@ export function StaffShell({ staff, children }: { staff: StaffAccess; children: 
           <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-blue-700 text-white">
             <UserRound size={17} aria-hidden="true"/>
           </span>
-          {!collapsed && <div className="min-w-0">
+          {!minimized && <div className="min-w-0">
             <p className="truncate text-xs font-bold text-slate-900">{staff.name}</p>
             <p className="truncate text-[11px] text-slate-500">{staff.role} · {staff.email}</p>
           </div>}
         </div>
         <button type="button" disabled={signingOut} onClick={() => void signOut()}
           title="Sign out" className="mt-2 flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-[13px] font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50">
-          <LogOut size={17} aria-hidden="true"/>{!collapsed && (signingOut ? "Signing out…" : "Sign out")}
+          <LogOut size={17} aria-hidden="true"/>{!minimized && (signingOut ? "Signing out…" : "Sign out")}
         </button>
-        {signOutError && !collapsed && <p role="alert" className="mt-2 text-xs text-red-700">{signOutError}</p>}
+        {signOutError && !minimized && <p role="alert" className="mt-2 text-xs text-red-700">{signOutError}</p>}
       </div>
     </>
   );
@@ -178,7 +178,7 @@ export function StaffShell({ staff, children }: { staff: StaffAccess; children: 
   return (
     <div className="flex min-h-screen w-full bg-slate-50 font-sans text-slate-900">
       <aside className={"hidden h-screen shrink-0 flex-col border-r border-slate-200 bg-white md:sticky md:top-0 md:flex " + (collapsed ? "w-[76px]" : "w-[264px]")}>
-        {navigation}
+        {renderNavigation(collapsed)}
       </aside>
       {mobileOpen && <div className="fixed inset-0 z-50 md:hidden">
         <button type="button" aria-label="Close navigation overlay"
@@ -188,7 +188,7 @@ export function StaffShell({ staff, children }: { staff: StaffAccess; children: 
             <button type="button" className="rounded-lg p-2 text-slate-600 hover:bg-slate-100" onClick={() => setMobileOpen(false)}
               aria-label="Close navigation"><X size={18}/></button>
           </div>
-          {navigation}
+          {renderNavigation(false)}
         </aside>
       </div>}
       <div className="min-w-0 flex-1">
