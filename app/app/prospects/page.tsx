@@ -5,15 +5,22 @@ import { canManageProspects, getStaffAccessForPage } from "@/lib/staff-access";
 import { StaffProspects } from "@/components/staff/staff-prospects";
 
 export const dynamic = "force-dynamic";
-export const metadata = { robots: { index: false, follow: false }, title: "Prospect CRM" };
+export const metadata = { robots: { index: false, follow: false }, title: "Enquiries · Digital Campus" };
 
-export default async function ProspectsPage() {
-  const h = await headers();
-  const staff = await getStaffAccessForPage(h);
+export default async function ProspectsPage({ searchParams }: {
+  searchParams: Promise<{ status?: string }>;
+}) {
+  const staff = await getStaffAccessForPage(await headers());
   if (!staff) redirect("/sign-in");
   if (!canManageProspects(staff)) {
-    return <main className="mx-auto max-w-3xl p-8"><h1 className="text-xl font-bold">Access denied</h1>
-      <Link href="/app" className="mt-4 inline-block underline">Back to workspace</Link></main>;
+    return <div className="rounded-2xl border border-slate-200 bg-white p-8">
+      <h1 className="text-xl font-bold text-slate-900">Access restricted</h1>
+      <p className="mt-2 text-sm text-slate-500">Your staff role cannot view guardian or student enquiry records.</p>
+      <Link href="/app" className="mt-4 inline-block text-sm font-semibold text-blue-700 underline">Return to overview</Link>
+    </div>;
   }
-  return <StaffProspects staffName={staff.name} role={staff.role}/>;
+  const { status } = await searchParams;
+  const initialStatus = ["NEW", "CONTACTED", "CLOSED"].includes(status ?? "") ?
+    status as "NEW" | "CONTACTED" | "CLOSED" : "ALL";
+  return <StaffProspects initialStatus={initialStatus}/>;
 }
