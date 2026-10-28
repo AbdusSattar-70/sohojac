@@ -6,6 +6,7 @@ import { PublicInterestForm } from "@/components/public/interest-form";
 import Logo from "@/components/shared/logo";
 import { LocalizedText } from "@/components/shared/localized-text";
 import { env } from "cloudflare:workers";
+import { headers } from "next/headers";
 import { getPublicProgrammeOfferings } from "@/modules/offerings/queries";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +34,13 @@ export default async function InterestPage({
   const closedRequested = Boolean(requestedOfferingId) && !preselected &&
     (publicOfferings ?? []).some(row => row.id === requestedOfferingId);
   const optionsUnavailable = publicOfferings === null;
+  const config = env as unknown as { TURNSTILE_SITE_KEY?: string; TURNSTILE_SECRET_KEY?: string };
+  const siteKey = config.TURNSTILE_SITE_KEY ?? "";
+  const requestedHost = (await headers()).get("host")?.split(":")[0]?.toLowerCase() ?? "";
+  // The workers.dev diagnostic address is not approved for collecting personal data.
+  const trustedHost = ["sohojac.com", "www.sohojac.com", "localhost", "127.0.0.1"].includes(requestedHost);
+  const registrationReady = trustedHost && Boolean(siteKey && config.TURNSTILE_SECRET_KEY);
+
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -146,7 +154,8 @@ export default async function InterestPage({
                 offerings={publicOfferings ?? []}
                 initialOfferingId={preselected?.id ?? ""}
                 intent={intent}
-                siteKey={(env as unknown as { TURNSTILE_SITE_KEY?: string }).TURNSTILE_SITE_KEY ?? ""}
+                siteKey={siteKey}
+                registrationReady={registrationReady}
               />
             </div>
           )}
