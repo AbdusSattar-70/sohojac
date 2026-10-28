@@ -12,7 +12,7 @@ type Prospect = {
   mobile: string; area: string | null; programme: string | null;
   status: Status; submitted_at: string;
 };
-type Event = { from_status: string; to_status: string; note: string; occurred_at: string };
+type Event = { from_status: string; to_status: string; note: string; occurred_at: string; actor_name: string };
 type State = { status: Status; note: string };
 const statuses: Status[] = ["NEW", "CONTACTED", "CLOSED"];
 const inputStyle = "rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400";
@@ -182,7 +182,7 @@ export function StaffProspects({ staffName, role }: { staffName: string; role: s
                 {history[item.id].length === 0 ? <p>No follow-up actions yet.</p> :
                   history[item.id].map((e, index) => <p key={index}>
                     {e.from_status} → {e.to_status} · {new Date(e.occurred_at).toLocaleString("en-BD", {timeZone: "Asia/Dhaka"})}
-                    {e.note && <> · {e.note}</>}
+                    {" · "}{e.actor_name}{e.note && <> · {e.note}</>}
                   </p>)}
               </div>}
             </section>;
