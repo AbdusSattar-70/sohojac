@@ -172,7 +172,7 @@ export function StaffShell({ staff, children }: { staff: StaffAccess; children: 
   );
 
   return (
-    <div className="flex min-h-screen w-full bg-slate-50 font-sans text-slate-900">
+    <div lang="en" data-locale="en" className="flex min-h-screen w-full bg-slate-50 font-sans text-slate-900">
       <aside className={"hidden h-screen shrink-0 flex-col border-r border-slate-200 bg-white md:sticky md:top-0 md:flex " + (collapsed ? "w-[76px]" : "w-[264px]")}>
         {renderNavigation(collapsed)}
       </aside>
