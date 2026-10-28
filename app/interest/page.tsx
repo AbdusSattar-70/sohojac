@@ -29,10 +29,14 @@ export default async function InterestPage({
   const requestedOfferingId = params.offering?.trim() || "";
 
   const publicOfferings = await getPublicProgrammeOfferings();
-  const openOfferings = (publicOfferings ?? []).filter(row => row.is_accepting_applications);
-  const preselected = openOfferings.find(row => row.id === requestedOfferingId) ?? null;
-  const closedRequested = Boolean(requestedOfferingId) && !preselected &&
-    (publicOfferings ?? []).some(row => row.id === requestedOfferingId);
+  const requestedOffering = (publicOfferings ?? []).find(row => row.id === requestedOfferingId);
+  const preselected = requestedOffering &&
+    (intent === "interest" || requestedOffering.is_accepting_applications)
+    ? requestedOffering : null;
+  // A deep link to a closed offering is relevant only until the applicant
+  // makes a new selection; subsequent messaging belongs to the client form.
+  const initiallyClosedRequested = intent === "admission" &&
+    Boolean(requestedOffering && !requestedOffering.is_accepting_applications);
   const optionsUnavailable = publicOfferings === null;
   const config = env as unknown as { TURNSTILE_SITE_KEY?: string; TURNSTILE_SECRET_KEY?: string };
   const siteKey = config.TURNSTILE_SITE_KEY ?? "";
@@ -126,18 +130,6 @@ export default async function InterestPage({
         </section>
 
         <section className="mx-auto max-w-5xl px-5 py-10 sm:px-6 lg:px-8 lg:py-14">
-          {closedRequested ? (
-            <div
-              role="alert"
-              className="mb-5 rounded-2xl border border-amber-300 bg-amber-50 p-5 text-sm leading-6 text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100"
-            >
-              <LocalizedText
-                en="Applications are closed for the programme you selected. Choose another open offering below, or register general interest."
-                bn="আপনি যে প্রোগ্রামটি বেছেছিলেন তার আবেদন বর্তমানে বন্ধ। নিচে অন্য উন্মুক্ত অফারিং বেছে নিন, অথবা সাধারণ আগ্রহ নিবন্ধন করুন।"
-              />
-            </div>
-          ) : null}
-
           {optionsUnavailable ? (
             <div
               role="alert"
@@ -153,6 +145,7 @@ export default async function InterestPage({
               <PublicInterestForm
                 offerings={publicOfferings ?? []}
                 initialOfferingId={preselected?.id ?? ""}
+                initiallyClosedRequested={initiallyClosedRequested}
                 intent={intent}
                 siteKey={siteKey}
                 registrationReady={registrationReady}
