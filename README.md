@@ -1,4 +1,4 @@
-> **Development deployment:** One-time cloud credentials, then just push code. See [Sohojac Auto-Deploy — One-Time Setup](docs/ONE_TIME_SETUP_AUTO_DEPLOY.md). Tests, pending D1 migrations and Worker upload run automatically on pushes to `feature/staff_crm_better_auth`. The first OWNER is created separately and securely in remote D1 with one interactive terminal command; never store owner credentials in GitHub. The live site is unchanged until application deployment credentials are provided.
+> **Development deployment:** One-time cloud credentials, then just push code. See [Sohojac Auto-Deploy — One-Time Setup](docs/ONE_TIME_SETUP_AUTO_DEPLOY.md). Tests, pending D1 migrations and Worker upload run automatically on pushes to `feature/staff_crm_better_auth`. The first OWNER is authorized in the Cloudflare D1 Console and chooses a password on a one-time web setup page; never store owner credentials in GitHub. The live site is unchanged until application deployment credentials are provided.
 
 # Sohojac — Cloudflare-native coaching operations
 
@@ -49,5 +49,5 @@ active D1 staff memberships, a role-gated prospect dashboard, follow-up status,
 internal notes and audited updates. **Public signup remains disabled.**
 
 See [Staff CRM security, initialization and release guide](docs/STAFF_CRM_BETTER_AUTH.md).
-The CRM release is automatic **after the one-time application secret is configured**. Create the first OWNER separately using `bash scripts/setup-owner.sh`, which writes to D1 without storing owner credentials in GitHub. See the auto-deploy guide instead of using older manual deployment workflows.
+The CRM release is automatic **after the one-time application secret is configured**. Create the first OWNER using Cloudflare Dashboard → D1 Console and `https://sohojac.com/setup-owner`. The password is hashed by Better Auth and never stored in GitHub. See the auto-deploy guide instead of using older manual deployment workflows.
 Do not run the older public-site deployment workflow after the staff CRM is live.
