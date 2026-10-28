@@ -1,7 +1,7 @@
 name: Public Website Checks
 on:
   push:
-    branches: [feature/public_site_port]
+    branches: [feature/public_site_port, feature/staff_crm_better_auth]
   pull_request:
   workflow_dispatch:
 
@@ -63,6 +63,20 @@ jobs:
               cat /tmp/sohojac-enquiry.json || true
               exit 1
             }
+          # Private staff resources are never readable anonymously.
+          private_status=$(curl -sS -o /tmp/sohojac-private.json -w '%{http_code}' "http://localhost:4173/api/staff/prospects")
+          test "$private_status" = "401"
+          private_update_status=$(curl -sS -o /tmp/sohojac-private-update.json -w '%{http_code}' \
+            -X PATCH "http://localhost:4173/api/staff/prospects/00000000-0000-0000-0000-000000000000" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"status":"CLOSED","note":"Unauthorized"}')
+          test "$private_update_status" = "401"
+          signin_signup_status=$(curl -sS -o /tmp/sohojac-signup.json -w '%{http_code}' \
+            -X POST "http://localhost:4173/api/auth/sign-up/email" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"name":"Attacker","email":"attacker@example.invalid","password":"notasecret123456"}')
+          # Staff auth is not configured in CI; a signup must never return 2xx.
+          test "$signin_signup_status" -ge 400
           grep -q "SA-ENQ-" /tmp/sohojac-enquiry.json
 
           # A valid request creates exactly one prospect in the local D1 database.
