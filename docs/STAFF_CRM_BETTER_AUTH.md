@@ -1,3 +1,5 @@
+> **Updated deployment process:** Instead of following the manual deployment and owner initialization sections below, use [One-Time Setup + Automatic Deployment](ONE_TIME_SETUP_AUTO_DEPLOY.md). That guide supersedes the old release instructions. GitHub Actions now tests, migrates, safely initializes the first owner and deploys on branch pushes once credentials are configured.
+
 # Sohojac Staff CRM — secure Better Auth + Cloudflare D1
 
 **Status: staged, not deployed automatically.** Public registration remains live
