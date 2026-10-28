@@ -48,9 +48,9 @@ if (current !== 0) {
   throw new Error("Refusing bootstrap: existing auth records without a valid active OWNER. Review D1 manually, do not reset accounts.");
 }
 if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
-    password.length < 16 || password.length > 128 ||
+    password.length < 8 || password.length > 128 ||
     name.length < 2 || name.length > 100) {
-  throw new Error("Enter a valid owner email, name and unique 16–128 character password in the interactive local setup.");
+  throw new Error("Enter a valid owner email, name and unique 8–128 character password in the interactive local setup.");
 }
 
 const id = randomUUID();
