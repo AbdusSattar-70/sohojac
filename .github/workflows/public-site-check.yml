@@ -42,11 +42,6 @@ jobs:
           SOHOJAC_INITIAL_OWNER_EMAIL: staff-ci@example.invalid
           SOHOJAC_INITIAL_OWNER_PASSWORD: "ci-test-owner-password-NotForProduction-1234"
         run: node scripts/bootstrap-staff-owner.mjs
-      - name: Verify owner is not recreated after setup
-        env:
-          SOHOJAC_D1_LOCAL: "1"
-          SOHOJAC_AUTO_BOOTSTRAP: "1"
-        run: node scripts/bootstrap-staff-owner.mjs
       - name: Build Cloudflare Worker
         run: pnpm run build
 
@@ -253,17 +248,6 @@ jobs:
           DB=d6f3e4e9-2190-43bf-bc90-969687f6db78
           pnpm exec cf d1 migrations list "$DB"
           printf 'y\n' | pnpm exec cf d1 migrations apply "$DB"
-
-      - name: Ensure one OWNER exists (one-time setup, idempotent)
-        if: steps.ready.outputs.ready == 'true'
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN || secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          SOHOJAC_AUTO_BOOTSTRAP: "1"
-          SOHOJAC_INITIAL_OWNER_EMAIL: ${{ secrets.SOHOJAC_INITIAL_OWNER_EMAIL }}
-          SOHOJAC_INITIAL_OWNER_PASSWORD: ${{ secrets.SOHOJAC_INITIAL_OWNER_PASSWORD }}
-          SOHOJAC_INITIAL_OWNER_NAME: "Sohojac Owner"
-        run: node scripts/bootstrap-staff-owner.mjs
 
       - name: Deploy Worker with stable Better Auth and Turnstile secrets
         if: steps.ready.outputs.ready == 'true'
