@@ -23,6 +23,21 @@ export async function getStaffAccess(requestUrl: string, headers: Headers): Prom
   }
 }
 
+/** Server pages have no Request URL. Compare the actual hostname strictly,
+ * then use the configured origin (not untrusted x-forwarded-proto headers).
+ */
+export async function getStaffAccessForPage(headers: Headers): Promise<StaffAccess | null> {
+  try {
+    const configUrl = (env as typeof env & { BETTER_AUTH_URL?: string }).BETTER_AUTH_URL;
+    if (!configUrl) return null;
+    const origin = new URL(configUrl);
+    if (headers.get("host")?.toLowerCase() !== origin.host.toLowerCase()) return null;
+    return getStaffAccess(origin.origin + "/app", headers);
+  } catch {
+    return null;
+  }
+}
+
 export function canManageProspects(staff: StaffAccess) {
   return staff.role === "OWNER" || staff.role === "ADMIN" || staff.role === "OPERATOR";
 }
