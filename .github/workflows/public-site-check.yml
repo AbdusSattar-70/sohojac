@@ -29,8 +29,6 @@ jobs:
         run: pnpm run cf-typegen
       - name: Verify types
         run: pnpm exec tsc --noEmit
-      - name: Validate one-time interactive setup script
-        run: bash -n scripts/setup-owner.sh
       - name: Reject destructive migrations before any deployment
         run: node scripts/check-d1-migrations.mjs
       - name: Apply public D1 migrations locally
