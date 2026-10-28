@@ -197,10 +197,10 @@ export function StaffShell({ staff, children }: { staff: StaffAccess; children: 
             <p className="truncate text-[10px] font-bold uppercase tracking-[0.17em] text-slate-500">Sohoj Academy · Digital Campus</p>
             <p className="truncate text-sm font-bold text-slate-900 sm:text-base">{pageTitle}</p>
           </div>
-          <Link href="/app/prospects" title="Open enquiries" aria-label="Open enquiries"
+          {canManage && <Link href="/app/prospects" title="Open enquiries" aria-label="Open enquiries"
             className="hidden size-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 sm:inline-flex">
             <Search size={18}/>
-          </Link>
+          </Link>}
           <a href="/" title="Public website" className="hidden items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 sm:inline-flex">
             <ExternalLink size={14}/> Website
           </a>
