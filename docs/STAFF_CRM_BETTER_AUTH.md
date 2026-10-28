@@ -4,10 +4,12 @@ The active setup/deployment instructions are in
 [ONE_TIME_SETUP_AUTO_DEPLOY.md](ONE_TIME_SETUP_AUTO_DEPLOY.md).
 
 **Owner credentials are never stored in GitHub secrets.**
-Run `bash scripts/setup-owner.sh` interactively from your Ubuntu terminal
-once. It prompts for owner email/password and creates the user/credential/
-OWNER membership **directly in the existing D1 database**. A secure Better
-Auth password hash is stored in D1; plaintext is not retained.
+Use **Cloudflare Dashboard → D1 → sohojac → Console** to insert the first
+owner's email/name and generate a 30-minute setup ticket. Then open
+`https://sohojac.com/setup-owner` and choose an 8-character-or-longer
+password in the secure web form. The server hashes it using Better Auth and
+writes the user, credential and OWNER membership **directly into existing D1**.
+See [the one-time setup guide](ONE_TIME_SETUP_AUTO_DEPLOY.md) for the SQL.
 
 For the app-wide secret, run `openssl rand -base64 48` locally **once**,
 then enter its result as the `BETTER_AUTH_SECRET` repository secret in GitHub
@@ -35,9 +37,10 @@ checks migrations, applies only pending migrations, deploys with the stable
 Better Auth and Turnstile secrets, then checks public routes and private API
 denial. **CI never creates or changes owner accounts.**
 
-One-time `scripts/setup-owner.sh` is the only process that creates the first
-OWNER. Do not run that script from GitHub Actions or pass the owner password
-in command arguments, SQL Console, code, logs or issue comments.
+First-owner setup requires a one-time high-entropy code generated in the
+Cloudflare D1 Console. The code is consumed transactionally; an existing
+Better Auth user prevents a fresh bootstrap. Never paste the owner's plain
+password into SQL Console, code, logs or issues.
 
 ## Security limitations and operating practice
 
