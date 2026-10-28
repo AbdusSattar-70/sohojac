@@ -29,6 +29,8 @@ jobs:
         run: pnpm run cf-typegen
       - name: Verify types
         run: pnpm exec tsc --noEmit
+      - name: Reject destructive migrations before any deployment
+        run: node scripts/check-d1-migrations.mjs
       - name: Apply public D1 migrations locally
         run: |
           DB=d6f3e4e9-2190-43bf-bc90-969687f6db78
@@ -159,3 +161,126 @@ jobs:
             -H "Origin: https://other.invalid" -H "Content-Type: application/json" --data '{}')
           echo "origin_status: $origin_status"
           test "$origin_status" = "403"
+
+  release:
+    name: Auto-release to Cloudflare (when configured)
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/feature/staff_crm_better_auth'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    concurrency:
+      group: sohojac-production-deploy
+      cancel-in-progress: false
+    env:
+      CF_SEND_TELEMETRY: "false"
+      TURNSTILE_SITE_KEY: ${{ vars.TURNSTILE_SITE_KEY }}
+      BETTER_AUTH_URL: ${{ vars.BETTER_AUTH_URL || 'https://sohojac.com' }}
+
+    steps:
+      - name: Check out exact tested commit
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Check prerequisites and latest commit
+        id: ready
+        env:
+          CF_DEPLOY_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_DB_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN || secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          WIDGET_SECRET: ${{ secrets.TURNSTILE_SECRET_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CF_DEPLOY_TOKEN:-}" ] ||
+             [ -z "${CF_DB_TOKEN:-}" ] ||
+             [ -z "${CF_ACCOUNT:-}" ] ||
+             [ -z "${TURNSTILE_SITE_KEY:-}" ] ||
+             [ -z "${WIDGET_SECRET:-}" ] ||
+             [ -z "${AUTH_SECRET:-}" ] ||
+             [ "${#AUTH_SECRET}" -lt 32 ]; then
+            echo "::notice::Auto-release is parked until the one-time Cloudflare/Better Auth secrets are configured."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          latest=$(git ls-remote https://github.com/AbdusSattar-70/sohojac.git refs/heads/feature/staff_crm_better_auth | cut -f1)
+          if [ "$latest" != "$GITHUB_SHA" ]; then
+            echo "::notice::Newer code exists. Skipping stale deployment."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+
+      - name: Install Node.js 24
+        if: steps.ready.outputs.ready == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Install pnpm
+        if: steps.ready.outputs.ready == 'true'
+        uses: pnpm/action-setup@v4
+        with:
+          version: "12.15.0"
+          run_install: false
+      - name: Install dependencies
+        if: steps.ready.outputs.ready == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Build and inspect migrations
+        if: steps.ready.outputs.ready == 'true'
+        run: |
+          set -euo pipefail
+          node scripts/check-d1-migrations.mjs
+          pnpm run cf-typegen
+          pnpm exec tsc --noEmit
+          pnpm run build
+          pnpm exec cf deploy --prebuilt --mode production --dry-run
+
+      - name: Apply only pending remote D1 migrations
+        if: steps.ready.outputs.ready == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN || secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          DB=d6f3e4e9-2190-43bf-bc90-969687f6db78
+          pnpm exec cf d1 migrations list "$DB"
+          printf 'y\n' | pnpm exec cf d1 migrations apply "$DB"
+
+      - name: Ensure one OWNER exists (one-time setup, idempotent)
+        if: steps.ready.outputs.ready == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN || secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          SOHOJAC_AUTO_BOOTSTRAP: "1"
+          SOHOJAC_INITIAL_OWNER_EMAIL: ${{ secrets.SOHOJAC_INITIAL_OWNER_EMAIL }}
+          SOHOJAC_INITIAL_OWNER_PASSWORD: ${{ secrets.SOHOJAC_INITIAL_OWNER_PASSWORD }}
+          SOHOJAC_INITIAL_OWNER_NAME: "Sohojac Owner"
+        run: node scripts/bootstrap-staff-owner.mjs
+
+      - name: Deploy Worker with stable Better Auth and Turnstile secrets
+        if: steps.ready.outputs.ready == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+        run: |
+          set -euo pipefail
+          node -e 'const fs=require("node:fs"); const p=require("node:path"); fs.writeFileSync(p.join(process.env.RUNNER_TEMP,"sohojac-deploy-secrets.json"),JSON.stringify({ TURNSTILE_SECRET_KEY:process.env.TURNSTILE_SECRET_KEY, BETTER_AUTH_SECRET:process.env.BETTER_AUTH_SECRET }),{ mode:0o600 });'
+          trap 'rm -f "$RUNNER_TEMP/sohojac-deploy-secrets.json"' EXIT
+          pnpm exec cf deploy --prebuilt --mode production --secrets-file "$RUNNER_TEMP/sohojac-deploy-secrets.json"
+
+      - name: Check production public routes and private API denial
+        if: steps.ready.outputs.ready == 'true'
+        run: |
+          set -euo pipefail
+          for url in https://sohojac.com/ https://sohojac.com/interest https://sohojac.com/sign-in; do
+            curl --fail --silent --show-error --retry 3 --retry-delay 2 --max-time 20 "$url" >/dev/null
+          done
+          status=$(curl -sS --max-time 15 -o /dev/null -w '%{http_code}' https://sohojac.com/api/staff/prospects)
+          test "$status" = "401" || { echo "::error::Private prospect endpoint returned HTTP $status instead of 401"; exit 1; }
+          echo "Site healthy; unauthenticated prospect access denied."
+
