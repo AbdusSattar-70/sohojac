@@ -19,7 +19,11 @@ export async function GET(request: Request, ctx: Context) {
   if (!/^[0-9a-f-]{36}$/i.test(id)) return privateJson({ error: "Invalid ID" }, 400);
   try {
     const result = await env.DB.prepare(
-      "SELECT from_status, to_status, note, occurred_at FROM staff_prospect_events WHERE enquiry_id = ? ORDER BY occurred_at DESC LIMIT 30"
+      `SELECT e.from_status, e.to_status, e.note, e.occurred_at,
+      COALESCE(u.name, 'Former staff member') AS actor_name
+      FROM staff_prospect_events e
+      LEFT JOIN "user" u ON u.id = e.actor_user_id
+      WHERE e.enquiry_id = ? ORDER BY e.occurred_at DESC LIMIT 30`
     ).bind(id).all();
     return privateJson({ events: result.results ?? [] });
   } catch {
