@@ -19,28 +19,41 @@ This document is for the Sohojac public site on `sohojac.com` and
 - After a successful insert, a printable acknowledgement contains the generated
   reference. It is **not** proof of admission.
 
-## Configure Turnstile (Cloudflare dashboard)
+## Configure Turnstile + production CI credentials
 
-1. Create a Turnstile widget. Add BOTH hostnames:
-   `sohojac.com` and `www.sohojac.com`.
-   Do **not** include the `*.workers.dev` diagnostic URL for public enrolment.
-2. Copy the public **site key** and private **secret key**.
-3. Open Cloudflare > Workers & Pages > `sohojac` > Settings >
-   Variables and Secrets. Create:
-   - `TURNSTILE_SITE_KEY`: **Text** variable, from the widget
-   - `TURNSTILE_SECRET_KEY`: **Secret** variable, from the same widget
-4. Apply / deploy the settings. No token should be pasted in GitHub code,
-   documentation, or chat. Do not hardcode keys in `cloudflare.config.ts`.
-5. Open `https://sohojac.com/interest` and verify the Turnstile
-   widget is visible and the 'security verification is being configured'
-   message has disappeared. Test `https://www.sohojac.com/interest`
-   as well, if `www` serves rather than redirects.
-6. Use `https://sohojac.com` as the canonical website for SEO. The
-   `workers.dev` URL deliberately does not enable the personal-data form.
+1. In Cloudflare, create a Turnstile widget. Allow BOTH hostnames:
+   `sohojac.com` and `www.sohojac.com`. Do not use the `workers.dev`
+   diagnostic URL for public personal-data collection.
+2. In the **GitHub repository** `AbdusSattar-70/sohojac`:
+   - Settings > Secrets and variables > Actions > **Variables**:
+     add `TURNSTILE_SITE_KEY` as the public widget site key.
+   - Settings > Secrets and variables > Actions > **Secrets**:
+     add `TURNSTILE_SECRET_KEY` as a repository secret.
+   - Keep the existing `CLOUDFLARE_API_TOKEN` and
+     `CLOUDFLARE_ACCOUNT_ID` secrets.
+3. After `Public Website Checks` passes on the
+   `feature/public_site_port` branch, run **Deploy Sohojac Public Website**
+   manually from GitHub Actions. Select `master` for the workflow trigger;
+   the job itself checks out `feature/public_site_port`.
+4. This workflow binds `TURNSTILE_SITE_KEY` as a text variable and securely
+   uploads `TURNSTILE_SECRET_KEY` via a temporary secrets file. The file is
+   removed when deployment completes. Never log or commit either secret.
+5. Check `https://sohojac.com/interest`. The challenge should appear and
+   the "security verification is being configured" notice should disappear.
+   Repeat on `www` if that hostname serves directly instead of redirecting.
+6. Keep `sohojac.com` the canonical host for SEO.
 
-If *either* Worker variable is absent, the submit button remains disabled.
-The API also returns 503 on non-localhost requests when the secret is missing.
-This is intentional.
+**Important cf beta behavior:** Older `cf deploy` versions may not retain
+dashboard-only secrets reliably. This project therefore declares
+`TURNSTILE_SECRET_KEY: bindings.secret()` in `cloudflare.config.ts` and
+supplies it afresh for every *manual CI deployment*. Dashboard-only edits
+are not the preferred source of truth. See the Cloudflare CLI `cf` issue
+about dropped secrets (#70).
+
+If either value is missing, the deploy job fails before the upload step,
+and the registration form remains disabled in the current deployment.
+The API also returns 503 on non-localhost submissions when the secret is
+missing. This is intentional, not a form bug.
 
 ## Existing D1 database
 
