@@ -100,6 +100,14 @@ jobs:
             -b /tmp/staff-ci-cookies "http://localhost:4173/api/staff/prospects")
           test "$staff_list_status" = "200"
 
+          # Server-rendered staff pages also require the valid owner session.
+          for route in /app /app/prospects; do
+            code=$(curl -sS -o /tmp/sohojac-staff-page.html -w '%{http_code}' \
+              -b /tmp/staff-ci-cookies "http://localhost:4173$route")
+            echo "authorized $route HTTP: $code"
+            test "$code" = "200"
+          done
+
           # Only the role-authorized owner can update the synthetic enquiry.
           enquiry_id=$(node -e 'const fs=require("fs"); const d=JSON.parse(fs.readFileSync("/tmp/staff-prospects.json","utf8"));if(!d.items?.length)process.exit(1);process.stdout.write(d.items[0].id)')
           staff_update_status=$(curl -sS -o /tmp/staff-update.json -w '%{http_code}' \
@@ -112,6 +120,15 @@ jobs:
             -b /tmp/staff-ci-cookies "http://localhost:4173/api/staff/prospects/$enquiry_id")
           test "$history_status" = "200"
           grep -q 'CI follow-up test' /tmp/staff-history.json
+
+          # Revoking a staff membership removes access even with a live
+          # Better Auth session cookie; do not rely on client-side role state.
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
+            --sql "UPDATE staff_memberships SET active=0 WHERE role='OWNER'" > /tmp/revoked.json
+          revoked_code=$(curl -sS -o /tmp/revoked-access.json -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies "http://localhost:4173/api/staff/prospects")
+          echo "revoked staff access HTTP: $revoked_code"
+          test "$revoked_code" = "401"
           grep -q "SA-ENQ-" /tmp/sohojac-enquiry.json
 
           # A valid request creates exactly one prospect in the local D1 database.
