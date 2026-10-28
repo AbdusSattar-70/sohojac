@@ -1,25 +1,52 @@
 import { betterAuth } from "better-auth";
 import { env } from "cloudflare:workers";
 
+type AuthBindings = { BETTER_AUTH_SECRET?: string; BETTER_AUTH_URL?: string };
+
+function config() {
+  const bindings = env as typeof env & AuthBindings;
+  if (!bindings.BETTER_AUTH_SECRET || bindings.BETTER_AUTH_SECRET.length < 32 ||
+      !bindings.BETTER_AUTH_URL) {
+    throw new Error("Staff authentication is not configured");
+  }
+  const baseURL = new URL(bindings.BETTER_AUTH_URL);
+  if (baseURL.pathname !== "/" || baseURL.search || baseURL.hash ||
+      (baseURL.protocol !== "https:" && baseURL.hostname !== "localhost" && baseURL.hostname !== "127.0.0.1")) {
+    throw new Error("Invalid staff authentication origin");
+  }
+  return { baseURL: baseURL.origin, secret: bindings.BETTER_AUTH_SECRET };
+}
+
+/** Only the configured staff hostname can serve auth or private CRM routes. */
+export function isStaffOrigin(requestUrl: string): boolean {
+  try {
+    return new URL(requestUrl).origin === config().baseURL;
+  } catch {
+    return false;
+  }
+}
+
 /**
- * Worker-request-scoped auth instance: Cloudflare D1 is provided by a binding.
- * Authentication is separate from staff authorization in the academy database.
+ * Better Auth uses the existing Cloudflare D1 binding directly. Every CRM
+ * request additionally checks an ACTIVE staff_memberships row server-side.
+ * Never rely on this session alone to authorize access to guardian data.
  */
 export function createAuth() {
-  // Locally supplied secrets do not appear in generated types in CI.
-  const bindings = env as typeof env & { BETTER_AUTH_SECRET?: string; BETTER_AUTH_URL?: string };
-  if (!bindings.BETTER_AUTH_SECRET || !bindings.BETTER_AUTH_URL) {
-    throw new Error("BETTER_AUTH_SECRET and BETTER_AUTH_URL must be configured");
-  }
-
+  const { baseURL, secret } = config();
   return betterAuth({
     database: env.DB,
-    secret: bindings.BETTER_AUTH_SECRET,
-    baseURL: bindings.BETTER_AUTH_URL,
+    secret,
+    baseURL,
+    trustedOrigins: [baseURL],
     emailAndPassword: {
       enabled: true,
-      disableSignUp: true, // Private staff accounts only; bootstrap separately.
+      disableSignUp: true,
+      minPasswordLength: 12,
+      maxPasswordLength: 128,
     },
-    trustedOrigins: [bindings.BETTER_AUTH_URL],
+    session: {
+      expiresIn: 60 * 60 * 8,
+      updateAge: 60 * 30,
+    },
   });
 }
