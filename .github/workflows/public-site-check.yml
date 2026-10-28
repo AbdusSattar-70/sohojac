@@ -1,0 +1,95 @@
+name: Public Website Checks
+on:
+  push:
+    branches: [feature/public_site_port]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "12.15.0"
+          run_install: false
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Generate Cloudflare Worker types
+        run: pnpm run cf-typegen
+      - name: Verify types
+        run: pnpm exec tsc --noEmit
+      - name: Apply public D1 migrations locally
+        run: |
+          DB=d6f3e4e9-2190-43bf-bc90-969687f6db78
+          pnpm exec cf d1 migrations apply "$DB" --local --persist-to .cloudflare/state
+          pnpm exec cf d1 raw "$DB" --sql "SELECT COUNT(*) AS published FROM public_programme_offerings WHERE show_on_website = 1" --local --persist-to .cloudflare/state
+      - name: Build Cloudflare Worker
+        run: pnpm run build
+
+      - name: Validate Cloudflare configuration (no upload)
+        run: pnpm exec cf deploy --prebuilt --mode production --dry-run
+
+      - name: Smoke test public routes and D1 enquiry
+        shell: bash
+        run: |
+          set -euo pipefail
+          DB=d6f3e4e9-2190-43bf-bc90-969687f6db78
+          pnpm run start >/tmp/sohojac-vite.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          for i in $(seq 1 40); do
+            if curl -fsS --max-time 4 http://localhost:4173/ >/tmp/sohojac-home.html 2>/dev/null; then break; fi
+            sleep 1
+          done
+          for route in / /about /faq /journal /interest /privacy /robots.txt /sitemap.xml; do
+            curl -fsS --retry 3 --retry-all-errors --retry-delay 1 --max-time 12 "http://localhost:4173$route" >/tmp/route-check || {
+              cat /tmp/sohojac-vite.log
+              exit 1
+            }
+          done
+          grep -q "Learning should be" /tmp/sohojac-home.html
+          curl -fsS --max-time 20 -X POST "http://localhost:4173/api/enquiries" \
+            -H "Content-Type: application/json" \
+            --data '{"intent":"interest","offeringId":"","studentName":"Smoke Test Student","className":"Class 8","guardianName":"Smoke Test Guardian","mobile":"01700000000","subjectNames":["English"],"preferredSchedule":"","preferredDays":[],"trialInterest":false,"consent":true,"website":"","turnstileToken":""}' \
+            >/tmp/sohojac-enquiry.json || {
+              cat /tmp/sohojac-vite.log
+              cat /tmp/sohojac-enquiry.json || true
+              exit 1
+            }
+          grep -q "SA-ENQ-" /tmp/sohojac-enquiry.json
+
+          # A valid request creates exactly one prospect in the local D1 database.
+          pnpm exec cf d1 raw "$DB" --sql "SELECT COUNT(*) AS n FROM public_enquiries" --local --persist-to .cloudflare/state >/tmp/enquiry-count.json
+          node -e 'const fs = require("node:fs"); const data = JSON.parse(fs.readFileSync("/tmp/enquiry-count.json", "utf8")); const count = data[0]?.results?.rows?.[0]?.[0]; if (count !== 1) { console.error("Expected one stored enquiry; got", count); process.exit(1); } console.log("D1 write verified: one enquiry");'
+
+          # A second submission with the same contact must be rate-limited.
+          duplicate_status=$(curl -sS -o /tmp/enquiry-duplicate.json -w '%{http_code}' -X POST "http://localhost:4173/api/enquiries" \
+            -H "Content-Type: application/json" \
+            --data '{"intent":"interest","offeringId":"","studentName":"Smoke Test Student","className":"Class 8","guardianName":"Smoke Test Guardian","mobile":"01700000000","subjectNames":[],"preferredSchedule":"","preferredDays":[],"trialInterest":false,"consent":true,"website":"","turnstileToken":""}')
+          echo "duplicate_status: $duplicate_status"
+          test "$duplicate_status" = "429"
+
+          # An admission request must never be accepted while applications are closed.
+          admission_status=$(curl -sS -o /tmp/enquiry-closed.json -w '%{http_code}' -X POST "http://localhost:4173/api/enquiries" \
+            -H "Content-Type: application/json" \
+            --data '{"intent":"admission","offeringId":"sa-ssc-science","studentName":"Closed Test Student","className":"Class 10","guardianName":"Closed Test Guardian","mobile":"01700000001","subjectNames":[],"preferredSchedule":"","preferredDays":[],"trialInterest":false,"consent":true,"website":"","turnstileToken":""}')
+          echo "admission_status: $admission_status"
+          test "$admission_status" = "409"
+
+          # Invalid contact information and untrusted request origins must be rejected.
+          invalid_status=$(curl -sS -o /tmp/enquiry-invalid.json -w '%{http_code}' -X POST "http://localhost:4173/api/enquiries" \
+            -H "Content-Type: application/json" \
+            --data '{"intent":"interest","studentName":"A","className":"Class 8","guardianName":"Test Guardian","mobile":"123","consent":true}')
+          echo "invalid_status: $invalid_status"
+          test "$invalid_status" = "400"
+          origin_status=$(curl -sS -o /tmp/enquiry-origin.json -w '%{http_code}' -X POST "http://localhost:4173/api/enquiries" \
+            -H "Origin: https://other.invalid" -H "Content-Type: application/json" --data '{}')
+          echo "origin_status: $origin_status"
+          test "$origin_status" = "403"
