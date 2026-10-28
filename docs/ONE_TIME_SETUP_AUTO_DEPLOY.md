@@ -26,14 +26,21 @@ Copy the printed random value to GitHub Actions repository secrets, name:
 Do not put it in code or the repo. If you use local development, use
 a separate `BETTER_AUTH_SECRET` in your gitignored `.env`.
 
-Cloudflare D1 access: add a dedicated `CLOUDFLARE_D1_API_TOKEN`
-repository secret once. The previous deployment returned **403** because the
-Worker upload token lacked D1 Edit permission. Create a custom token in
-[Cloudflare API Tokens](https://dash.cloudflare.com/profile/api-tokens):
-**Account → D1 → Edit**, restricted to your Sohojac Cloudflare account.
-Copy the token into GitHub Actions repository secrets as
-`CLOUDFLARE_D1_API_TOKEN`. Keep your existing `CLOUDFLARE_API_TOKEN`
-for Worker deployment. Never send either token in chat.
+Cloudflare D1 access uses the **same existing `CLOUDFLARE_API_TOKEN`** for
+Worker deployment and D1 migrations. The previous release returned **403**
+when directly querying D1: it could deploy the Worker, but lacked permission
+to modify the database.
+
+In [Cloudflare API Tokens](https://dash.cloudflare.com/profile/api-tokens),
+find the existing token and select **Edit**. Ensure the token has both:
+- Account → Workers Scripts → Edit (or corresponding current Workers Editor role).
+- Account → D1 → Edit.
+- Account resources scoped to the account containing `sohojac`.
+
+Save the token permissions. **Do not add a separate D1 token.** If Cloudflare
+does not allow modifying this token, create a replacement with both
+permissions, then update the value of the **existing GitHub repository secret
+`CLOUDFLARE_API_TOKEN`**. Do not paste the token in issues or chat.
 
 **Owner credentials are never GitHub secrets.** The email is set in D1 Console; the password is hashed by the one-time website setup form.
 
