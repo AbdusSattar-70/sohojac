@@ -38,12 +38,10 @@ jobs:
           DB=d6f3e4e9-2190-43bf-bc90-969687f6db78
           pnpm exec cf d1 migrations apply "$DB" --local --persist-to .cloudflare/state
           pnpm exec cf d1 raw "$DB" --sql "SELECT COUNT(*) AS published FROM public_programme_offerings WHERE show_on_website = 1" --local --persist-to .cloudflare/state
-      - name: Bootstrap isolated local staff owner (never remote)
-        env:
-          SOHOJAC_D1_LOCAL: "1"
-          SOHOJAC_INITIAL_OWNER_EMAIL: staff-ci@example.invalid
-          SOHOJAC_INITIAL_OWNER_PASSWORD: "ci-test-owner-password-NotForProduction-1234"
-        run: node scripts/bootstrap-staff-owner.mjs
+      - name: Create synthetic Cloudflare D1 owner setup ticket (local only)
+        run: |
+          DB=d6f3e4e9-2190-43bf-bc90-969687f6db78
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "INSERT INTO staff_owner_setup (id,email,display_name,token,expires_at) VALUES ('first-owner','staff-ci@example.invalid','Synthetic Staff Owner','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',strftime('%Y-%m-%dT%H:%M:%fZ','now','+30 minutes'))" > /tmp/setup-ticket.json
       - name: Build Cloudflare Worker
         run: pnpm run build
 
@@ -92,12 +90,31 @@ jobs:
           # Public self-signup must stay blocked even when staff auth is configured.
           test "$signin_signup_status" -ge 400
 
+          # Cloudflare Dashboard issues the only setup ticket. A wrong ticket
+          # must fail; a correct ticket creates user + account + OWNER in D1.
+          bad_setup=$(curl -sS -o /tmp/bad-setup.json -w '%{http_code}' \
+            -X POST "http://localhost:4173/api/setup-owner" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"token":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","password":"Test123!"}')
+          test "$bad_setup" = "403"
+          owner_setup=$(curl -sS -o /tmp/owner-setup.json -w '%{http_code}' \
+            -X POST "http://localhost:4173/api/setup-owner" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"token":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","password":"Test123!"}')
+          echo "first owner setup HTTP: $owner_setup"
+          test "$owner_setup" = "201"
+          reused_setup=$(curl -sS -o /tmp/reused-setup.json -w '%{http_code}' \
+            -X POST "http://localhost:4173/api/setup-owner" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"token":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","password":"Test123!"}')
+          test "$reused_setup" = "403"
+
           # Real Better Auth sign-in and D1 role check with a synthetic local
           # staff user. No production secrets or real guardian data are used.
           signin_status=$(curl -sS -o /tmp/staff-signin.json -w '%{http_code}' \
             -c /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/auth/sign-in/email" \
             -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
-            --data '{"email":"staff-ci@example.invalid","password":"ci-test-owner-password-NotForProduction-1234"}')
+            --data '{"email":"staff-ci@example.invalid","password":"Test123!"}')
           echo "staff sign-in HTTP status: $signin_status"
           test "$signin_status" = "200"
           staff_list_status=$(curl -sS -o /tmp/staff-prospects.json -w '%{http_code}' \
