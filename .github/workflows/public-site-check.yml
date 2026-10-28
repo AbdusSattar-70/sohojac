@@ -60,3 +60,28 @@ jobs:
               exit 1
             }
           grep -q "SA-ENQ-" /tmp/sohojac-enquiry.json
+
+          # A valid request creates exactly one prospect in the local D1 database.
+          pnpm exec cf d1 raw "$DB" --sql "SELECT COUNT(*) AS n FROM public_enquiries" --local --persist-to .cloudflare/state >/tmp/enquiry-count.json
+          grep -q '"n": 1' /tmp/enquiry-count.json || grep -q '"n":1' /tmp/enquiry-count.json
+
+          # A second submission with the same contact must be rate-limited.
+          duplicate_status=$(curl -sS -o /tmp/enquiry-duplicate.json -w '%{http_code}' -X POST "http://localhost:4173/api/enquiries" \
+            -H "Content-Type: application/json" \
+            --data '{"intent":"interest","offeringId":"","studentName":"Smoke Test Student","className":"Class 8","guardianName":"Smoke Test Guardian","mobile":"01700000000","subjectNames":[],"preferredSchedule":"","preferredDays":[],"trialInterest":false,"consent":true,"website":"","turnstileToken":""}')
+          test "$duplicate_status" = "429"
+
+          # An admission request must never be accepted while applications are closed.
+          admission_status=$(curl -sS -o /tmp/enquiry-closed.json -w '%{http_code}' -X POST "http://localhost:4173/api/enquiries" \
+            -H "Content-Type: application/json" \
+            --data '{"intent":"admission","offeringId":"sa-ssc-science","studentName":"Closed Test Student","className":"Class 10","guardianName":"Closed Test Guardian","mobile":"01700000001","subjectNames":[],"preferredSchedule":"","preferredDays":[],"trialInterest":false,"consent":true,"website":"","turnstileToken":""}')
+          test "$admission_status" = "409"
+
+          # Invalid contact information and untrusted request origins must be rejected.
+          invalid_status=$(curl -sS -o /tmp/enquiry-invalid.json -w '%{http_code}' -X POST "http://localhost:4173/api/enquiries" \
+            -H "Content-Type: application/json" \
+            --data '{"intent":"interest","studentName":"A","className":"Class 8","guardianName":"Test Guardian","mobile":"123","consent":true}')
+          test "$invalid_status" = "400"
+          origin_status=$(curl -sS -o /tmp/enquiry-origin.json -w '%{http_code}' -X POST "http://localhost:4173/api/enquiries" \
+            -H "Origin: https://other.invalid" -H "Content-Type: application/json" --data '{}')
+          test "$origin_status" = "403"
