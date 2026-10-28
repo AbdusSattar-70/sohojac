@@ -12,17 +12,19 @@ type Confirmation = { reference: string; studentName: string; guardianName: stri
 const inputClass = "mt-1.5 min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-blue-500";
 const labelClass = "block text-sm font-medium";
 const days = [["SAT","Saturday","শনিবার"],["SUN","Sunday","রবিবার"],["MON","Monday","সোমবার"],["TUE","Tuesday","মঙ্গলবার"],["WED","Wednesday","বুধবার"],["THU","Thursday","বৃহস্পতিবার"],["FRI","Friday","শুক্রবার"]] as const;
-const classes = ["Class 8","Class 9","Class 10","Class 11","Class 12"];
+const classes = ["Class 8","Class 9","Class 10"];
+const classForOffering = (className?: string | null) => classes.find(c => className?.startsWith(c) && !className.includes("Classes")) || "";
 const subjects = ["Bangla","English","Mathematics","General Science","Physics","Chemistry","Biology","Higher Mathematics","ICT"];
 const offeringName = (o: PublicOfferingCard, bn: boolean) =>
   (bn ? o.showcase_title_bn : o.showcase_title) || o.showcase_title || o.name;
 
-export function PublicInterestForm({ offerings, intent, initialOfferingId = "", siteKey = "" }: {
-  offerings: PublicOfferingCard[]; intent: Intent; initialOfferingId?: string; siteKey?: string;
+export function PublicInterestForm({ offerings, intent, initialOfferingId = "", siteKey = "", registrationReady = false }: {
+  offerings: PublicOfferingCard[]; intent: Intent; initialOfferingId?: string; siteKey?: string; registrationReady?: boolean;
 }) {
   const { locale } = useLanguage();
   const bn = locale === "bn";
   const [offeringId, setOfferingId] = useState(initialOfferingId);
+  const [className, setClassName] = useState(() => classForOffering(offerings.find(o => o.id === initialOfferingId)?.class_name));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
@@ -32,12 +34,13 @@ export function PublicInterestForm({ offerings, intent, initialOfferingId = "", 
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy || !canSubmit) return;
+    if (busy || !canSubmit || !registrationReady) return;
     const form = event.currentTarget;
     const data = new FormData(form);
     const get = (field: string) => String(data.get(field) || "").trim();
     setError("");
     setBusy(true);
+    let succeeded = false;
     try {
       const response = await fetch("/api/enquiries", {
         method: "POST",
@@ -62,10 +65,16 @@ export function PublicInterestForm({ offerings, intent, initialOfferingId = "", 
         setError(result.error || (bn ? "ফর্ম জমা দেওয়া যায়নি। আবার চেষ্টা করুন।" : "Registration could not be submitted. Please try again."));
         return;
       }
+      succeeded = true;
       setConfirmation(result as Confirmation);
     } catch {
       setError(bn ? "সার্ভারে সংযোগ করা যাচ্ছে না। পরে চেষ্টা করুন।" : "Could not reach the service. Please try again.");
-    } finally { setBusy(false); }
+    } finally {
+      setBusy(false);
+      // Turnstile tokens are single-use, even if a request fails after verification.
+      // This form has only one widget; reset it before a retry.
+      if (!succeeded) (window as Window & { turnstile?: { reset: () => void } }).turnstile?.reset();
+    }
   }
 
   if (confirmation) {
@@ -94,7 +103,10 @@ export function PublicInterestForm({ offerings, intent, initialOfferingId = "", 
       <h2 className="text-lg font-semibold">{bn ? "প্রোগ্রাম পছন্দ" : "Programme preference"}</h2>
       <label className={labelClass}>
         {bn ? "প্রোগ্রাম" : "Programme offering"} {intent === "admission" ? "*" : ""}
-        <select name="offeringId" value={offeringId} onChange={e => setOfferingId(e.target.value)} required={intent === "admission"} className={inputClass}>
+        <select name="offeringId" value={offeringId} onChange={e => {
+            setOfferingId(e.target.value);
+            setClassName(classForOffering(offerings.find(o => o.id === e.target.value)?.class_name));
+          }} required={intent === "admission"} className={inputClass}>
           <option value="">{bn ? "সাধারণ আগ্রহ / নির্বাচন করুন" : "General interest / Select an offering"}</option>
           {available.map(o => <option value={o.id} key={o.id}>{offeringName(o,bn)} · {o.class_name}</option>)}
         </select>
@@ -119,7 +131,7 @@ export function PublicInterestForm({ offerings, intent, initialOfferingId = "", 
         <label className={labelClass}>{bn ? "শিক্ষার্থীর নাম (বাংলা)" : "Student Name (Bangla)"}<input className={inputClass} name="studentNameBn" maxLength={120}/></label>
         <label className={labelClass}>{bn ? "শিক্ষার্থীর মোবাইল (ঐচ্ছিক)" : "Student mobile (optional)"}<input className={inputClass} name="studentMobile" type="tel" inputMode="tel" pattern="01[3-9][0-9]{8}" maxLength={11}/></label>
         <label className={labelClass}>{bn ? "শিক্ষার্থীর ইমেইল (ঐচ্ছিক)" : "Student email (optional)"}<input className={inputClass} name="studentEmail" type="email" maxLength={180}/></label>
-        <label className={labelClass}>{bn ? "বর্তমান ক্লাস" : "Current Class"} *<select className={inputClass} name="className" required defaultValue={selected?.class_name || ""}>
+        <label className={labelClass}>{bn ? "বর্তমান ক্লাস" : "Current Class"} *<select className={inputClass} name="className" required value={className} onChange={e => setClassName(e.target.value)}>
           <option value="">{bn ? "ক্লাস নির্বাচন করুন" : "Select class"}</option>
           {classes.map(item => <option key={item} value={item}>{item}</option>)}
         </select></label>
@@ -167,7 +179,10 @@ export function PublicInterestForm({ offerings, intent, initialOfferingId = "", 
       <label className={labelClass}>{bn ? "আর কিছু জানাতে চান?" : "Anything else?"}<textarea name="notes" className={inputClass+" min-h-24 py-3"} maxLength={1000} rows={3}/></label>
     </section>
 
-    {siteKey && <div className="space-y-2">
+    {!registrationReady && <p role="status" className="rounded-xl border border-amber-600/40 bg-amber-600/10 p-4 text-sm leading-7">
+      {bn ? "অনলাইন নিবন্ধন সাময়িকভাবে বন্ধ আছে। নিরাপত্তা যাচাই চালু হলে আবার চেষ্টা করুন।" : "Online registration is temporarily unavailable while security verification is being configured. Please return later."}
+    </p>}
+    {registrationReady && siteKey && <div className="space-y-2">
       <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" strategy="afterInteractive" />
       <div className="cf-turnstile" data-sitekey={siteKey} data-theme="dark" data-action="public-enquiry" />
     </div>}
@@ -179,7 +194,7 @@ export function PublicInterestForm({ offerings, intent, initialOfferingId = "", 
       </span>
     </label>
     {error && <p role="alert" className="rounded-xl border border-red-700/40 bg-red-800/10 p-4 text-sm text-red-300">{error}</p>}
-    <button type="submit" disabled={busy || !canSubmit} className="min-h-12 w-full rounded-xl bg-blue-700 px-6 py-3 font-semibold text-white transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50">
+    <button type="submit" disabled={busy || !canSubmit || !registrationReady} className="min-h-12 w-full rounded-xl bg-blue-700 px-6 py-3 font-semibold text-white transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50">
       {busy ? (bn ? "জমা হচ্ছে…" : "Submitting…") : intent === "admission" ? (bn ? "ভর্তির আবেদন জমা দিন" : "Submit admission application") : (bn ? "আগ্রহ নিবন্ধন জমা দিন" : "Submit interest registration")}
     </button>
     <p className="text-xs leading-6 text-muted-foreground">{bn ? "এই ফর্ম ভর্তি নিশ্চিতকরণ বা পেমেন্ট রসিদ নয়।" : "Submitting this form does not confirm admission, reserve a seat, or create a payment receipt."}</p>
