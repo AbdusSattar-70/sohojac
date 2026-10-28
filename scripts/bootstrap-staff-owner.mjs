@@ -1,6 +1,6 @@
 /**
- * ONE-TIME owner provisioning. Run only from a manual GitHub Actions workflow
- * with secrets; NEVER pass the password on a command line or check it into git.
+ * ONE-TIME owner provisioning from an operator's own terminal.
+ * Do not store OWNER email/password in GitHub or pass password as a CLI argument.
  * Requires migrations/0003_better_auth_staff.sql already applied to remote D1.
  *
  * Better Auth credential passwords use its own scrypt hashing function.
@@ -37,11 +37,11 @@ function count(sql) {
   if (typeof number !== "number") throw new Error("Unexpected D1 query format.");
   return number;
 }
-// Do not ask for first-owner credentials again after initialization.
+// Owner creation is an intentional, interactive one-time database operation.
+// Automatic deployments must NEVER create, replace, or reset staff credentials.
 const existingOwners = count("SELECT COUNT(*) FROM staff_memberships WHERE role='OWNER' AND active=1");
-if (process.env.SOHOJAC_AUTO_BOOTSTRAP === "1" && existingOwners === 1) {
-  console.log("Existing active OWNER detected; skipping first-owner provisioning.");
-  process.exit(0);
+if (existingOwners > 0) {
+  throw new Error("An active OWNER already exists in D1. Nothing was changed.");
 }
 const current = count('SELECT (SELECT COUNT(*) FROM "user") + (SELECT COUNT(*) FROM staff_memberships)');
 if (current !== 0) {
@@ -50,7 +50,7 @@ if (current !== 0) {
 if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
     password.length < 16 || password.length > 128 ||
     name.length < 2 || name.length > 100) {
-  throw new Error("First release requires OWNER email, name and a unique 16-128 character password as GitHub Actions secrets.");
+  throw new Error("Enter a valid owner email, name and unique 16–128 character password in the interactive local setup.");
 }
 
 const id = randomUUID();
@@ -73,4 +73,4 @@ runSql(`INSERT INTO staff_memberships (user_id,role,active)
 if (count("SELECT COUNT(*) FROM staff_memberships WHERE role='OWNER' AND active=1") !== 1) {
   throw new Error("Owner verification failed; inspect D1 immediately.");
 }
-console.log("First staff OWNER created and verified in D1. Keep the password private, remove temporary owner-password secret, then sign in.");
+console.log("First staff OWNER created and verified in D1. Credentials were not saved to GitHub. Sign in on the configured staff domain.");
