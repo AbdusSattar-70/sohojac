@@ -70,11 +70,16 @@ const statements = [
     VALUES (${escapeSql(id)},'OWNER',1)`,
 ];
 const batch = JSON.parse(runSql(statements.join(";\n") + ";"));
-if (!Array.isArray(batch) || batch.length !== 3 || batch.some(row => row?.success !== true)) {
+if (!Array.isArray(batch) || batch.length === 0 || batch.some(row => row?.success !== true)) {
   throw new Error("Owner D1 batch was not confirmed; inspect the database before retrying.");
 }
-
-if (count("SELECT COUNT(*) FROM staff_memberships WHERE role='OWNER' AND active=1") !== 1) {
-  throw new Error("Owner verification failed; inspect D1 immediately.");
+// D1 raw may return a single result for a multi-statement batch; verify the
+// actual persisted relationships instead of assuming a result per statement.
+const verified = count(`SELECT
+  (SELECT COUNT(*) FROM "user" WHERE id = ${escapeSql(id)})
+  + (SELECT COUNT(*) FROM "account" WHERE "userId" = ${escapeSql(id)} AND "providerId" = 'credential' AND "password" IS NOT NULL)
+  + (SELECT COUNT(*) FROM staff_memberships WHERE user_id = ${escapeSql(id)} AND role = 'OWNER' AND active = 1)`);
+if (verified !== 3 || count("SELECT COUNT(*) FROM staff_memberships WHERE role='OWNER' AND active=1") !== 1) {
+  throw new Error("Owner verification failed; inspect D1 before any retry.");
 }
 console.log("First staff OWNER created and verified in D1. Credentials were not saved to GitHub. Sign in on the configured staff domain.");
