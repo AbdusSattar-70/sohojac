@@ -1,3 +1,5 @@
+> **Development deployment:** One-time cloud credentials, then just push code. See [Sohojac Auto-Deploy — One-Time Setup](docs/ONE_TIME_SETUP_AUTO_DEPLOY.md). Tests, pending D1 migrations, initial Better Auth owner bootstrap, and Worker upload run automatically on pushes to `feature/staff_crm_better_auth`. The live site is unchanged until production credentials are provided.
+
 # Sohojac — Cloudflare-native coaching operations
 
 New, simplified version of [Sohoj Academy](https://github.com/AbdusSattar-70/sohoj-academy), targeting Next.js on Cloudflare Workers, **one** D1 SQLite database, R2 object storage, and staff authentication (Better Auth).
@@ -47,5 +49,5 @@ active D1 staff memberships, a role-gated prospect dashboard, follow-up status,
 internal notes and audited updates. **Public signup remains disabled.**
 
 See [Staff CRM security, initialization and release guide](docs/STAFF_CRM_BETTER_AUTH.md).
-The one-time initialization and staff CRM deployment workflows are **manual-only**.
+The CRM release is automatic **after the one-time secrets are configured**. See the auto-deploy guide instead of using older manual deployment workflows.
 Do not run the older public-site deployment workflow after the staff CRM is live.
