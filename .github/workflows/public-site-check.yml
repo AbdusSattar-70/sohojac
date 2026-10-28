@@ -64,8 +64,7 @@ jobs:
 
           # A valid request creates exactly one prospect in the local D1 database.
           pnpm exec cf d1 raw "$DB" --sql "SELECT COUNT(*) AS n FROM public_enquiries" --local --persist-to .cloudflare/state >/tmp/enquiry-count.json
-          cat /tmp/enquiry-count.json
-          grep -q '"n": 1' /tmp/enquiry-count.json || grep -q '"n":1' /tmp/enquiry-count.json
+          node -e 'const fs = require("node:fs"); const data = JSON.parse(fs.readFileSync("/tmp/enquiry-count.json", "utf8")); const count = data[0]?.results?.rows?.[0]?.[0]; if (count !== 1) { console.error("Expected one stored enquiry; got", count); process.exit(1); } console.log("D1 write verified: one enquiry");'
 
           # A second submission with the same contact must be rate-limited.
           duplicate_status=$(curl -sS -o /tmp/enquiry-duplicate.json -w '%{http_code}' -X POST "http://localhost:4173/api/enquiries" \
