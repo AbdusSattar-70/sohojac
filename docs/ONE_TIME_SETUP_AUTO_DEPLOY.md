@@ -31,9 +31,7 @@ if it includes D1 Edit permission. Otherwise add one D1-scoped
 `CLOUDFLARE_D1_API_TOKEN` secret once. The Cloudflare account ID is already
 configured.
 
-**Do not add `SOHOJAC_INITIAL_OWNER_EMAIL` or
-`SOHOJAC_INITIAL_OWNER_PASSWORD` to GitHub.** Owner credentials belong
-only in Cloudflare D1, not GitHub Actions.
+**Owner credentials are never GitHub secrets.** The email is set in D1 Console; the password is hashed by the one-time website setup form.
 
 ## One-time step B: let CI deploy the schema and app
 
@@ -56,47 +54,64 @@ If necessary, use **Re-run all jobs** on a successful code-push workflow
 after adding secrets. Or push a normal new commit. Do not run the old manual
 deployment workflows; they have been removed to prevent accidental rollback.
 
-## One-time step C: create the first OWNER directly in D1
+## One-time step C: owner email/name in Cloudflare D1, password in website
 
-On your Ubuntu laptop:
+No terminal bootstrap. **Never place the plain password in SQL.**
 
-```bash
-cd ~/all-projects/sohojac
-git fetch origin
-git switch feature/staff_crm_better_auth
-git pull --ff-only origin feature/staff_crm_better_auth
-pnpm install --frozen-lockfile
-bash scripts/setup-owner.sh
+Wait for the staff CRM automatic deployment to finish successfully,
+including migration `0004_dashboard_owner_setup.sql`. The live public site
+will continue running before the new Worker is deployed.
+
+1. Open [Cloudflare Dashboard](https://dash.cloudflare.com/), navigate to
+   **D1 → sohojac → Console**.
+2. Run this SQL **once**. The email/name are yours to edit if needed:
+
+```sql
+INSERT INTO staff_owner_setup
+  (id, email, display_name, token, expires_at)
+SELECT
+  'first-owner',
+  'sohoj.aca@gmail.com',
+  'Abdus Sattar',
+  lower(hex(randomblob(32))),
+  strftime('%Y-%m-%dT%H:%M:%fZ','now','+30 minutes')
+WHERE NOT EXISTS (SELECT 1 FROM "user")
+  AND NOT EXISTS (SELECT 1 FROM staff_memberships);
 ```
 
-The interactive script prompts for:
-- Owner email (a working inbox you control).
-- Owner display name.
-- Password of at least 16 characters, entered twice **without echo**.
-- A final `CREATE OWNER` confirmation.
+3. In the same D1 Console, execute the next query and copy the generated
+   64-character setup code (keep it private):
 
-It verifies the migrations, applies only pending ones to your existing
-**remote** D1, and creates the three related records:
-- Better Auth `user` (email).
-- Better Auth `account` (password hashed using `better-auth/crypto`).
-- `staff_memberships` (`OWNER`, active).
+```sql
+SELECT token, expires_at
+FROM staff_owner_setup
+WHERE id='first-owner' AND consumed_at IS NULL;
+```
 
-**The email and password are not added to GitHub, .env, files, or logs.**
-The cleartext password is used only in the interactive setup process.
-The database stores a salted hash, never cleartext.
+4. Open **https://sohojac.com/setup-owner**. Paste the setup code,
+   choose a password **8–128 characters** and confirm it. Then press
+   **Create owner account**. The server hashes the password with Better Auth
+   scrypt, and stores the user + credential + active OWNER role transactionally
+   in the **same D1 database**. The setup ticket is consumed and never works
+   again.
+5. Sign in at **https://sohojac.com/sign-in**.
 
-If an active OWNER exists, the script refuses to replace them. If a partial
-user record exists, it refuses and requires manual inspection; don't wipe
-D1 or repeat blindly.
+If the 30-minute token expires before you finish, run the following D1
+Console query to renew it; this works only when the ticket has not been used
+and there are still no auth users:
 
-`cf` login: your local Cloudflare CLI must be authenticated.
-If it is not, run `pnpm exec cf auth login` and retry the script.
-If your ISP blocks Cloudflare API uploads, use a different network. Do not
-send passwords or hashes to support/chat.
+```sql
+UPDATE staff_owner_setup
+SET token=lower(hex(randomblob(32))),
+    expires_at=strftime('%Y-%m-%dT%H:%M:%fZ','now','+30 minutes')
+WHERE id='first-owner' AND consumed_at IS NULL
+  AND NOT EXISTS (SELECT 1 FROM "user");
+```
 
-Once setup succeeds, visit:
-- https://sohojac.com/sign-in
-- https://sohojac.com/app/prospects
+Then re-run the SELECT and use the new code. Never email/share setup codes
+or passwords, or enter an un-hashed password into the D1 SQL Console.
+If a user already exists, do not delete database tables to restart. Use
+a separate audited owner recovery process.
 
 ## Every future update: only git push
 
