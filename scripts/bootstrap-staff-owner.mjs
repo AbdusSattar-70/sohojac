@@ -59,16 +59,20 @@ const now = Date.now();
 const hashedPassword = await hashPassword(password);
 if (!hashedPassword || typeof hashedPassword !== "string") throw new Error("Password hashing failed.");
 
-// The unique owner index allows at most one active OWNER. No user-supplied SQL
-// goes through to D1 without strict escaping. Only random IDs are trusted.
-// D1 raw calls are separate; on a mid-script failure, stop and inspect for a
-// partial user/account record before any retry.
-runSql(`INSERT INTO "user" ("id","name","email","emailVerified","createdAt","updatedAt")
- VALUES (${escapeSql(id)},${escapeSql(name)},${escapeSql(email)},1,${now},${now})`);
-runSql(`INSERT INTO "account" ("id","accountId","providerId","userId","password","createdAt","updatedAt")
- VALUES (${escapeSql(accountId)},${escapeSql(id)},'credential',${escapeSql(id)},${escapeSql(hashedPassword)},${now},${now})`);
-runSql(`INSERT INTO staff_memberships (user_id,role,active)
- VALUES (${escapeSql(id)},'OWNER',1)`);
+// A single D1 raw batch avoids three independent API calls during first
+// provisioning. Fail closed rather than print or retry a partial credential.
+const statements = [
+  `INSERT INTO "user" ("id","name","email","emailVerified","createdAt","updatedAt")
+    VALUES (${escapeSql(id)},${escapeSql(name)},${escapeSql(email)},1,${now},${now})`,
+  `INSERT INTO "account" ("id","accountId","providerId","userId","password","createdAt","updatedAt")
+    VALUES (${escapeSql(accountId)},${escapeSql(id)},'credential',${escapeSql(id)},${escapeSql(hashedPassword)},${now},${now})`,
+  `INSERT INTO staff_memberships (user_id,role,active)
+    VALUES (${escapeSql(id)},'OWNER',1)`,
+];
+const batch = JSON.parse(runSql(statements.join(";\n") + ";"));
+if (!Array.isArray(batch) || batch.length !== 3 || batch.some(row => row?.success !== true)) {
+  throw new Error("Owner D1 batch was not confirmed; inspect the database before retrying.");
+}
 
 if (count("SELECT COUNT(*) FROM staff_memberships WHERE role='OWNER' AND active=1") !== 1) {
   throw new Error("Owner verification failed; inspect D1 immediately.");
