@@ -205,7 +205,7 @@ jobs:
         id: ready
         env:
           CF_DEPLOY_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CF_DB_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+          CF_DB_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
           WIDGET_SECRET: ${{ secrets.TURNSTILE_SECRET_KEY }}
@@ -218,7 +218,7 @@ jobs:
              [ -z "${WIDGET_SECRET:-}" ] ||
              [ -z "${AUTH_SECRET:-}" ] ||
              [ "${#AUTH_SECRET}" -lt 32 ]; then
-            echo "::notice::Auto-release is parked until the one-time Cloudflare/Better Auth secrets are configured."
+            echo "::notice::Release paused: configure the existing Cloudflare token (Workers Edit and D1 Edit) and Better Auth/Turnstile secrets."
             echo "ready=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -258,7 +258,7 @@ jobs:
       - name: Apply only pending remote D1 migrations
         if: steps.ready.outputs.ready == 'true'
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set -euo pipefail
