@@ -47,7 +47,7 @@ const current = count('SELECT (SELECT COUNT(*) FROM "user") + (SELECT COUNT(*) F
 if (current !== 0) {
   throw new Error("Refusing bootstrap: existing auth records without a valid active OWNER. Review D1 manually, do not reset accounts.");
 }
-if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) ||
+if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
     password.length < 16 || password.length > 128 ||
     name.length < 2 || name.length > 100) {
   throw new Error("First release requires OWNER email, name and a unique 16-128 character password as GitHub Actions secrets.");
