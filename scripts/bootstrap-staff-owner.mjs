@@ -21,7 +21,10 @@ if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
 const escapeSql = (str) => "'" + str.replaceAll("'", "''") + "'";
 function runSql(sql) {
   try {
-    return execFileSync("pnpm", ["exec", "cf", "d1", "raw", DB, "--sql", sql], {
+    const args = ["exec", "cf", "d1", "raw", DB, "--sql", sql];
+    // CI uses local Miniflare D1 only; production workflow never sets this.
+    if (process.env.SOHOJAC_D1_LOCAL === "1") args.push("--local", "--persist-to", ".cloudflare/state");
+    return execFileSync("pnpm", args, {
       encoding: "utf8", timeout: 60000, maxBuffer: 2 * 1024 * 1024,
       // Avoid writing sensitive arguments or query contents to the job log.
       stdio: ["ignore", "pipe", "pipe"],
