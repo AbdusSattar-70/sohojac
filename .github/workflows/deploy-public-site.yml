@@ -1,9 +1,14 @@
-name: Deploy Sohojac Public Website
+name: EMERGENCY ONLY — Rollback to legacy public website
 
 # This is intentionally manual only. No pushes or pull requests deploy production.
 # GitHub requires workflow_dispatch workflows to exist on the default branch.
 on:
   workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Type ROLLBACK_LEGACY_SITE only when intentionally restoring the older public-only Worker"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -14,7 +19,8 @@ concurrency:
 
 jobs:
   deploy:
-    name: Build and deploy feature/public_site_port
+    if: inputs.confirmation == 'ROLLBACK_LEGACY_SITE'
+    name: Emergency rollback — legacy public-only Worker
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
