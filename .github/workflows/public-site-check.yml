@@ -37,6 +37,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          DB=d6f3e4e9-2190-43bf-bc90-969687f6db78
           pnpm run start >/tmp/sohojac-vite.log 2>&1 &
           SERVER_PID=$!
           trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
