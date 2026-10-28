@@ -13,52 +13,50 @@ import {
 import Logo from "@/components/shared/logo";
 import { authClient } from "@/lib/auth-client";
 import type { StaffAccess } from "@/lib/staff-access";
-import { useLanguage } from "@/components/providers/language-provider";
 
 type Entry = {
   label: string;
-  bn: string;
   href?: string;
   icon: LucideIcon;
   restricted?: boolean;
 };
-type Group = { title: string; bn: string; items: Entry[] };
+type Group = { title: string; items: Entry[] };
 
 const groups: Group[] = [
   {
-    title: "Daily work", bn: "দৈনন্দিন কাজ",
+    title: "Daily work",
     items: [
-      { label: "Overview", bn: "সারসংক্ষেপ", href: "/app", icon: LayoutDashboard },
-      { label: "Action center", bn: "করণীয়", icon: ClipboardList },
+      { label: "Overview", href: "/app", icon: LayoutDashboard },
+      { label: "Action center", icon: ClipboardList },
     ],
   },
   {
-    title: "CRM & admissions", bn: "CRM ও ভর্তি",
+    title: "CRM & admissions",
     items: [
-      { label: "Enquiries", bn: "আগ্রহী শিক্ষার্থী", href: "/app/prospects", icon: Search, restricted: true },
-      { label: "Admissions", bn: "ভর্তি", icon: BookOpenCheck },
+      { label: "Enquiries", href: "/app/prospects", icon: Search, restricted: true },
+      { label: "Admissions", icon: BookOpenCheck },
     ],
   },
   {
-    title: "Academics", bn: "শিক্ষা কার্যক্রম",
+    title: "Academics",
     items: [
-      { label: "Programme offerings", bn: "প্রোগ্রামসমূহ", icon: GraduationCap },
-      { label: "Batches & routines", bn: "ব্যাচ ও রুটিন", icon: CalendarDays },
+      { label: "Programme offerings", icon: GraduationCap },
+      { label: "Batches & routines", icon: CalendarDays },
     ],
   },
   {
-    title: "People & finance", bn: "শিক্ষার্থী ও হিসাব",
+    title: "People & finance",
     items: [
-      { label: "Students", bn: "শিক্ষার্থী", icon: UsersRound },
-      { label: "Fees & expenses", bn: "ফি ও খরচ", icon: Wallet },
+      { label: "Students", icon: UsersRound },
+      { label: "Fees & expenses", icon: Wallet },
     ],
   },
   {
-    title: "Administration", bn: "প্রশাসন",
+    title: "Administration",
     items: [
-      { label: "Staff & access", bn: "স্টাফ ও প্রবেশাধিকার", icon: ShieldCheck },
-      { label: "Settings", bn: "সেটিংস", icon: Settings2 },
-      { label: "Help & workflows", bn: "সহায়তা", icon: CircleHelp },
+      { label: "Staff & access", icon: ShieldCheck },
+      { label: "Settings", icon: Settings2 },
+      { label: "Help & workflows", icon: CircleHelp },
     ],
   },
 ];
@@ -70,7 +68,6 @@ function activePath(pathname: string, href: string) {
 export function StaffShell({ staff, children }: { staff: StaffAccess; children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { locale, toggleLocale } = useLanguage();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -86,7 +83,6 @@ export function StaffShell({ staff, children }: { staff: StaffAccess; children: 
   }, [mobileOpen]);
 
   const pageTitle = pathname.startsWith("/app/prospects") ? "Enquiries" : "Overview";
-  const display = (en: string, bn: string) => locale === "bn" ? bn : en;
 
   async function signOut() {
     if (signingOut) return;
@@ -127,13 +123,13 @@ export function StaffShell({ staff, children }: { staff: StaffAccess; children: 
           if (!visible.length) return null;
           return <section key={group.title}>
             {!minimized && <p className="mb-1 px-3 text-[10px] font-bold uppercase tracking-[0.13em] text-slate-400">
-              {display(group.title, group.bn)}
+              {group.title}
             </p>}
             <div className="space-y-0.5">
               {visible.map((item) => {
                 const Icon = item.icon;
                 const current = item.href ? activePath(pathname, item.href) : false;
-                const label = display(item.label, item.bn);
+                const label = item.label;
                 const base = "flex min-h-10 items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-semibold transition-colors";
                 if (!item.href) {
                   return <div key={item.label} title={item.label + " · planned module"} aria-disabled="true"
@@ -198,18 +194,16 @@ export function StaffShell({ staff, children }: { staff: StaffAccess; children: 
             <Menu size={19}/>
           </button>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[10px] font-bold uppercase tracking-[0.17em] text-slate-500">Sohoj Academy · {display("Digital Campus", "ডিজিটাল ক্যাম্পাস")}</p>
-            <p className="truncate text-sm font-bold text-slate-900 sm:text-base">{display(pageTitle, pageTitle === "Overview" ? "সারসংক্ষেপ" : "আগ্রহী শিক্ষার্থী")}</p>
+            <p className="truncate text-[10px] font-bold uppercase tracking-[0.17em] text-slate-500">Sohoj Academy · Digital Campus</p>
+            <p className="truncate text-sm font-bold text-slate-900 sm:text-base">{pageTitle}</p>
           </div>
           <Link href="/app/prospects" title="Open enquiries" aria-label="Open enquiries"
             className="hidden size-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 sm:inline-flex">
             <Search size={18}/>
           </Link>
           <a href="/" title="Public website" className="hidden items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 sm:inline-flex">
-            <ExternalLink size={14}/> {display("Website", "ওয়েবসাইট")}
+            <ExternalLink size={14}/> Website
           </a>
-          <button type="button" onClick={toggleLocale} className="rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100"
-            aria-label="Switch language">{locale === "bn" ? "EN" : "বাংলা"}</button>
           <div title={staff.email} className="flex size-9 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-800">
             <UserRound size={18}/>
           </div>
