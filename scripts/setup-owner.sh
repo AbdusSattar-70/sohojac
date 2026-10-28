@@ -20,7 +20,7 @@ read -r -p "Owner email (an inbox you control): " owner_email
 read -r -p "Owner display name [Sohojac Owner]: " owner_name
 owner_name="${owner_name:-Sohojac Owner}"
 
-read -r -s -p "Choose a strong owner password (16–128 characters): " owner_password
+read -r -s -p "Choose a strong owner password (8–128 characters): " owner_password
 printf '\n'
 read -r -s -p "Confirm password: " owner_confirmation
 printf '\n'
@@ -29,8 +29,8 @@ if [[ "$owner_password" != "$owner_confirmation" ]]; then
   echo "Passwords do not match; nothing was changed." >&2
   exit 1
 fi
-if (( ${#owner_password} < 16 || ${#owner_password} > 128 )); then
-  echo "Password must be 16–128 characters; nothing was changed." >&2
+if (( ${#owner_password} < 8 || ${#owner_password} > 128 )); then
+  echo "Password must be 8–128 characters; nothing was changed." >&2
   exit 1
 fi
 unset owner_confirmation
