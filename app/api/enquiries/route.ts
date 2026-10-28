@@ -68,10 +68,21 @@ export async function POST(request: Request) {
       const verified = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({ secret: turnstileSecret, response: d.turnstileToken }),
+        signal: AbortSignal.timeout(8000),
+        body: new URLSearchParams({
+          secret: turnstileSecret,
+          response: d.turnstileToken,
+          ...(request.headers.get("CF-Connecting-IP") ? { remoteip: request.headers.get("CF-Connecting-IP")! } : {}),
+        }),
       });
-      const validation = await verified.json() as { success?: boolean; hostname?: string; action?: string };
-      if (!verified.ok || !validation.success || validation.action !== "public-enquiry") {
+      const validation = await verified.json() as {
+        success?: boolean; hostname?: string; action?: string;
+      };
+      // Tokens must be issued for the actual requested hostname and this form,
+      // not merely pass a challenge on a different website.
+      if (!verified.ok || !validation.success ||
+          validation.action !== "public-enquiry" ||
+          validation.hostname?.toLowerCase() !== hostname.toLowerCase()) {
         return answer({ error: "Security verification failed. Please refresh and retry." }, 403);
       }
     } catch { return answer({ error: "Could not verify the security challenge" }, 503); }
