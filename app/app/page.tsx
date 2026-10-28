@@ -1,17 +1,14 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { getStaffAccess, canManageProspects } from "@/lib/staff-access";
+import { getStaffAccessForPage, canManageProspects } from "@/lib/staff-access";
 
 export const dynamic = "force-dynamic";
 export const metadata = { robots: { index: false, follow: false }, title: "Staff workspace" };
 
 export default async function StaffHome() {
   const h = await headers();
-  const origin = new URL(
-    (h.get("x-forwarded-proto") ?? "https") + "://" + (h.get("host") ?? "invalid")
-  ).origin;
-  const staff = await getStaffAccess(origin + "/app", h);
+  const staff = await getStaffAccessForPage(h);
   if (!staff) redirect("/sign-in");
   return (
     <main className="mx-auto max-w-4xl space-y-8 px-5 py-12">
