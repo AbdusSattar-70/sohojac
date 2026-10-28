@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  BookOpenCheck, CalendarDays, ChevronLeft, ChevronRight, CircleHelp,
+  BookOpenCheck, CalendarDays, CircleHelp,
   ClipboardList, ExternalLink, GraduationCap, LayoutDashboard, LogOut,
   Menu, PanelLeftClose, PanelLeftOpen, Search, Settings2, ShieldCheck,
   UserRound, UsersRound, Wallet, X,
