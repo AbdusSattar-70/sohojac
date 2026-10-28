@@ -18,6 +18,9 @@ export default defineConfig({
       // Require this secret; the manual deployment workflow uploads it on
       // every release to avoid losing secrets with the beta cf deploy API.
       TURNSTILE_SECRET_KEY: bindings.secret(),
+      // Auth is intentionally unavailable until BETTER_AUTH_SECRET is configured.
+      BETTER_AUTH_SECRET: bindings.secret(),
+      BETTER_AUTH_URL: bindings.text(process.env.BETTER_AUTH_URL || "https://sohojac.com"),
       // The public site key comes from a GitHub Actions variable in production.
       // Locally, Cloudflare loads the gitignored .env when this binding is omitted.
       ...(process.env.TURNSTILE_SITE_KEY
