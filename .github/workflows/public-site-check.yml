@@ -796,8 +796,8 @@ jobs:
           test "$consent_form" = "200"
           grep -q "Student signature" /tmp/ci-admission-form.html
           grep -q "Guardian signature" /tmp/ci-admission-form.html
-          grep -q "Prepared by" /tmp/ci-admission-form.html
-          grep -q "Approved by" /tmp/ci-admission-form.html
+          grep -q "Verified programme" /tmp/ci-admission-form.html
+          grep -q "Academy seal" /tmp/ci-admission-form.html
 
 
           echo 'CI entering tuition collection and GL checks'
