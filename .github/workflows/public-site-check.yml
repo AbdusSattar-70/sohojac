@@ -339,6 +339,38 @@ jobs:
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM academy_fee_plans WHERE monthly_amount_paisa=260000 AND active=0),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type='academy_fee_plan')" > /tmp/ci-fees-checked.json
           node -e 'const n=require("/tmp/ci-fees-checked.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==2)process.exit(1);'
 
+
+          # Admission preparation and human approval must never create students or invoices.
+          anonymous_admission=$(curl -sS -o /tmp/ci-anon-admissions.json -w '%{http_code}' "http://localhost:4173/api/staff/admissions")
+          test "$anonymous_admission" = "401"
+          teacher_admission=$(curl -sS -o /tmp/ci-teacher-admissions.json -w '%{http_code}' -b /tmp/teacher-ci-cookies "http://localhost:4173/api/staff/admissions")
+          test "$teacher_admission" = "403"
+          admission_fee=$(curl -sS -o /tmp/ci-admission-fee.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/fee-plans" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"offeringId":"sa-ssc-science","title":"CI admissions standard","monthlyAmountPaisa":250000,"admissionAmountPaisa":150000,"reason":"Admission approval test rate"}')
+          test "$admission_fee" = "201"
+          admission_fee_id=$(node -e 'process.stdout.write(require("/tmp/ci-admission-fee.json").id)')
+          admission_batch=$(curl -sS -o /tmp/ci-admission-batch.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/batches" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"code":"CI-ADM-A","name":"CI Admissions Active","offeringId":"sa-ssc-science","yearId":"","capacity":12,"beginsOn":"","endsOn":"","reason":"Create active batch for admission test"}')
+          test "$admission_batch" = "201"
+          admission_batch_id=$(node -e 'process.stdout.write(require("/tmp/ci-admission-batch.json").id)')
+          activated_batch=$(curl -sS -o /tmp/ci-activated-batch.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/batches/$admission_batch_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"name":"CI Admissions Active","capacity":12,"beginsOn":"","endsOn":"","nextStatus":"ACTIVE","expectedVersion":1,"reason":"Activate CI admission batch"}')
+          test "$activated_batch" = "200"
+          invalid_admission=$(curl -sS -o /tmp/ci-invalid-admission.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/admissions" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"offeringId":"sa-ssc-science","studentName":"A","classGrade":10,"guardianName":"Guardian CI","guardianMobile":"1","schoolName":"","reason":"Invalid application input"}')
+          test "$invalid_admission" = "400"
+          app_create=$(curl -sS -o /tmp/ci-created-admission.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/admissions" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"offeringId":"sa-ssc-science","enquiryId":"","studentName":"Synthetic Admission Student","classGrade":10,"guardianName":"Synthetic Guardian","guardianMobile":"01700000003","schoolName":"CI School","reason":"Prepare application after identity check"}')
+          test "$app_create" = "201"
+          admission_id=$(node -e 'process.stdout.write(require("/tmp/ci-created-admission.json").id)')
+          app_review=$(curl -sS -o /tmp/ci-review-admission.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/admissions/$admission_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"action":"REVIEW","expectedVersion":1,"reason":"Send verified application for review"}')
+          test "$app_review" = "200"
+          premature_accept=$(curl -sS -o /tmp/ci-bad-accept.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/admissions/$admission_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"action":"ACCEPT","expectedVersion":2,"batchId":"not-a-real-batch","feePlanId":"invalid-fee","consentVerified":true,"reason":"Reject nonexistent fee and batch"}')
+          test "$premature_accept" = "409"
+          approved=$(curl -sS -o /tmp/ci-approved-admission.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/admissions/$admission_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"action\":\"ACCEPT\",\"expectedVersion\":2,\"batchId\":\"$admission_batch_id\",\"feePlanId\":\"$admission_fee_id\",\"consentVerified\":true,\"reason\":\"Physical forms verified by authorised owner\"}")
+          test "$approved" = "200"
+          duplicate_approval=$(curl -sS -o /tmp/ci-duplicate-approval.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/admissions/$admission_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"action\":\"ACCEPT\",\"expectedVersion\":2,\"batchId\":\"$admission_batch_id\",\"feePlanId\":\"$admission_fee_id\",\"consentVerified\":true,\"reason\":\"A second approval should always fail\"}")
+          test "$duplicate_approval" = "409"
+          admission_page=$(curl -sS -o /tmp/ci-admission-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/admissions")
+          test "$admission_page" = "200"
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM academy_admissions WHERE status='ACCEPTED' AND consent_verified=1),(SELECT COUNT(*) FROM academy_students),(SELECT COUNT(*) FROM finance_invoices),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type='admission')" > /tmp/ci-admission-approval.json
+          node -e 'const n=require("/tmp/ci-admission-approval.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==0||n?.[2]!==0||n?.[3]!==3)process.exit(1);'
+
           # Revoking a staff membership removes access even with a live
           # Better Auth session cookie; do not rely on client-side role state.
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \

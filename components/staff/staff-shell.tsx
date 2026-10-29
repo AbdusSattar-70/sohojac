@@ -35,7 +35,7 @@ const groups: Group[] = [
     title: "CRM & admissions",
     items: [
       { label: "Enquiries", href: "/app/prospects", icon: Search, restricted: true },
-      { label: "Admissions", icon: BookOpenCheck },
+      { label: "Admissions", href: "/app/admissions", icon: BookOpenCheck },
     ],
   },
   {
@@ -89,6 +89,7 @@ export function StaffShell({ staff, children }: { staff: StaffAccess; children: 
   const pageTitle = pathname.startsWith("/app/prospects") ? "Enquiries"
     : pathname.startsWith("/app/staff-access") ? "Staff & access"
     : pathname.startsWith("/app/academic-years") ? "Academic years"
+    : pathname.startsWith("/app/admissions") ? "Admissions"
     : pathname.startsWith("/app/fee-plans") ? "Fee plans"
     : pathname.startsWith("/app/batches") ? "Batches"
     : pathname.startsWith("/app/offerings") ? "Programme offerings"
