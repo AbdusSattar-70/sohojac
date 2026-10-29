@@ -10,6 +10,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { erpRouteRegistry, isAvailableErpRoute } from "@/modules/platform/navigation/erp-route-registry";
+import {operationalErpRoutes} from "@/modules/platform/navigation/erp-operational-routes";
 import { navigationLabel } from "@/modules/platform/navigation/workspace-navigation";
 import {
   searchErpRecords,
@@ -59,7 +60,7 @@ export function CentralSearch({ permissions }: { permissions: string[] }) {
       clearTimeout(timer);
     };
   }, [q, open]);
-  const pages = erpRouteRegistry
+  const pages = [...erpRouteRegistry,...operationalErpRoutes]
     .filter(
       (r) =>
         permissions.includes(r.permission) &&
