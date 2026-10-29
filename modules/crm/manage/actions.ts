@@ -19,9 +19,9 @@ function plan(v:ManageMasterRecordInput,id:string):Planned{
    // Existing D1 requires an internal code. The original ERP did not.
    return isEdit
     ? {table:tables[v.entity],sql:"UPDATE academic_years SET title=?,starts_on=?,ends_on=?,status=?,version=version+1 WHERE id=?",
-       args:[name,v.startsOn||null,v.endsOn||null,flag?"ACTIVE":"CLOSED",id]}
+       args:[name,v.startsOn||null,v.endsOn||null,flag?"ACTIVE":"DRAFT",id]}
     : {table:tables[v.entity],sql:"INSERT INTO academic_years (id,code,title,starts_on,ends_on,status) VALUES (?,?,?,?,?,?)",
-       args:[id,"YR-"+id.slice(0,8).toUpperCase(),name,v.startsOn||null,v.endsOn||null,flag?"ACTIVE":"CLOSED"]};
+       args:[id,"YR-"+id.slice(0,8).toUpperCase(),name,v.startsOn||null,v.endsOn||null,flag?"ACTIVE":"DRAFT"]};
   case "class":
    return isEdit
     ? {table:tables[v.entity],sql:"UPDATE academy_classes SET code=?,name=?,sort_order=?,is_active=? WHERE id=?",
@@ -79,6 +79,11 @@ export async function manageCrmMasterRecord(input:ManageMasterRecordInput):Promi
  try{
   const before=v.id?await env.DB.prepare("SELECT * FROM "+p.table+" WHERE id=?").bind(id).first():null;
   if(v.id&&!before)return {ok:false,error:"Record is unavailable. Refresh the register."};
+  // A finalized CLOSED year is irreversible in the pre-existing D1 contract.
+  // An ordinary inactive source record must remain DRAFT, never be closed.
+  if(v.entity==="academic_year" && v.id && before &&
+      (before as {status?:string}).status==="CLOSED")
+    return {ok:false,error:"This academic year was permanently closed; the closure cannot be reversed."};
   const result=await env.DB.batch([
    env.DB.prepare(p.sql).bind(...p.args),
    env.DB.prepare("INSERT INTO erp_audit_events (id,entity_type,entity_id,action,actor_id,reason,before_json,after_json) "+
