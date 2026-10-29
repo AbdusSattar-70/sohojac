@@ -54,6 +54,7 @@ export async function getAdmissionWorkspace() {
    "bill.issue_on AS bill_issue_on,bill.monthly_amount_paisa AS bill_monthly_paisa,",
    "bill.admission_amount_paisa AS bill_admission_paisa,",
    "inv.paid_paisa AS invoice_paid_paisa,",
+   "a.class_grade,d.student_mobile,d.student_email,d.present_landmark,d.permanent_address,d.permanent_same_as_present,",
    "d.student_name_bn,d.gender,d.date_of_birth,d.school_roll,d.guardian_address,",
    "d.alternate_mobile,d.guardian_relationship",
    "FROM academy_admissions a",
@@ -125,6 +126,7 @@ type CaseDetail={
  bill_id:string|null;bill_no:string|null;bill_amount_paisa:number|null;bill_monthly_paisa:number|null;
  bill_admission_paisa:number|null;bill_issue_on:string|null;
  invoice_no:string|null;invoice_due_on:string|null;invoice_paid_paisa:number|null;
+ class_grade:number|null;student_mobile:string|null;student_email:string|null;present_landmark:string|null;permanent_address:string|null;permanent_same_as_present:number|null;
  student_name_bn:string|null;gender:string|null;date_of_birth:string|null;school_roll:string|null;
  guardian_address:string|null;alternate_mobile:string|null;guardian_relationship:string|null;
 };
@@ -180,6 +182,13 @@ export async function getAdmissionCase(admissionId:string){
   className:a.class_name,yearName:a.academic_year_name,branchName:a.branch_name,
   studentNo:a.student_no,studentId:a.student_id,
   name:a.student_full_name,nameBn:a.student_name_bn,
+  additionalDetails:{
+   student_mobile:a.student_mobile??"",student_email:a.student_email??"",
+   student_grade:a.class_grade===null?"":String(a.class_grade),
+   present_landmark:a.present_landmark??"",permanent_address:a.permanent_address??"",
+   permanent_same_as_present:a.permanent_same_as_present?"true":"false"
+  },
+
   gender:a.gender,dateOfBirth:a.date_of_birth,schoolName:a.school_name,
   schoolRoll:a.school_roll,guardianAddress:a.guardian_address,
   alternateMobile:a.alternate_mobile,guardianRelationship:a.guardian_relationship,
