@@ -1,5 +1,6 @@
 import type { ErpContext, ErpNavGroup } from "@/types/erp";
 import { erpRouteRegistry, isAvailableErpRoute } from "./erp-route-registry";
+import {operationalErpRoutes} from "./erp-operational-routes";
 import {
   navigationGroups,
   navigationOrder,
@@ -11,7 +12,7 @@ export function getNavigation(context: ErpContext): ErpNavGroup[] {
   const home = workspaceHome(context);
   const manager = context.permissions.includes("workforce.manage");
   const seen = new Set<string>();
-  const routes = [...erpRouteRegistry].sort(
+  const routes = [...erpRouteRegistry,...operationalErpRoutes].sort(
     (a, b) =>
       (navigationOrder.includes(a.id)
         ? navigationOrder.indexOf(a.id)
