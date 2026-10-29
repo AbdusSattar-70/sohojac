@@ -88,6 +88,8 @@ export function Sidebar({children,className,collapsible:_,variant:__,...props}:R
    data-collapsible={collapsed?"icon":""}
    data-mobile={isMobile?"true":"false"}
    aria-label="Primary ERP navigation"
+   aria-hidden={isMobile&&!mobileOpen?"true":undefined}
+   inert={isMobile&&!mobileOpen}
    aria-modal={isMobile&&mobileOpen?"true":undefined}
    role={isMobile&&mobileOpen?"dialog":undefined}
    className={cn(
