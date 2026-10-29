@@ -252,16 +252,19 @@ jobs:
           # version-safe edits, irreversible closure and role protection.
           anonymous_years=$(curl -sS -o /tmp/ci-anon-years.json -w '%{http_code}' \
             "http://localhost:4173/api/staff/academic-years")
+          echo "ERP D1 workflow anonymous_years: $anonymous_years"
           test "$anonymous_years" = "401"
           year_one=$(curl -sS -o /tmp/ci-year-one.json -w '%{http_code}' \
             -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/academic-years" \
             -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
             --data '{"code":"CI2026","title":"Academic Year CI 2026","startsOn":"2026-01-01","endsOn":"2026-12-31"}')
+          echo "ERP D1 workflow year_one: $year_one"
           test "$year_one" = "201"
           year_two=$(curl -sS -o /tmp/ci-year-two.json -w '%{http_code}' \
             -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/academic-years" \
             -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
             --data '{"code":"CI2027","title":"Academic Year CI 2027","startsOn":"2027-01-01","endsOn":"2027-12-31"}')
+          echo "ERP D1 workflow year_two: $year_two"
           test "$year_two" = "201"
           year_one_id=$(node -e 'process.stdout.write(require("/tmp/ci-year-one.json").id)')
           year_two_id=$(node -e 'process.stdout.write(require("/tmp/ci-year-two.json").id)')
@@ -269,34 +272,41 @@ jobs:
             -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/academic-years/$year_one_id" \
             -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
             --data '{"title":"Academic Year CI 2026","startsOn":"2026-01-01","endsOn":"2026-12-31","nextStatus":"ACTIVE","expectedVersion":1,"reason":"Activate academic year in CI"}')
+          echo "ERP D1 workflow year_activate: $year_activate"
           test "$year_activate" = "200"
           second_active=$(curl -sS -o /tmp/ci-second-active.json -w '%{http_code}' \
             -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/academic-years/$year_two_id" \
             -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
             --data '{"title":"Academic Year CI 2027","startsOn":"2027-01-01","endsOn":"2027-12-31","nextStatus":"ACTIVE","expectedVersion":1,"reason":"Overlapping active years are supported"}')
+          echo "ERP D1 workflow second_active: $second_active"
           test "$second_active" = "200"
           year_closed=$(curl -sS -o /tmp/ci-year-closed.json -w '%{http_code}' \
             -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/academic-years/$year_one_id" \
             -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
             --data '{"title":"Academic Year CI 2026","startsOn":"2026-01-01","endsOn":"2026-12-31","nextStatus":"CLOSED","expectedVersion":2,"reason":"Close academic year in CI test"}')
+          echo "ERP D1 workflow year_closed: $year_closed"
           test "$year_closed" = "200"
           stale_year=$(curl -sS -o /tmp/ci-year-stale.json -w '%{http_code}' \
             -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/academic-years/$year_one_id" \
             -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
             --data '{"title":"Stale academic update","nextStatus":"ACTIVE","expectedVersion":2,"reason":"Stale version must fail"}')
+          echo "ERP D1 workflow stale_year: $stale_year"
           test "$stale_year" = "409"
           second_now_active=$(curl -sS -o /tmp/ci-second-activate.json -w '%{http_code}' \
             -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/academic-years/$year_two_id" \
             -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
             --data '{"title":"Academic Year CI 2027","startsOn":"2027-01-01","endsOn":"2027-12-31","nextStatus":"ACTIVE","expectedVersion":2,"reason":"Confirm active year remains active after closure"}')
+          echo "ERP D1 workflow second_now_active: $second_now_active"
           test "$second_now_active" = "200"
           teacher_year_read=$(curl -sS -o /tmp/ci-teacher-years.json -w '%{http_code}' \
             -b /tmp/teacher-ci-cookies "http://localhost:4173/api/staff/academic-years")
+          echo "ERP D1 workflow teacher_year_read: $teacher_year_read"
           test "$teacher_year_read" = "200"
           teacher_year_write=$(curl -sS -o /tmp/ci-teacher-year-denied.json -w '%{http_code}' \
             -b /tmp/teacher-ci-cookies -X POST "http://localhost:4173/api/staff/academic-years" \
             -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
             --data '{"code":"DENIED","title":"Teacher cannot create a year"}')
+          echo "ERP D1 workflow teacher_year_write: $teacher_year_write"
           test "$teacher_year_write" = "403"
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
             --sql "SELECT (SELECT COUNT(*) FROM academic_years WHERE status='ACTIVE'),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type='academic_year')" > /tmp/ci-academic-audit.json
