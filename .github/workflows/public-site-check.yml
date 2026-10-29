@@ -60,6 +60,8 @@ jobs:
         run: node scripts/verify-original-audit-trail.mjs
       - name: Verify original printable admission application and live D1 catalogue
         run: node scripts/verify-original-admission-print.mjs
+      - name: Verify source Admissions register, staff intake and prospect draft contracts
+        run: node scripts/verify-original-admissions-workspace.mjs
       - name: Reject destructive migrations before any deployment
         run: node scripts/check-d1-migrations.mjs
       - name: Apply public D1 migrations locally
@@ -671,6 +673,25 @@ jobs:
           test "$teacher_students" = "403"
           student_page=$(curl -sS -o /tmp/ci-student-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/students")
           test "$student_page" = "200"
+          # Original Admissions register and two source intake modes.
+          for source_route in /dashboard/admissions /dashboard/admissions?start=staff /dashboard/admissions?start=enquiry; do
+            source_admission_code=$(curl -sS -o /tmp/ci-original-admissions.html -w '%{http_code}' \
+              -b /tmp/staff-ci-cookies "http://localhost:4173$source_route")
+            echo "Original Admissions $source_route HTTP: $source_admission_code"
+            test "$source_admission_code" = "200"
+            grep -q 'Start an admission' /tmp/ci-original-admissions.html
+            grep -q 'Admission cases' /tmp/ci-original-admissions.html
+          done
+          original_staff_intake=$(curl -sS -o /tmp/ci-original-staff-intake.html -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/admissions?start=staff")
+          test "$original_staff_intake" = "200"
+          grep -q 'Enter a new applicant online' /tmp/ci-original-staff-intake.html
+          anon_source_admissions=$(curl -sS -o /dev/null -w '%{http_code}' \
+            "http://localhost:4173/dashboard/admissions")
+          test "$anon_source_admissions" != "200"
+          teacher_source_admissions=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -b /tmp/teacher-ci-cookies "http://localhost:4173/dashboard/admissions")
+          test "$teacher_source_admissions" != "200"
           # Original paper application: source A4 print preview, no mutations.
           original_blank_application=$(curl -sS -o /tmp/ci-source-admission-paper.html -w '%{http_code}' \
             -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/admissions/application-form")
