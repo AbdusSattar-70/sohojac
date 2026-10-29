@@ -42,11 +42,11 @@ export function ErpAccount({ context }: { context: ErpContext }) {
   return (
     <SidebarMenu>
       <SidebarMenuItem>
-        <div className="mb-1 flex items-center gap-3 rounded-lg px-2 py-2 group-data-[collapsible=icon]:justify-center">
+        <div className="mb-1 flex min-w-0 items-center gap-3 rounded-xl border border-sidebar-border/60 bg-sidebar-accent/30 px-2 py-2 group-data-[collapsible=icon]/sidebar:justify-center group-data-[collapsible=icon]/sidebar:px-0">
           <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
             <UserRound className="size-4" aria-hidden="true" />
           </div>
-          <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
+          <div className="min-w-0 flex-1 group-data-[collapsible=icon]/sidebar:hidden">
             <p className="truncate text-sm font-medium">
               {context.displayName}
             </p>
@@ -82,7 +82,7 @@ export function ErpAccount({ context }: { context: ErpContext }) {
         >
           <Link href="/dashboard/account" prefetch={false}>
             <UserRound aria-hidden="true" />
-            <span>{locale === "bn" ? "আমার অ্যাকাউন্ট" : "My account"}</span>
+            <span className="group-data-[collapsible=icon]/sidebar:sr-only">{locale === "bn" ? "আমার অ্যাকাউন্ট" : "My account"}</span>
           </Link>
         </SidebarMenuButton>
         <SidebarMenuButton
@@ -92,7 +92,7 @@ export function ErpAccount({ context }: { context: ErpContext }) {
           tooltip={locale === "bn" ? "সাইন আউট" : "Sign out"}
         >
           <LogOut aria-hidden="true" />
-          <span>
+          <span className="group-data-[collapsible=icon]/sidebar:sr-only">
             {signingOut
               ? locale === "bn"
                 ? "সাইন আউট হচ্ছে…"

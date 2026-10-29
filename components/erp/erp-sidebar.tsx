@@ -77,7 +77,7 @@ export function ErpSidebar({
 }) {
   const pathname = usePathname();
   const { locale } = useLanguage();
-  const { setOpenMobile } = useSidebar();
+  const { collapsed, setOpenMobile } = useSidebar();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const label = (id: string, title: string) =>
     navigationLabel(id, title, locale);
@@ -85,10 +85,10 @@ export function ErpSidebar({
 
   return (
     <Sidebar collapsible="icon" variant="sidebar">
-      <SidebarHeader className="border-b border-sidebar-border">
+      <SidebarHeader className="border-b border-sidebar-border/70 bg-sidebar/80">
         <Link
           href={workspaceHome(context)}
-          className="flex min-h-14 items-center gap-3 rounded-lg px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+          className="flex min-h-14 min-w-0 items-center gap-3 rounded-xl px-2 pr-10 md:pr-2 group-data-[collapsible=icon]/sidebar:justify-center group-data-[collapsible=icon]/sidebar:px-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
           aria-label={
             locale === "bn"
               ? "সহজ একাডেমির কর্মক্ষেত্র"
@@ -96,35 +96,27 @@ export function ErpSidebar({
           }
         >
           <Logo variant="mark" size={36} priority />
-          <div className="min-w-0 group-data-[collapsible=icon]:hidden">
+          <div className="min-w-0 group-data-[collapsible=icon]/sidebar:hidden">
             <p className="truncate text-sm font-bold">Sohoj Academy</p>
             <p className="truncate text-[11px] text-sidebar-foreground/60">
               {locale === "bn" ? "পরিচালনার কর্মক্ষেত্র" : "Academy workspace"}
             </p>
           </div>
         </Link>
-        <div className="flex items-center gap-2">
-          <SidebarTrigger
-            className="hidden cursor-pointer md:inline-flex"
-            aria-label={
-              locale === "bn"
-                ? "মেনু ছোট বা বড় করুন"
-                : "Collapse or expand navigation"
-            }
-          />
-          <span className="text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
-            {locale === "bn" ? "মেনু" : "Navigation"}
-          </span>
+        <div className="flex items-center gap-2 group-data-[collapsible=icon]/sidebar:justify-center">
+          <SidebarTrigger className="hidden cursor-pointer md:inline-flex" />
+          <span className="text-xs text-sidebar-foreground/55 group-data-[collapsible=icon]/sidebar:hidden">Navigation</span>
+          <span className="ml-auto hidden rounded-md border border-sidebar-border/50 px-2 py-0.5 text-[10px] font-semibold tracking-wider text-sidebar-foreground/60 md:inline-flex group-data-[collapsible=icon]/sidebar:hidden">ERP</span>
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="py-2">
+      <SidebarContent className="py-3">
         {visible.map((group, index) => {
           const activeGroup = group.items.some((i) => isActive(pathname, i.id));
-          const open = expanded[group.title] ?? (activeGroup || index === 0);
+          const open = expanded[group.title] ?? (activeGroup || index < 2);
           return (
             <SidebarGroup key={group.title}>
-              <SidebarGroupLabel asChild>
+              {!collapsed && <SidebarGroupLabel asChild>
                 <button
                   type="button"
                   className="cursor-pointer"
@@ -143,12 +135,10 @@ export function ErpSidebar({
                     }
                   />
                 </button>
-              </SidebarGroupLabel>
+              </SidebarGroupLabel>}
               <SidebarMenu
                 id={"nav-" + group.title.replaceAll(" ", "-")}
-                className={
-                  open ? "" : "hidden group-data-[collapsible=icon]:block"
-                }
+                className={open || collapsed ? "" : "hidden"}
               >
                 {group.items.map((item) => {
                   const Icon = icons[item.icon] ?? Activity;
@@ -177,7 +167,7 @@ export function ErpSidebar({
                           aria-current={active ? "page" : undefined}
                         >
                           <Icon aria-hidden="true" />
-                          <span>
+                          <span className="min-w-0 truncate group-data-[collapsible=icon]/sidebar:sr-only">
                             {item.id === "referrals" &&
                             !context.permissions.includes("staff.manage")
                               ? label("own-referrals", item.title)
@@ -195,7 +185,7 @@ export function ErpSidebar({
         {!visible.length && (
           <p
             role="status"
-            className="px-4 py-3 text-sm group-data-[collapsible=icon]:hidden"
+            className="px-4 py-3 text-sm group-data-[collapsible=icon]/sidebar:sr-only"
           >
             {locale === "bn"
               ? "মিল পাওয়া যায়নি। অন্য শব্দ দিয়ে খুঁজুন।"
@@ -204,7 +194,7 @@ export function ErpSidebar({
         )}
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border">
+      <SidebarFooter className="border-t border-sidebar-border/70 bg-sidebar/80">
         <ErpAccount context={context} />
       </SidebarFooter>
     </Sidebar>

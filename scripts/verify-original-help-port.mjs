@@ -18,6 +18,7 @@ for(const path of filenames){
  const sha=crypto.createHash("sha1").update("blob "+buffer.length+"\0").update(buffer).digest("hex");
  if(sha!==entry.blob)throw new Error("Original help file modified: "+path);
 }
-const shell=fs.readFileSync("components/erp/erp-shell.tsx","utf8");
-if(!shell.includes("'/dashboard/help'"))throw new Error("Original help navigation unavailable");
+const registry=fs.readFileSync("modules/platform/navigation/erp-route-registry.ts","utf8");
+const navigation=fs.readFileSync("modules/platform/navigation/erp-navigation.ts","utf8");
+if(!registry.includes('"/dashboard/help"')||!navigation.includes("isAvailableErpRoute"))throw new Error("Original help navigation unavailable");
 console.log("Original 3 help routes and 5 help module files are byte-for-byte preserved.");

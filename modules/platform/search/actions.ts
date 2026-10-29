@@ -12,6 +12,6 @@ export async function searchErpRecords(raw:string):Promise<{rows:SearchRecord[];
    "WHERE reference LIKE ? OR student_name LIKE ? ORDER BY submitted_at DESC LIMIT 12"
   ).bind("%"+q+"%","%"+q+"%").all<{id:string;reference:string;student_name:string;class_name:string}>();
   return {rows:(found.results??[]).map(row=>({id:row.id,title:row.student_name,
-   detail:row.reference+" · "+row.class_name,href:"/app/prospects"})),failed:false};
+   detail:row.reference+" · "+row.class_name,href:"/dashboard/crm/prospects"})),failed:false};
  }catch{return {rows:[],failed:true};}
 }

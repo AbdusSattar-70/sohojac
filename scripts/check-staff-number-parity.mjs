@@ -12,7 +12,7 @@ for(const term of [
 if(/(?:MAX|COUNT)\s*\(\s*staff_seq\s*\)\s*\+\s*1/i.test(sql))
  throw new Error("Staff numbers must not be allocated from MAX+1");
 for(const p of ["lib/staff-access.ts","modules/platform/auth/erp-context.ts",
- "components/staff/staff-shell.tsx","app/dashboard/account/page.tsx",
+ "components/erp/erp-account.tsx","app/dashboard/account/page.tsx",
  "app/api/staff/directory/route.ts"]){
  if(!file(p).includes("staffNo")&&!file(p).includes("staff_no"))
   throw new Error("Staff ID not wired into "+p);
