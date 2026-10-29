@@ -26,7 +26,7 @@ for (const file of files) {
   // uniqueness index does not delete records or make user data public.
   // Keep every other DROP forbidden; do not edit already applied migrations.
   const reviewed = file === "0022_multiple_active_academic_years.sql"
-    ? sql.replace(/\\bDROP\\s+INDEX\\s+IF\\s+EXISTS\\s+idx_one_active_academic_year\\s*;/gi, "")
+    ? sql.replace(/\bDROP\s+INDEX\s+IF\s+EXISTS\s+idx_one_active_academic_year\s*;/gi, "")
     : sql;
   for (const rule of forbidden) {
     if (rule.test(reviewed)) throw new Error(`Migration ${file} requires manual security review: disallowed SQL statement`);
