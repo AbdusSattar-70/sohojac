@@ -144,7 +144,7 @@ export async function getAdmissionCase(admissionId:string){
    "(SELECT COUNT(*) FROM academy_enrollments en WHERE en.batch_id=b.id AND en.status='ACTIVE') AS batch_occupied,",
    "a.offering_id,o.name AS offering_name,o.class_name,o.academic_year_name,o.branch_name,",
    "a.student_id,s.student_no,a.student_full_name,a.guardian_full_name,a.guardian_mobile,",
-   "a.school_name,a.fee_plan_id,bill.id AS bill_id,bill.reference AS bill_no,",
+   "a.school_name,a.class_grade,a.fee_plan_id,bill.id AS bill_id,bill.reference AS bill_no,",
    "bill.amount_paisa AS bill_amount_paisa,bill.monthly_amount_paisa AS bill_monthly_paisa,",
    "bill.admission_amount_paisa AS bill_admission_paisa,bill.issue_on AS bill_issue_on,",
    "inv.invoice_no,inv.due_on AS invoice_due_on,inv.paid_paisa AS invoice_paid_paisa,",

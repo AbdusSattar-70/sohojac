@@ -48,7 +48,7 @@ export async function getAdmissionReviewData(admissionId:string){
  let configured:number[]=[];
  try{const parsed=JSON.parse(policy?.allowed_discount_percentages_json??"[]");if(Array.isArray(parsed))configured=parsed.filter((x):x is number=>Number.isInteger(x)&&x>0&&x<=30);}catch{}
  const allowed=[0,...new Set(configured)].sort((a,b)=>a-b);
- const signed=Boolean(consent&&caseRow.consent_verified===1&&consent.identity_revision===caseRow.version);
+ const signed=Boolean(consent&&caseRow.consent_verified===1&&(consent.identity_revision===caseRow.version||(["BILLED","ENROLLED"].includes(caseRow.status)&&consent.identity_revision<caseRow.version)));
  const charges=(extras.results??[]).map(x=>({id:x.id,name:x.name,chargeType:x.charge_type,amount:x.amount_paisa/100,is_active:x.is_active===1}));
  const tuition=plan?.monthly_amount_paisa??0,admission=plan?.admission_amount_paisa??0;
  const additional=(extras.results??[]).filter(x=>x.is_active===1).reduce((sum,x)=>sum+x.amount_paisa,0);
@@ -157,13 +157,15 @@ export async function saveExtraCharge(input:unknown):Promise<Outcome>{
  if(!p.success)return {ok:false,message:"Choose the charge and enter a positive amount."};
  const user=await actor();if(!user)return {ok:false,message:"Admission permission required."};
  const v=p.data,amount=Math.round(v.amount*100),id=crypto.randomUUID();
+ const duplicate=await env.DB.prepare("SELECT id FROM academy_admission_extra_charges WHERE request_id=? AND admission_id=?").bind(v.request_id,v.admission_id).first<{id:string}>();
+ if(duplicate)return {ok:true,message:"Previously saved charge confirmed; not duplicated."};
  if(!Number.isSafeInteger(amount)||amount<1)return {ok:false,message:"Invalid amount."};
  try{
   const result=await env.DB.batch([
    env.DB.prepare([
-    "INSERT INTO academy_admission_extra_charges(id,admission_id,charge_type,name,amount_paisa,recorded_by)",
-    "SELECT ?,?,?,?,?,? FROM academy_admissions WHERE id=? AND status='REVIEW' RETURNING id"
-   ].join(" ")).bind(id,v.admission_id,v.charge_type,v.name,amount,user,v.admission_id),
+    "INSERT INTO academy_admission_extra_charges(id,request_id,admission_id,charge_type,name,amount_paisa,recorded_by)",
+    "SELECT ?,?,?,?,?,?,? FROM academy_admissions WHERE id=? AND status='REVIEW' RETURNING id"
+   ].join(" ")).bind(id,v.request_id,v.admission_id,v.charge_type,v.name,amount,user,v.admission_id),
    env.DB.prepare([
     "INSERT INTO erp_audit_events(id,entity_type,entity_id,action,actor_id,reason,after_json)",
     "VALUES(?,'admission',(SELECT admission_id FROM academy_admission_extra_charges WHERE id=?),",
@@ -252,9 +254,10 @@ export async function finalizeAdmission(input:unknown):Promise<Outcome>{
     "WHERE a.id=? AND a.status='REVIEW' AND a.version=? AND a.student_id IS NULL AND a.consent_verified=1",
     "AND b.status='ACTIVE' AND b.offering_id=a.offering_id",
     "AND b.capacity>(SELECT COUNT(*) FROM academy_enrollments en WHERE en.batch_id=b.id AND en.status='ACTIVE')",
-    "AND EXISTS(SELECT 1 FROM academy_fee_plans f WHERE f.id=? AND f.offering_id=a.offering_id AND f.active=1)",
+    "AND EXISTS(SELECT 1 FROM academy_fee_plans f WHERE f.id=? AND f.offering_id=a.offering_id AND f.active=1",
+    "AND f.monthly_amount_paisa=? AND f.admission_amount_paisa=?)",
     "RETURNING id"
-   ].join(" ")).bind(studentId,studentNo,v.admissionId,old.version,data.plan.id),
+   ].join(" ")).bind(studentId,studentNo,v.admissionId,old.version,data.plan.id,tuition,admission),
    env.DB.prepare([
     "UPDATE academy_admissions SET student_id=?,fee_plan_id=?,status='BILLED',",
     "approved_by=?,verified_by=COALESCE(verified_by,?),version=version+1,",

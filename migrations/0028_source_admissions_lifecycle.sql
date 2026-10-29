@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS academy_admission_discounts (
 );
 CREATE TABLE IF NOT EXISTS academy_admission_extra_charges (
  id TEXT PRIMARY KEY NOT NULL,
+ request_id TEXT NOT NULL UNIQUE,
  admission_id TEXT NOT NULL REFERENCES academy_admissions(id) ON DELETE RESTRICT,
  charge_type TEXT NOT NULL CHECK(charge_type IN ('ADMISSION','EXAM','MATERIAL','OTHER')),
  name TEXT NOT NULL,
