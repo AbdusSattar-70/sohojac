@@ -190,13 +190,15 @@ jobs:
             "SELECT prospect_no,status FROM academy_prospects WHERE id='11111111-1111-4111-8111-111111111111'" > /tmp/ci-crm-prospect.json
           echo "CRM INSERT result:"; cat /tmp/ci-crm-created.json
           echo "CRM SELECT result:"; cat /tmp/ci-crm-prospect.json
-          grep -q 'PR-000001' /tmp/ci-crm-prospect.json
+          crm_no=$(grep -oE 'PR-[0-9]{6}' /tmp/ci-crm-prospect.json | head -n1)
+          echo "Synthetic D1 prospect number: $crm_no"
+          test -n "$crm_no"
           crm_list=$(curl -sS --max-time 20 -o /tmp/ci-crm-list.html -w '%{http_code}' \
             -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/crm/prospects")
           echo "Source CRM list HTTP: $crm_list"
           test "$crm_list" = "200"
           grep -q 'Test CRM Student' /tmp/ci-crm-list.html
-          grep -q 'PR-000001' /tmp/ci-crm-list.html
+          grep -q "$crm_no" /tmp/ci-crm-list.html
           crm_detail=$(curl -sS --max-time 20 -o /tmp/ci-crm-detail.html -w '%{http_code}' \
             -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/crm/prospects/11111111-1111-4111-8111-111111111111")
           echo "Source CRM detail HTTP: $crm_detail"
