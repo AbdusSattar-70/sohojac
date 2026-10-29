@@ -55,6 +55,7 @@ const groups: Group[] = [
       { label: "Fee plans", href: "/app/fee-plans", icon: Wallet },
       { label: "Collections", href: "/app/collections", icon: Wallet, restricted: true },
       { label: "Expenses", href: "/app/expenses", icon: Wallet, ownerAdminOnly: true },
+      { label: "Management reports", href: "/app/reports", icon: LayoutDashboard, ownerAdminOnly: true },
     ],
   },
   {
@@ -92,6 +93,7 @@ export function StaffShell({ staff, children }: { staff: StaffAccess; children: 
   const pageTitle = pathname.startsWith("/app/prospects") ? "Enquiries"
     : pathname.startsWith("/app/staff-access") ? "Staff & access"
     : pathname.startsWith("/app/academic-years") ? "Academic years"
+    : pathname.startsWith("/app/reports") ? "Management reports"
     : pathname.startsWith("/app/expenses") ? "Expenses"
     : pathname.startsWith("/app/audit") ? "Audit history"
     : pathname.startsWith("/app/attendance") ? "Attendance"

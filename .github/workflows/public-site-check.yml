@@ -516,6 +516,23 @@ jobs:
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM finance_operating_expenses WHERE amount_paisa=50000 AND category='RENT'),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type='finance_expense'),(SELECT COUNT(*) FROM finance_journals WHERE reference LIKE 'EXP:%' AND status='POSTED'),(SELECT SUM(debit_paisa) FROM finance_journal_lines),(SELECT SUM(credit_paisa) FROM finance_journal_lines)" > /tmp/ci-expense-gl.json
           node -e 'const r=require("/tmp/ci-expense-gl.json")[0]?.results?.rows?.[0];if(r?.[0]!==1||r?.[1]!==1||r?.[2]!==1||r?.[3]!==850000||r?.[4]!==850000)process.exit(1);'
 
+          echo 'CI entering management reporting checks'
+
+          # Financial management reporting separates cash from accrued income.
+          anon_report=$(curl -sS -o /tmp/ci-anon-report.json -w '%{http_code}' "http://localhost:4173/api/staff/reports")
+          test "$anon_report" = "401"
+          teacher_report=$(curl -sS -o /tmp/ci-teacher-report.json -w '%{http_code}' -b /tmp/teacher-ci-cookies "http://localhost:4173/api/staff/reports")
+          test "$teacher_report" = "403"
+          invalid_month=$(curl -sS -o /tmp/ci-invalid-report.json -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/api/staff/reports?month=2026-99")
+          test "$invalid_month" = "400"
+          report_month=$(date -u +%Y-%m)
+          report_api=$(curl -sS -o /tmp/ci-report.json -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/api/staff/reports?month=$report_month")
+          echo "Management report HTTP: $report_api"
+          test "$report_api" = "200"
+          node -e 'const r=require("/tmp/ci-report.json");if(r.billedPaisa!==400000||r.collectedPaisa!==400000||r.operatingExpensePaisa!==50000||r.cashMovementPaisa!==350000||r.outstandingPaisa!==0||r.activeStudents!==1||r.ledgerBalanced!==true||r.ledgerDebitsPaisa!==850000||r.ledgerCreditsPaisa!==850000)process.exit(1);'
+          report_page=$(curl -sS -o /tmp/ci-report-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/reports")
+          test "$report_page" = "200"
+
           # Revoking a staff membership removes access even with a live
           # Better Auth session cookie; do not rely on client-side role state.
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
