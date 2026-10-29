@@ -7,7 +7,7 @@ import { authClient } from "@/lib/auth-client";
 import Logo from "@/components/shared/logo";
 
 export default function ResetPasswordPage() {
-  return <Suspense fallback={<main className="flex min-h-screen items-center justify-center bg-slate-50 text-sm text-slate-600">Preparing secure password reset…</main>}>
+  return <Suspense fallback={<main className="staff-auth-dark flex min-h-screen items-center justify-center bg-slate-50 text-sm text-slate-600">Preparing secure password reset…</main>}>
     <ResetPasswordForm />
   </Suspense>;
 }

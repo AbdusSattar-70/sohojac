@@ -20,7 +20,7 @@ export default async function StaffAccessPage() {
   const isLocal = ["localhost","127.0.0.1"].includes(configured.hostname);
   const siteKey = bindings.TURNSTILE_SITE_KEY ?? "";
   const ready = isLocal || Boolean(siteKey && bindings.TURNSTILE_SECRET_KEY);
-  return <main lang="en" className="flex min-h-screen justify-center bg-slate-50 px-4 py-12 text-slate-900">
+  return <main lang="en" className="staff-auth-dark flex min-h-screen justify-center bg-slate-50 px-4 py-12 text-slate-900">
     <div className="w-full max-w-2xl space-y-7">
       <Link href="/sign-in" className="inline-block text-sm font-bold text-blue-700 hover:underline">← Return to sign in</Link>
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">

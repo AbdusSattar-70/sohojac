@@ -49,7 +49,7 @@ export default function OwnerSetupPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 px-4 py-12 text-white">
+    <main className="staff-auth-dark min-h-screen bg-slate-950 px-4 py-12 text-white">
       <div className="mx-auto w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-lg sm:p-8">
         <p className="text-xs font-semibold tracking-widest text-blue-300">SOHOJ ACADEMY · FIRST OWNER</p>
         <h1 className="mt-3 text-2xl font-bold">Set owner password</h1>

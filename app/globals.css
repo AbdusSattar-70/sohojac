@@ -163,3 +163,146 @@
       border-color 160ms ease;
   }
 }
+
+
+/* Dark-only Digital Campus (scoped; the bilingual public site is untouched).
+ * This unlayered bridge maps legacy light utility classes to the staff palette. */
+:where(.erp-dark, .staff-auth-dark) {
+  color-scheme: dark;
+  --background: #0a1020;
+  --foreground: #f1f5f9;
+  --card: #151f31;
+  --card-foreground: #f1f5f9;
+  --input: #475569;
+  --border: #334155;
+  --muted: #223149;
+  --muted-foreground: #94a3b8;
+  background-color: #0a1020 !important;
+  color: #f1f5f9 !important;
+}
+
+:where(.erp-dark, .staff-auth-dark) [class~="bg-white"],
+:where(.erp-dark, .staff-auth-dark) [class~="bg-white/95"],
+:where(.erp-dark, .staff-auth-dark) [class~="bg-slate-50"],
+:where(.erp-dark, .staff-auth-dark) [class~="bg-slate-50/70"],
+:where(.erp-dark, .staff-auth-dark) [class~="bg-slate-50/90"] {
+  background-color: #151f31 !important;
+}
+
+:where(.erp-dark, .staff-auth-dark) [class~="bg-slate-100"] {
+  background-color: #223149 !important;
+}
+
+:where(.erp-dark, .staff-auth-dark) [class~="bg-blue-50"],
+:where(.erp-dark, .staff-auth-dark) [class~="bg-blue-50/70"],
+:where(.erp-dark, .staff-auth-dark) [class~="bg-blue-100"],
+:where(.erp-dark, .staff-auth-dark) [class~="bg-blue-200"] {
+  background-color: #153151 !important;
+}
+
+:where(.erp-dark, .staff-auth-dark) [class~="bg-amber-50"],
+:where(.erp-dark, .staff-auth-dark) [class~="bg-amber-100"] {
+  background-color: #433219 !important;
+}
+
+:where(.erp-dark, .staff-auth-dark) [class~="bg-red-50"],
+:where(.erp-dark, .staff-auth-dark) [class~="bg-red-100"] {
+  background-color: #481f2a !important;
+}
+
+:where(.erp-dark, .staff-auth-dark) [class~="bg-green-50"],
+:where(.erp-dark, .staff-auth-dark) [class~="bg-emerald-50"] {
+  background-color: #143c30 !important;
+}
+
+:where(.erp-dark, .staff-auth-dark) [class~="text-slate-950"],
+:where(.erp-dark, .staff-auth-dark) [class~="text-slate-900"],
+:where(.erp-dark, .staff-auth-dark) [class~="text-slate-800"] {
+  color: #f1f5f9 !important;
+}
+
+:where(.erp-dark, .staff-auth-dark) [class~="text-slate-700"],
+:where(.erp-dark, .staff-auth-dark) [class~="text-slate-600"] {
+  color: #cbd5e1 !important;
+}
+
+:where(.erp-dark, .staff-auth-dark) [class~="text-slate-500"],
+:where(.erp-dark, .staff-auth-dark) [class~="text-slate-400"] {
+  color: #94a3b8 !important;
+}
+
+:where(.erp-dark, .staff-auth-dark) [class~="text-blue-950"],
+:where(.erp-dark, .staff-auth-dark) [class~="text-blue-900"],
+:where(.erp-dark, .staff-auth-dark) [class~="text-blue-800"],
+:where(.erp-dark, .staff-auth-dark) [class~="text-blue-700"],
+:where(.erp-dark, .staff-auth-dark) [class~="text-blue-600"] {
+  color: #93c5fd !important;
+}
+
+:where(.erp-dark, .staff-auth-dark) [class~="text-amber-900"],
+:where(.erp-dark, .staff-auth-dark) [class~="text-amber-800"],
+:where(.erp-dark, .staff-auth-dark) [class~="text-amber-700"] {
+  color: #fcd34d !important;
+}
+
+:where(.erp-dark, .staff-auth-dark) [class~="text-red-900"],
+:where(.erp-dark, .staff-auth-dark) [class~="text-red-800"],
+:where(.erp-dark, .staff-auth-dark) [class~="text-red-700"] {
+  color: #fca5a5 !important;
+}
+
+:where(.erp-dark, .staff-auth-dark) [class~="text-green-800"],
+:where(.erp-dark, .staff-auth-dark) [class~="text-green-700"],
+:where(.erp-dark, .staff-auth-dark) [class~="text-emerald-800"],
+:where(.erp-dark, .staff-auth-dark) [class~="text-emerald-700"] {
+  color: #86efac !important;
+}
+
+:where(.erp-dark, .staff-auth-dark) [class~="border-slate-100"],
+:where(.erp-dark, .staff-auth-dark) [class~="border-slate-200"],
+:where(.erp-dark, .staff-auth-dark) [class~="border-slate-300"],
+:where(.erp-dark, .staff-auth-dark) [class~="border-slate-400"] {
+  border-color: #334155 !important;
+}
+
+:where(.erp-dark, .staff-auth-dark) [class~="border-blue-100"],
+:where(.erp-dark, .staff-auth-dark) [class~="border-blue-200"],
+:where(.erp-dark, .staff-auth-dark) [class~="border-blue-300"],
+:where(.erp-dark, .staff-auth-dark) [class~="border-amber-200"],
+:where(.erp-dark, .staff-auth-dark) [class~="border-red-200"],
+:where(.erp-dark, .staff-auth-dark) [class~="border-green-200"] {
+  border-color: #365277 !important;
+}
+
+:where(.erp-dark, .staff-auth-dark) [class~="hover:bg-slate-100"]:hover,
+:where(.erp-dark, .staff-auth-dark) [class~="hover:bg-white"]:hover {
+  background-color: #293a52 !important;
+}
+:where(.erp-dark, .staff-auth-dark) [class~="hover:text-slate-900"]:hover,
+:where(.erp-dark, .staff-auth-dark) [class~="hover:text-slate-950"]:hover {
+  color: #fff !important;
+}
+:where(.erp-dark, .staff-auth-dark) :is(input,select,textarea) {
+  color-scheme: dark;
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+  border-color: #475569 !important;
+}
+:where(.erp-dark, .staff-auth-dark) :is(input,textarea)::placeholder { color: #94a3b8; }
+:where(.erp-dark, .staff-auth-dark) :is(input,select,textarea):focus-visible,
+:where(.erp-dark, .staff-auth-dark) :is(button,a):focus-visible { outline-color: #60a5fa !important; }
+/* The application can always print an admission/billing document on white A4. */
+.erp-dark .erp-paper, .erp-dark .erp-paper[class~="bg-white"] {
+  color-scheme: light;
+  background-color: #fff !important;
+  color: #0f172a !important;
+}
+.erp-dark .erp-paper [class~="text-slate-900"],
+.erp-dark .erp-paper [class~="text-slate-950"] {color:#0f172a!important;}
+.erp-dark .erp-paper [class~="text-slate-600"],
+.erp-dark .erp-paper [class~="text-slate-500"] {color:#475569!important;}
+.erp-dark .erp-paper [class~="border-slate-200"],
+.erp-dark .erp-paper [class~="border-slate-300"] {border-color:#cbd5e1!important;}
+@media print {
+  .erp-dark .erp-paper {background-color:#fff!important;color:#0f172a!important;}
+}

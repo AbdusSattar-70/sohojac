@@ -6,7 +6,7 @@ import Link from "next/link";
 import Logo from "@/components/shared/logo";
 
 export default function AcceptInvitationPage(){
-  return <Suspense fallback={<main className="p-8 text-sm">Preparing your invitation…</main>}>
+  return <Suspense fallback={<main className="staff-auth-dark p-8 text-sm">Preparing your invitation…</main>}>
     <ActivateAccount/>
   </Suspense>;
 }
