@@ -40,6 +40,8 @@ jobs:
         run: node scripts/check-legacy-erp-d1-parity.mjs
       - name: Verify immutable staff number contract
         run: node scripts/check-staff-number-parity.mjs
+      - name: Report original ERP route and module coverage (not a parity pass)
+        run: node scripts/audit-source-first-erp.mjs
       - name: Reject destructive migrations before any deployment
         run: node scripts/check-d1-migrations.mjs
       - name: Apply public D1 migrations locally
