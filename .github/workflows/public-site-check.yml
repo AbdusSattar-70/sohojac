@@ -259,6 +259,15 @@ jobs:
             -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/staff")
           echo "original ERP staff register HTTP: $original_staff_status"
           test "$original_staff_status" = "200"
+          node - <<'NODE'
+          const fs=require("fs");
+          const s=fs.readFileSync("/tmp/ci-original-staff.html","utf8");
+          for(const term of ["SA-STF-000001","Staff ID / name","Staff access requests","Edit details","Mark inactive","NEXT_ERROR","Internal Server Error"]){
+            console.log("Staff preview contains "+term+": "+s.includes(term));
+          }
+          const i=s.indexOf("Staff");
+          console.log("Staff preview HTML excerpt: "+s.slice(Math.max(i-60,0),i+450).replace(/[\r\n]/g," "));
+          NODE
           grep -q 'SA-STF-000001' /tmp/ci-original-staff.html
           # Original source Staff Register and access queue appear together.
           grep -q 'Staff ID / name' /tmp/ci-original-staff.html
