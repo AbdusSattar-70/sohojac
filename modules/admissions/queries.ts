@@ -159,10 +159,10 @@ export async function getAdmissionCase(admissionId:string){
    "WHERE a.id=?"
   ].join(" ")).bind(admissionId).first<CaseDetail>(),
   env.DB.prepare([
-   "SELECT p.receipt_no,al.amount_paisa,p.received_at,p.payment_method",
+   "SELECT p.receipt_no,SUM(al.amount_paisa) AS amount_paisa,p.received_at,p.payment_method",
    "FROM finance_payments p JOIN finance_allocations al ON al.payment_id=p.id",
    "JOIN finance_invoices inv ON inv.id=al.invoice_id",
-   "WHERE inv.admission_id=? ORDER BY p.received_at,p.id LIMIT 100"
+   "WHERE inv.admission_id=? GROUP BY p.id ORDER BY p.received_at,p.id LIMIT 100"
   ].join(" ")).bind(admissionId).all<Receipt>()
  ]);
  if(!caseRow)notFound();
