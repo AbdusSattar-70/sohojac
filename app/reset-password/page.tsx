@@ -1,12 +1,18 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { Suspense, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import Logo from "@/components/shared/logo";
 
 export default function ResetPasswordPage() {
+  return <Suspense fallback={<main className="flex min-h-screen items-center justify-center bg-slate-50 text-sm text-slate-600">Preparing secure password reset…</main>}>
+    <ResetPasswordForm />
+  </Suspense>;
+}
+
+function ResetPasswordForm() {
   const params = useSearchParams();
   const token = params.get("token");
   const invalid = params.has("error") || !token;
