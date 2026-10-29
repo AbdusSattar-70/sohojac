@@ -122,7 +122,7 @@ export function AdmissionsRegister(){
               <p className="text-xs text-slate-500">Guardian: {row.guardian_mobile}</p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
-              <Link className="text-xs font-bold text-blue-700 underline" href={"/app/admissions/"+row.id+"/print"}>Print A4 admission form</Link>
+              <Link className="text-xs font-bold text-blue-700 underline" href={"/dashboard/admissions/"+row.id+"/print"}>Print A4 admission form</Link>
               <span className="rounded-lg bg-blue-50 px-3 py-1 text-xs font-extrabold text-blue-800">{row.status}</span>
             </div>
           </div>
@@ -160,10 +160,10 @@ export function AdmissionsRegister(){
           {row.status==="BILLED"&&<div className="mt-3 space-y-2 text-sm">
             <p className="font-semibold text-blue-800">Initial bill issued. Student enrollment remains pending.</p>
             <p className="text-slate-600">Bill {row.bill_reference} · Total due ৳{((row.bill_total_paisa||0)/100).toFixed(2)}</p>
-            <Link className="text-xs font-bold text-blue-700 underline" href={"/app/admissions/"+row.id+"/bill"}>View printable bill</Link>
+            <Link className="text-xs font-bold text-blue-700 underline" href={"/dashboard/admissions/"+row.id+"/bill"}>View printable bill</Link>
             <AdmissionEnrollment id={row.id} version={row.version} onSuccess={refresh}/>
           </div>}
-          {row.status==="ENROLLED"&&<p className="mt-3 text-sm font-semibold text-green-800">Student enrollment completed. <Link href="/app/students" className="underline">Open student register</Link>.</p>}
+          {row.status==="ENROLLED"&&<p className="mt-3 text-sm font-semibold text-green-800">Student enrollment completed. <Link href="/dashboard/students" className="underline">Open student register</Link>.</p>}
           {row.status==="REJECTED"&&<p className="mt-3 text-sm text-slate-600">Rejected: {row.review_note}</p>}
         </article>;
       })}
