@@ -21,7 +21,12 @@ export default defineConfig({
       // Auth is intentionally unavailable until BETTER_AUTH_SECRET is configured.
       BETTER_AUTH_SECRET: bindings.secret(),
       // Staff-only transactional recovery and invitation email delivery.
-      RESEND_API_KEY: bindings.secret(),
+      // Staff transactional email is an optional integration.
+      // It stays unavailable until a verified sender and secret are configured.
+      // Never declare a mandatory secret when mail delivery is not activated.
+      ...(process.env.STAFF_EMAIL_FROM
+        ? { RESEND_API_KEY: bindings.secret() }
+        : {}),
       STAFF_EMAIL_FROM: bindings.text(process.env.STAFF_EMAIL_FROM || ""),
       BETTER_AUTH_URL: bindings.text(process.env.BETTER_AUTH_URL || "https://sohojac.com"),
       // The public site key comes from a GitHub Actions variable in production.
