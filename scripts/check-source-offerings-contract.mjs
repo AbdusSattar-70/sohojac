@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 const schema=fs.readFileSync("modules/offerings/schema.ts");
 const blob=crypto.createHash("sha1").update("blob "+schema.length+"\0").update(schema).digest("hex");
 if(blob!=="da68ef71bc0b0a9574710b824c591ba2bcc04375")throw new Error("Source offerings validation/schema changed unexpectedly");
-const sql=fs.readFileSync("migrations/0024_offering_relationships.sql","utf8");
+const sql=fs.readFileSync("migrations/0025_offering_relationships.sql","utf8");
 for(const field of ["branch_id","academic_year_id","class_id","program_id","group_id","operation_kind"]){
  if(!sql.includes("ADD COLUMN "+field+" "))throw new Error("Missing source relationship "+field);
 }
