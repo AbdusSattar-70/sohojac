@@ -33,8 +33,9 @@ for(const term of [
  "erp_audit_events","env.DB.batch","WHERE changes()=1"
 ])if(!actions.includes(term))throw Error("CRM followup missing "+term);
 const legacy=read("app/api/staff/prospects/[id]/route.ts");
-if(!legacy.includes('["NEW","CONTACTED","LEGACY_CLOSED"]') ||
-   !legacy.includes("original CRM workspace"))
+if(!legacy.includes('["NEW","CONTACTED"]') ||
+   !legacy.includes("original CRM workspace") ||
+   !legacy.includes("AND EXISTS (SELECT 1 FROM academy_prospects"))
  throw new Error("Legacy /app must not overwrite an advanced source prospect status");
 const assignment=read("modules/crm/assignment-actions.ts");
 if(!assignment.includes('permissions.includes("crm.prospects.manage")')||
