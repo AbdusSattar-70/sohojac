@@ -1137,7 +1137,7 @@ jobs:
              JOIN finance_invoices i ON i.admission_id=a.id WHERE a.id='$source_parity_id'" \
             > /tmp/ci-finalized-admission.json
           node -e 'const r=require("/tmp/ci-finalized-admission.json")[0]?.results?.rows?.[0];
-            if(!r||r[0]!=="BILLED"||!String(r[1]).startsWith("SA-STD-")||r[2]!==r[3]+r[2]||r[4]!==1){
+            if(!r||r[0]!=="BILLED"||!/^SA-[0-9]{6,}$/.test(String(r[1]))||r[2]!==r[3]+r[2]||r[4]!==1){
              console.error("Finalized D1 admission incorrect",r);process.exit(1);
             }'
           source_due=$(node -e 'const r=require("/tmp/ci-finalized-admission.json")[0].results.rows[0];process.stdout.write(String(r[2]/100))')
