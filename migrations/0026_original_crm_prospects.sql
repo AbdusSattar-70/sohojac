@@ -51,7 +51,10 @@ CREATE TRIGGER IF NOT EXISTS tr_new_public_enquiry_prospect
 AFTER INSERT ON public_enquiries
 BEGIN
  INSERT INTO academy_prospects(id,status,created_at)
- VALUES (NEW.id,'NEW',NEW.submitted_at);
+ VALUES (NEW.id,
+  CASE NEW.status WHEN 'CLOSED' THEN 'LEGACY_CLOSED'
+   WHEN 'CONTACTED' THEN 'CONTACTED' ELSE 'NEW' END,
+  NEW.submitted_at);
 END;
 
 -- Compatibility for the temporarily retained legacy /app prospect editor.
