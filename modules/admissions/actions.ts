@@ -3,6 +3,7 @@ import {env} from "cloudflare:workers";
 import {revalidatePath} from "next/cache";
 import {getErpContext} from "@/modules/platform/auth/erp-context";
 import {commandSchema,type AdmissionCommand} from "./schema";
+import {advanceAdmissionReview} from "./review-actions";
 
 type Result={ok:boolean;message:string;field?:string;entityId?:string};
 type Enquiry={
@@ -24,6 +25,12 @@ export async function runAdmissionCommand(input:AdmissionCommand):Promise<Result
  const context=await getErpContext();
  if(!context?.permissions.includes("admissions.create"))
   return {ok:false,message:"Admission permission required."};
+ if(v.action==="READY"||v.action==="RETURN_TO_DRAFT"){
+  const done=await advanceAdmissionReview({
+   admissionId:v.admissionId,action:v.action,reason:v.reason
+  });
+  return {ok:done.ok,message:done.message,entityId:v.admissionId};
+ }
  if(v.action!=="CREATE")return {ok:false,message:"This source workflow step is not yet available in the D1 workbench. Do not use an alternate action to bypass verification."};
  const actor=context.profileId;
  const prev=await replay(v.requestId,actor);
