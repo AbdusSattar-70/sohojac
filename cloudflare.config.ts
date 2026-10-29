@@ -20,6 +20,9 @@ export default defineConfig({
       TURNSTILE_SECRET_KEY: bindings.secret(),
       // Auth is intentionally unavailable until BETTER_AUTH_SECRET is configured.
       BETTER_AUTH_SECRET: bindings.secret(),
+      // Staff-only transactional recovery and invitation email delivery.
+      RESEND_API_KEY: bindings.secret(),
+      STAFF_EMAIL_FROM: bindings.text(process.env.STAFF_EMAIL_FROM || ""),
       BETTER_AUTH_URL: bindings.text(process.env.BETTER_AUTH_URL || "https://sohojac.com"),
       // The public site key comes from a GitHub Actions variable in production.
       // Locally, Cloudflare loads the gitignored .env when this binding is omitted.
