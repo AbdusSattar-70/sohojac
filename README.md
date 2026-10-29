@@ -1,6 +1,8 @@
+> **Development deployment:** One-time cloud credentials, then just push code. See [Sohojac Auto-Deploy — One-Time Setup](docs/ONE_TIME_SETUP_AUTO_DEPLOY.md). Tests, pending D1 migrations and Worker upload run automatically on pushes to `master`. The first OWNER is authorized in the Cloudflare D1 Console and chooses a password on a one-time web setup page; never store owner credentials in GitHub. The live site is unchanged until application deployment credentials are provided.
+
 # Sohojac — Cloudflare-native coaching operations
 
-New, simplified version of [Sohoj Academy](https://github.com/AbdusSattar-70/sohoj-academy), targeting Next.js on Cloudflare Workers, **one** D1 SQLite database, R2 object storage, and staff authentication (Clerk candidate).
+New, simplified version of [Sohoj Academy](https://github.com/AbdusSattar-70/sohoj-academy), targeting Next.js on Cloudflare Workers, **one** D1 SQLite database, R2 object storage, and staff authentication (Better Auth).
 
 ## Domains
 - `sohojac.com`: public website, programmes, interest and admission applications without guardian accounts.
@@ -14,7 +16,7 @@ New, simplified version of [Sohoj Academy](https://github.com/AbdusSattar-70/soh
 - Free-tier-first but operational correctness takes priority. R2 stores documents, D1 stores metadata.
 - Preserve the existing public website visual identity; document and test business rules before porting.
 
-See [Product scope and student costing](docs/PRODUCT_SCOPE_AND_STUDENT_COSTING.md). This repository is **not deployed or production-ready**.
+See [Product scope and student costing](docs/PRODUCT_SCOPE_AND_STUDENT_COSTING.md). The public website is deployed; the private staff CRM remains staged until its one-time owner initialization and manual deployment are completed.
 
 ## Public website port (current implementation branch)
 
@@ -38,5 +40,14 @@ pnpm run build
 
 **Do not expose the enquiry endpoint publicly until its D1 migrations and
 Cloudflare Turnstile site key + secret are configured.** The server deliberately
-rejects non-local submissions if Turnstile is missing. Authentication and
-staff-only prospect management remain separate work.
+rejects non-local submissions if Turnstile is missing. A Better Auth staff CRM is implemented on the `master` branch, but it is not activated automatically. Follow [the secure staff CRM runbook](docs/STAFF_CRM_BETTER_AUTH.md) to configure secrets, initialize the first owner and deploy only after tests pass.
+
+## Staff CRM (staged)
+
+The `master` branch adds Better Auth sessions, explicit
+active D1 staff memberships, a role-gated prospect dashboard, follow-up status,
+internal notes and audited updates. **Public signup remains disabled.**
+
+See [Staff CRM security, initialization and release guide](docs/STAFF_CRM_BETTER_AUTH.md).
+The CRM release is automatic **after the one-time application secret is configured**. Create the first OWNER using Cloudflare Dashboard → D1 Console and `https://sohojac.com/setup-owner`. The password is hashed by Better Auth and never stored in GitHub. See the auto-deploy guide instead of using older manual deployment workflows.
+Do not run the older public-site deployment workflow after the staff CRM is live.

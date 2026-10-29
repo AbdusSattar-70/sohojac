@@ -18,19 +18,27 @@ const subjects = ["Bangla","English","Mathematics","General Science","Physics","
 const offeringName = (o: PublicOfferingCard, bn: boolean) =>
   (bn ? o.showcase_title_bn : o.showcase_title) || o.showcase_title || o.name;
 
-export function PublicInterestForm({ offerings, intent, initialOfferingId = "", siteKey = "", registrationReady = false }: {
-  offerings: PublicOfferingCard[]; intent: Intent; initialOfferingId?: string; siteKey?: string; registrationReady?: boolean;
+export function PublicInterestForm({ offerings, intent, initialOfferingId = "", initiallyClosedRequested = false, siteKey = "", registrationReady = false }: {
+  offerings: PublicOfferingCard[];
+  intent: Intent;
+  initialOfferingId?: string;
+  initiallyClosedRequested?: boolean;
+  siteKey?: string;
+  registrationReady?: boolean;
 }) {
   const { locale } = useLanguage();
   const bn = locale === "bn";
   const [offeringId, setOfferingId] = useState(initialOfferingId);
+  // A closed-offering deep-link warning is relevant only until the user
+  // changes the selection. All later status messages derive from offeringId.
+  const [showInitialClosedNotice, setShowInitialClosedNotice] = useState(initiallyClosedRequested);
   const [className, setClassName] = useState(() => classForOffering(offerings.find(o => o.id === initialOfferingId)?.class_name));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
   const selected = offerings.find(o => o.id === offeringId);
   const available = intent === "interest" ? offerings : offerings.filter(o => o.is_accepting_applications);
-  const canSubmit = intent === "interest" || available.length > 0;
+  const canSubmit = intent === "interest" || Boolean(selected?.is_accepting_applications);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -105,20 +113,64 @@ export function PublicInterestForm({ offerings, intent, initialOfferingId = "", 
         {bn ? "প্রোগ্রাম" : "Programme offering"} {intent === "admission" ? "*" : ""}
         <select name="offeringId" value={offeringId} onChange={e => {
             setOfferingId(e.target.value);
+            setShowInitialClosedNotice(false);
+            setError("");
             setClassName(classForOffering(offerings.find(o => o.id === e.target.value)?.class_name));
           }} required={intent === "admission"} className={inputClass}>
-          <option value="">{bn ? "সাধারণ আগ্রহ / নির্বাচন করুন" : "General interest / Select an offering"}</option>
+          <option value="">{intent === "admission"
+            ? (bn ? "উন্মুক্ত প্রোগ্রাম নির্বাচন করুন" : "Select an open offering")
+            : (bn ? "সাধারণ আগ্রহ / নির্বাচন করুন" : "General interest / Select an offering")}</option>
           {available.map(o => <option value={o.id} key={o.id}>{offeringName(o,bn)} · {o.class_name}</option>)}
         </select>
       </label>
-      {intent === "admission" && !canSubmit && <div role="alert" className="rounded-xl border border-amber-700/30 bg-amber-600/10 p-4 text-sm">
+      {/* This notice reflects the currently selected item, not the URL that
+          originally opened the page. Screen readers are notified on changes. */}
+      <div aria-live="polite" aria-atomic="true">
+        {showInitialClosedNotice && <p role="status" className="rounded-xl border border-amber-600/40 bg-amber-600/10 p-4 text-sm leading-6">
+          {bn
+            ? "আপনি যে প্রোগ্রাম থেকে এসেছেন, সেটির ভর্তি আবেদন বন্ধ। অন্য উন্মুক্ত প্রোগ্রাম বেছে নিন অথবা সাধারণ আগ্রহ নিবন্ধন করুন।"
+            : "Applications are closed for the programme you selected. Choose another open offering or register general interest."}
+          {" "}<Link className="underline underline-offset-2" href="/interest">
+            {bn ? "সাধারণ আগ্রহ নিবন্ধন" : "Register general interest"}
+          </Link>
+        </p>}
+        {selected && <div role="status" className={"rounded-xl border p-4 text-sm leading-6 " +
+          (selected.is_accepting_applications
+            ? "border-emerald-600/30 bg-emerald-500/10"
+            : "border-amber-600/40 bg-amber-600/10")}>
+          <p className="font-semibold">{offeringName(selected, bn)}</p>
+          {selected.is_accepting_applications ? <>
+            <p>{bn
+              ? "এই প্রোগ্রামে বর্তমানে ভর্তি আবেদন গ্রহণ করা হচ্ছে।"
+              : "Applications are currently open for this programme."}</p>
+            {intent === "interest" && <Link className="underline underline-offset-2"
+              href={`/interest?intent=admission&offering=${encodeURIComponent(selected.id)}`}>
+              {bn ? "ভর্তির আবেদন ফর্মে যান" : "Go to the admission application"}
+            </Link>}
+          </> : <p>{selected.application_state === "UPCOMING"
+              ? (bn
+                ? "এই প্রোগ্রামে ভর্তি আবেদন এখনো শুরু হয়নি। আপনি আগ্রহ নিবন্ধন করতে পারেন; একাডেমি পরে যোগাযোগ করবে।"
+                : "Applications have not opened for this programme yet. You can still register interest for follow-up.")
+              : (bn
+                ? "এই প্রোগ্রামে বর্তমানে ভর্তি আবেদন বন্ধ। আপনি তবুও আগ্রহ নিবন্ধন করতে পারেন; এটি ভর্তির আবেদন নয়।"
+                : "Applications are closed for this programme. You can still register interest, but this is not an admission application.")}</p>}
+        </div>}
+        {intent === "interest" && !selected && !showInitialClosedNotice && <p className="text-xs leading-6 text-muted-foreground">
+          {bn
+            ? "সাধারণ আগ্রহ নির্বাচন করা হয়েছে। নির্দিষ্ট প্রোগ্রাম ছাড়াও নিবন্ধন করা যাবে।"
+            : "General interest selected. You can register without choosing a specific programme."}
+        </p>}
+      </div>
+      {intent === "admission" && available.length === 0 && !showInitialClosedNotice && <div role="alert" className="rounded-xl border border-amber-700/30 bg-amber-600/10 p-4 text-sm">
         {bn ? "বর্তমানে কোনো প্রোগ্রামে ভর্তি আবেদন গ্রহণ করা হচ্ছে না।" : "No published programmes are currently accepting admission applications."}
         {" "}<Link className="underline" href="/interest">{bn ? "সাধারণ আগ্রহ নিবন্ধন করুন" : "Register general interest instead"}</Link>
       </div>}
       {selected && <div className="rounded-xl border border-border bg-muted/40 p-4 text-sm leading-7">
         <p className="font-semibold">{offeringName(selected,bn)}</p>
         <p>{selected.public_schedule || (bn ? "ব্যাচের সময় পরে জানানো হবে" : "Batch schedule will be confirmed later")}</p>
-        <p>{selected.current_open_seats > 0 ? `${selected.current_open_seats} ${bn ? "টি বর্তমান ব্যাচ আসন খালি" : "current batch seats open"}` : (bn ? "আসন/ব্যাচ নির্ধারণ স্টাফ যাচাই করবে" : "Staff will review batch placement")}</p>
+        <p>{selected.is_accepting_applications && selected.current_open_seats > 0
+          ? `${selected.current_open_seats} ${bn ? "টি বর্তমান ব্যাচ আসন খালি" : "current batch seats open"}`
+          : (bn ? "আসন ও ব্যাচের অবস্থা স্টাফ নিশ্চিত করবে" : "Staff will confirm batch and seat availability")}</p>
         {selected.fee_plan?.components?.length ? <p>{bn ? "ফি বিস্তারিত" : "Published fees"}: {selected.fee_plan.components.map(c => `${c.name} BDT ${Number(c.amount).toLocaleString("en-BD")}`).join(" · ")}</p> : null}
         <p className="text-muted-foreground">{bn ? "ফর্ম জমা দিলেই ভর্তি বা আসন নিশ্চিত হয় না।" : "Submitting does not confirm admission or reserve a seat."}</p>
       </div>}
