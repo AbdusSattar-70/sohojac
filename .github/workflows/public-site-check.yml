@@ -46,6 +46,8 @@ jobs:
         run: node scripts/verify-original-dashboard-ui.mjs
       - name: Verify source Staff Register UI and D1 security adapters
         run: node scripts/verify-original-staff-port.mjs
+      - name: Verify byte-exact original Help & Workflows module
+        run: node scripts/verify-original-help-port.mjs
       - name: Reject destructive migrations before any deployment
         run: node scripts/check-d1-migrations.mjs
       - name: Apply public D1 migrations locally
@@ -274,6 +276,21 @@ jobs:
           grep -q 'Staff access requests' /tmp/ci-original-staff.html
           grep -q 'Edit details' /tmp/ci-original-staff.html
           grep -q 'Mark inactive' /tmp/ci-original-staff.html
+          source_help_status=$(curl -sS -o /tmp/ci-source-help.html -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/help")
+          test "$source_help_status" = "200"
+          grep -q 'From first setup to daily work' /tmp/ci-source-help.html
+          source_academic_help=$(curl -sS -o /tmp/ci-academic-help.html -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/help/academics")
+          test "$source_academic_help" = "200"
+          grep -q 'Assign a teacher and run a class' /tmp/ci-academic-help.html
+          source_finance_help=$(curl -sS -o /tmp/ci-finance-help.html -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/help/finance")
+          test "$source_finance_help" = "200"
+          anon_help=$(curl -sS -o /dev/null -w '%{http_code}' \
+            "http://localhost:4173/dashboard/help")
+          test "$anon_help" != "200"
+
           anonymous_original_staff=$(curl -sS -o /dev/null -w '%{http_code}' \
             "http://localhost:4173/dashboard/staff")
           test "$anonymous_original_staff" != "200"
