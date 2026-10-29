@@ -26,7 +26,7 @@ export const getErpContext = cache(async (): Promise<ErpContext | null> => {
     const permissions = Array.from(new Set([...grants, ...ownerRoutes,
       ...(staff.role === "OWNER" ? [
         "system.master_data.manage", "academics.manage",
-        "finance.billing.manage", "admissions.manage", "students.manage",
+        "finance.billing.manage", "admissions.manage", "admissions.create", "students.manage",
         "staff.manage", "workforce.manage", "audit.view",
         "system.users.manage",
         "crm.prospects.manage", "crm.followups.manage",
