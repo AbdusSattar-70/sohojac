@@ -3,6 +3,7 @@ import {useCallback,useEffect,useState,type FormEvent} from "react";
 import type {AdmissionRow} from "@/lib/erp-admissions";
 import Link from "next/link";
 import {AdmissionBilling} from "@/components/staff/admission-billing";
+import {AdmissionEnrollment} from "@/components/staff/admission-enrollment";
 
 type Offering={id:string;name:string;is_active:number};
 type Batch={id:string;name:string;offering_id:string;capacity:number;occupied:number};
@@ -157,7 +158,9 @@ export function AdmissionsRegister(){
             <p className="font-semibold text-blue-800">Initial bill issued. Student enrollment remains pending.</p>
             <p className="text-slate-600">Bill {row.bill_reference} · Total due ৳{((row.bill_total_paisa||0)/100).toFixed(2)}</p>
             <Link className="text-xs font-bold text-blue-700 underline" href={"/app/admissions/"+row.id+"/bill"}>View printable bill</Link>
+            <AdmissionEnrollment id={row.id} version={row.version} onSuccess={refresh}/>
           </div>}
+          {row.status==="ENROLLED"&&<p className="mt-3 text-sm font-semibold text-green-800">Student enrollment completed. <Link href="/app/students" className="underline">Open student register</Link>.</p>}
           {row.status==="REJECTED"&&<p className="mt-3 text-sm text-slate-600">Rejected: {row.review_note}</p>}
         </article>;
       })}

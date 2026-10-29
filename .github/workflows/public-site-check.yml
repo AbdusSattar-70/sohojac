@@ -387,6 +387,28 @@ jobs:
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM academy_admissions WHERE status='BILLED'),(SELECT COUNT(*) FROM academy_admission_bills WHERE monthly_amount_paisa=250000 AND admission_amount_paisa=150000 AND amount_paisa=400000),(SELECT COUNT(*) FROM academy_students),(SELECT COUNT(*) FROM finance_invoices),(SELECT COUNT(*) FROM erp_audit_events WHERE action='INITIAL_BILL_ISSUED')" > /tmp/ci-initial-bill-check.json
           node -e 'const n=require("/tmp/ci-initial-bill-check.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==1||n?.[2]!==0||n?.[3]!==0||n?.[4]!==1)process.exit(1);'
 
+
+          # Enroll exactly once after initial bill. The first invoice and seat
+          # assignment must be in the same transaction; no payment is invented.
+          unauthorized_enroll=$(curl -sS -o /tmp/ci-unauth-enroll.json -w '%{http_code}' -X POST "http://localhost:4173/api/staff/admissions/$admission_id/enroll" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{}')
+          test "$unauthorized_enroll" = "401"
+          teacher_enroll=$(curl -sS -o /tmp/ci-teacher-enroll.json -w '%{http_code}' -b /tmp/teacher-ci-cookies -X POST "http://localhost:4173/api/staff/admissions/$admission_id/enroll" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{}')
+          test "$teacher_enroll" = "403"
+          stale_enroll=$(curl -sS -o /tmp/ci-stale-enroll.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/admissions/$admission_id/enroll" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"expectedVersion":3,"reason":"Old version must never enroll"}')
+          test "$stale_enroll" = "409"
+          enrolled=$(curl -sS -o /tmp/ci-enrolled.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/admissions/$admission_id/enroll" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"expectedVersion":4,"reason":"Complete verified synthetic enrollment"}')
+          test "$enrolled" = "201"
+          reused_enrollment=$(curl -sS -o /tmp/ci-reused-enroll.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/admissions/$admission_id/enroll" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"expectedVersion":4,"reason":"Duplicate enrollment is forbidden"}')
+          test "$reused_enrollment" = "409"
+          students_api=$(curl -sS -o /tmp/ci-students-api.json -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/api/staff/students")
+          test "$students_api" = "200"
+          teacher_students=$(curl -sS -o /tmp/ci-teacher-students.json -w '%{http_code}' -b /tmp/teacher-ci-cookies "http://localhost:4173/api/staff/students")
+          test "$teacher_students" = "403"
+          student_page=$(curl -sS -o /tmp/ci-student-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/students")
+          test "$student_page" = "200"
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM academy_admissions WHERE status='ENROLLED' AND student_id IS NOT NULL),(SELECT COUNT(*) FROM academy_students),(SELECT COUNT(*) FROM academy_enrollments WHERE status='ACTIVE'),(SELECT COUNT(*) FROM finance_invoices WHERE amount_paisa=400000 AND paid_paisa=0 AND status='ISSUED'),(SELECT COUNT(*) FROM finance_payments),(SELECT COUNT(*) FROM erp_audit_events WHERE action='ENROLLED')" > /tmp/ci-enrollment-verified.json
+          node -e 'const n=require("/tmp/ci-enrollment-verified.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==1||n?.[2]!==1||n?.[3]!==1||n?.[4]!==0||n?.[5]!==1)process.exit(1);'
+
           # Revoking a staff membership removes access even with a live
           # Better Auth session cookie; do not rely on client-side role state.
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
