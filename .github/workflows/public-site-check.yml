@@ -195,6 +195,25 @@ jobs:
           crm_no=$(grep -oE 'PR-[0-9]{6}' /tmp/ci-crm-prospect.json | head -n1)
           echo "Synthetic D1 prospect number: $crm_no"
           test -n "$crm_no"
+          # Historical CLOSED records must not be guessed as lost or converted.
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql \
+            "INSERT INTO public_enquiries(id,reference,intent,student_name,class_name,guardian_name,mobile,consent_at,status) VALUES ('22222222-2222-4222-8222-222222222222','CI-LEGACY-CLOSED','interest','Historical Student','Class 8','Historical Guardian','01722222222',strftime('%Y-%m-%dT%H:%M:%fZ','now'),'CLOSED')" > /tmp/ci-history-insert.json
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql \
+            "SELECT status,lost_reason FROM academy_prospects WHERE id='22222222-2222-4222-8222-222222222222'" > /tmp/ci-history-before.json
+          grep -q 'LEGACY_CLOSED' /tmp/ci-history-before.json
+          legacy_detail=$(curl -sS --max-time 20 -o /tmp/ci-history-page.html -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/crm/prospects/22222222-2222-4222-8222-222222222222")
+          test "$legacy_detail" = "200"
+          grep -q 'Reconcile old CLOSED status' /tmp/ci-history-page.html
+          legacy_bypass=$(curl -sS -o /tmp/ci-legacy-bypass.json -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies -X PATCH \
+            "http://localhost:4173/api/staff/prospects/22222222-2222-4222-8222-222222222222" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"status":"CONTACTED","note":"Unreviewed legacy change"}')
+          test "$legacy_bypass" = "409"
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql \
+            "SELECT status FROM academy_prospects WHERE id='22222222-2222-4222-8222-222222222222'" > /tmp/ci-history-after.json
+          grep -q 'LEGACY_CLOSED' /tmp/ci-history-after.json
           crm_list=$(curl -sS --max-time 20 -o /tmp/ci-crm-list.html -w '%{http_code}' \
             -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/crm/prospects")
           echo "Source CRM list HTTP: $crm_list"
@@ -876,9 +895,9 @@ jobs:
           grep -q "SA-ENQ-" /tmp/sohojac-enquiry.json
 
           # The public smoke request and the separately seeded original CRM prospect
-          # are the only two local enquiries. Check both; do not use a stale 1-row assertion.
+          # plus the historical CLOSED fixture are the only three local enquiries.
           pnpm exec cf d1 raw "$DB" --sql "SELECT COUNT(*) AS n FROM public_enquiries" --local --persist-to .cloudflare/state >/tmp/enquiry-count.json
-          node -e 'const fs = require("node:fs"); const data = JSON.parse(fs.readFileSync("/tmp/enquiry-count.json", "utf8")); const count = data[0]?.results?.rows?.[0]?.[0]; if (count !== 2) { console.error("Expected public smoke + CRM fixture (2 enquiries); got", count); process.exit(1); } console.log("D1 write verified: smoke enquiry and original CRM fixture");'
+          node -e 'const fs = require("node:fs"); const data = JSON.parse(fs.readFileSync("/tmp/enquiry-count.json", "utf8")); const count = data[0]?.results?.rows?.[0]?.[0]; if (count !== 3) { console.error("Expected public smoke + CRM + historical fixtures (3 enquiries); got", count); process.exit(1); } console.log("D1 write verified: public, CRM and historical fixtures");'
 
           # A second submission with the same contact must be rate-limited.
           duplicate_status=$(curl -sS -o /tmp/enquiry-duplicate.json -w '%{http_code}' -X POST "http://localhost:4173/api/enquiries" \
