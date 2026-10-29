@@ -19,6 +19,7 @@ type Entry = {
   href?: string;
   icon: LucideIcon;
   restricted?: boolean;
+  ownerAdminOnly?: boolean;
 };
 type Group = { title: string; items: Entry[] };
 
@@ -54,7 +55,7 @@ const groups: Group[] = [
   {
     title: "Administration",
     items: [
-      { label: "Staff & access", icon: ShieldCheck },
+      { label: "Staff & access", href: "/app/staff-access", icon: ShieldCheck, ownerAdminOnly: true },
       { label: "Settings", icon: Settings2 },
       { label: "Help & workflows", icon: CircleHelp },
     ],
@@ -82,7 +83,9 @@ export function StaffShell({ staff, children }: { staff: StaffAccess; children: 
     return () => window.removeEventListener("keydown", close);
   }, [mobileOpen]);
 
-  const pageTitle = pathname.startsWith("/app/prospects") ? "Enquiries" : "Overview";
+  const pageTitle = pathname.startsWith("/app/prospects") ? "Enquiries"
+    : pathname.startsWith("/app/staff-access") ? "Staff & access"
+    : "Overview";
 
   async function signOut() {
     if (signingOut) return;
@@ -119,7 +122,10 @@ export function StaffShell({ staff, children }: { staff: StaffAccess; children: 
       </div>
       <nav aria-label="Staff workspace navigation" className="min-h-0 flex-1 space-y-4 overflow-y-auto px-2 py-4">
         {groups.map((group) => {
-          const visible = group.items.filter(item => !item.restricted || canManage);
+          const visible = group.items.filter(item =>
+            (!item.restricted || canManage) &&
+            (!item.ownerAdminOnly || staff.role === "OWNER" || staff.role === "ADMIN")
+          );
           if (!visible.length) return null;
           return <section key={group.title}>
             {!minimized && <p className="mb-1 px-3 text-[10px] font-bold uppercase tracking-[0.13em] text-slate-400">
