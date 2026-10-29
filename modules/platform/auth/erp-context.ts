@@ -29,6 +29,7 @@ export const getErpContext = cache(async (): Promise<ErpContext | null> => {
         "finance.billing.manage", "admissions.manage", "students.manage",
         "staff.manage", "workforce.manage", "audit.view",
         "system.users.manage",
+        "crm.prospects.manage", "crm.followups.manage",
       ] : []),
       // A verified staff member can enter the root to see a safe, empty
       // workspace, but cannot infer access to restricted modules.
