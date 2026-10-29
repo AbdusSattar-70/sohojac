@@ -4,6 +4,7 @@ import {revalidatePath} from "next/cache";
 import {getErpContext} from "@/modules/platform/auth/erp-context";
 import {commandSchema,type AdmissionCommand} from "./schema";
 import {advanceAdmissionReview} from "./review-actions";
+import {saveAdmissionDiscount,finalizeAdmission,activateAdmission} from "./lifecycle";
 
 type Result={ok:boolean;message:string;field?:string;entityId?:string};
 type Enquiry={
@@ -31,7 +32,20 @@ export async function runAdmissionCommand(input:AdmissionCommand):Promise<Result
   });
   return {ok:done.ok,message:done.message,entityId:v.admissionId};
  }
- if(v.action!=="CREATE")return {ok:false,message:"This source workflow step is not yet available in the D1 workbench. Do not use an alternate action to bypass verification."};
+ if(v.action==="SAVE_DISCOUNT"){
+  const done=await saveAdmissionDiscount({admissionId:v.admissionId,discountPercent:v.discountPercent??0,
+   discountReason:v.discountReason??"",reason:v.reason});
+  return {...done,entityId:v.admissionId};
+ }
+ if(v.action==="FINALIZE"){
+  const done=await finalizeAdmission({admissionId:v.admissionId,requestId:v.requestId,reason:v.reason});
+  return {...done,entityId:v.admissionId};
+ }
+ if(v.action==="ACTIVATE"){
+  const done=await activateAdmission({admissionId:v.admissionId,requestId:v.requestId,reason:v.reason});
+  return {...done,entityId:v.admissionId};
+ }
+ if(v.action!=="CREATE")return {ok:false,message:"This command is unavailable for the current D1 admission case. Use the verified case workflow."};
  const actor=context.profileId;
  const prev=await replay(v.requestId,actor);
  if(prev)return {ok:true,message:"Existing draft recovered.",entityId:prev.id};
