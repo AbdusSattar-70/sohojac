@@ -11,8 +11,11 @@
    - **Repository variable**: `STAFF_EMAIL_FROM` =
      `Sohoj Academy <admission@sohojac.com>`
      (plain `admission@sohojac.com` also works).
-4. Trigger a new tested deployment from `master` so the production Worker
-   receives both values. Do not share or commit the key.
+4. Go to GitHub → Actions → **Public Website Checks** → **Run workflow**.
+   Select branch **master**, enter `DEPLOY_MASTER` in the
+   `deploy_confirmation` input, then run. The build/integration suite
+   must pass before the release job applies pending D1 migrations, uploads
+   the Worker and checks production. Do not share or commit the key.
 5. From an authorized account send a staff invitation to an approved
    applicant and request a password reset for an existing active staff account.
    Verify messages arrive, links work, and access rules remain enforced.
