@@ -319,6 +319,26 @@ jobs:
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM academy_batches WHERE status='COMPLETED' AND capacity=12),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type='academy_batch')" > /tmp/ci-batches-checked.json
           node -e 'const n=require("/tmp/ci-batches-checked.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==3)process.exit(1);'
 
+
+          # Fee plans: integer paisa, owner/teacher role checks, audit and concurrency.
+          unauth_fee=$(curl -sS -o /tmp/ci-unauth-fees.json -w '%{http_code}' "http://localhost:4173/api/staff/fee-plans")
+          test "$unauth_fee" = "401"
+          teacher_fee=$(curl -sS -o /tmp/ci-teacher-fees.json -w '%{http_code}' -b /tmp/teacher-ci-cookies -X POST "http://localhost:4173/api/staff/fee-plans" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{}')
+          test "$teacher_fee" = "403"
+          invalid_fee=$(curl -sS -o /tmp/ci-invalid-fees.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/fee-plans" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"offeringId":"sa-ssc-science","title":"Invalid negative","monthlyAmountPaisa":-100,"admissionAmountPaisa":0,"reason":"Reject negative money amounts"}')
+          test "$invalid_fee" = "400"
+          created_fee=$(curl -sS -o /tmp/ci-created-fee.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/fee-plans" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"offeringId":"sa-ssc-science","title":"CI monthly science","monthlyAmountPaisa":250000,"admissionAmountPaisa":300000,"reason":"Create controlled test fee plan"}')
+          test "$created_fee" = "201"
+          fee_id=$(node -e 'process.stdout.write(require("/tmp/ci-created-fee.json").id)')
+          updated_fee=$(curl -sS -o /tmp/ci-updated-fee.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/fee-plans/$fee_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"title":"CI monthly science","monthlyAmountPaisa":260000,"admissionAmountPaisa":300000,"active":false,"expectedVersion":1,"reason":"Archive and update test fee plan"}')
+          test "$updated_fee" = "200"
+          stale_fee=$(curl -sS -o /tmp/ci-stale-fee.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/fee-plans/$fee_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"title":"Stale CI monthly","monthlyAmountPaisa":999999,"admissionAmountPaisa":0,"active":true,"expectedVersion":1,"reason":"A stale fee update must fail"}')
+          test "$stale_fee" = "409"
+          fee_page=$(curl -sS -o /tmp/ci-fee-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/fee-plans")
+          test "$fee_page" = "200"
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM academy_fee_plans WHERE monthly_amount_paisa=260000 AND active=0),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type='academy_fee_plan')" > /tmp/ci-fees-checked.json
+          node -e 'const n=require("/tmp/ci-fees-checked.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==2)process.exit(1);'
+
           # Revoking a staff membership removes access even with a live
           # Better Auth session cookie; do not rely on client-side role state.
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
