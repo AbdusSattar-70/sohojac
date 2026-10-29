@@ -183,6 +183,39 @@ jobs:
             --sql "SELECT (SELECT COUNT(*) FROM academic_years WHERE status='ACTIVE'),(SELECT COUNT(*) FROM academic_years WHERE status='CLOSED' AND version=3),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type='academic_year')" > /tmp/academic-year-ci.json
           node -e 'const r=require("/tmp/academic-year-ci.json")[0]?.results?.rows?.[0];if(r?.[0]!==0||r?.[1]!==1||r?.[2]!==4)process.exit(1)'
 
+
+          # Release 2: safely create, publish, close and audit programme offerings.
+          echo "Testing programme offering lifecycle"
+          anonymous_offering=$(curl -sS -o /tmp/anon-offering.json -w '%{http_code}' "http://localhost:4173/api/staff/offerings")
+          test "$anonymous_offering" = "401"
+          created_offering=$(curl -sS -o /tmp/new-offering.json -w '%{http_code}' -b /tmp/staff-ci-cookies \
+            -X POST "http://localhost:4173/api/staff/offerings" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"code":"CI_OFFER_2027","name":"Synthetic Test Programme","className":"Class 10","academicYearName":"2027","branchName":"Sohoj Academy","groupName":"Science","reason":"CI verifies isolated offering creation"}')
+          test "$created_offering" = "201"
+          offering_id=$(node -e 'const r=require("/tmp/new-offering.json");if(r.status!=="CLOSED"||r.published!==false)process.exit(1);process.stdout.write(r.id)')
+          invalid_open=$(curl -sS -o /tmp/offering-invalid-open.json -w '%{http_code}' -b /tmp/staff-ci-cookies \
+            -X PATCH "http://localhost:4173/api/staff/offerings/$offering_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"expectedVersion":1,"name":"Synthetic Test Programme","className":"Class 10","academicYearName":"2027","branchName":"Sohoj Academy","groupName":"Science","showcaseTitle":"Test Programme","showcaseTitleBn":"","showcaseDescription":"","showcaseDescriptionBn":"","publicSchedule":"","publicScheduleBn":"","showOnWebsite":false,"isActive":false,"applicationState":"OPEN","sortOrder":999,"reason":"Opening unpublished programmes forbidden"}')
+          test "$invalid_open" = "400"
+          published_offering=$(curl -sS -o /tmp/published-offering.json -w '%{http_code}' -b /tmp/staff-ci-cookies \
+            -X PATCH "http://localhost:4173/api/staff/offerings/$offering_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"expectedVersion":1,"name":"Synthetic Test Programme","className":"Class 10","academicYearName":"2027","branchName":"Sohoj Academy","groupName":"Science","showcaseTitle":"Synthetic Test Programme","showcaseTitleBn":"","showcaseDescription":"","showcaseDescriptionBn":"","publicSchedule":"","publicScheduleBn":"","showOnWebsite":true,"isActive":true,"applicationState":"OPEN","sortOrder":999,"reason":"CI verifies controlled publication"}')
+          test "$published_offering" = "200"
+          node -e 'const d=require("/tmp/published-offering.json");if(d.isAcceptingApplications!==true||d.version!==2)process.exit(1)'
+          stale_offering=$(curl -sS -o /tmp/stale-offering.json -w '%{http_code}' -b /tmp/staff-ci-cookies \
+            -X PATCH "http://localhost:4173/api/staff/offerings/$offering_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"expectedVersion":1,"name":"Synthetic Test Programme","className":"Class 10","academicYearName":"2027","branchName":"Sohoj Academy","groupName":"Science","showcaseTitle":"Test","showcaseTitleBn":"","showcaseDescription":"","showcaseDescriptionBn":"","publicSchedule":"","publicScheduleBn":"","showOnWebsite":true,"isActive":true,"applicationState":"OPEN","sortOrder":999,"reason":"Stale update must be rejected"}')
+          test "$stale_offering" = "409"
+          closed_offering=$(curl -sS -o /tmp/closed-offering.json -w '%{http_code}' -b /tmp/staff-ci-cookies \
+            -X PATCH "http://localhost:4173/api/staff/offerings/$offering_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"expectedVersion":2,"name":"Synthetic Test Programme","className":"Class 10","academicYearName":"2027","branchName":"Sohoj Academy","groupName":"Science","showcaseTitle":"Synthetic Test Programme","showcaseTitleBn":"","showcaseDescription":"","showcaseDescriptionBn":"","publicSchedule":"","publicScheduleBn":"","showOnWebsite":false,"isActive":false,"applicationState":"CLOSED","sortOrder":999,"reason":"CI unpublishes synthetic programme"}')
+          test "$closed_offering" = "200"
+          offering_page=$(curl -sS -o /tmp/offering-register.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/offerings")
+          test "$offering_page" = "200"
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
+            --sql "SELECT (SELECT COUNT(*) FROM public_programme_offerings WHERE code='CI_OFFER_2027' AND application_state='CLOSED' AND is_accepting_applications=0 AND version=3),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type='programme_offering')" > /tmp/offering-lifecycle.json
+          node -e 'const r=require("/tmp/offering-lifecycle.json")[0]?.results?.rows?.[0];if(r?.[0]!==1||r?.[1]!==3)process.exit(1)'
+
           # Revoking a staff membership removes access even with a live
           # Better Auth session cookie; do not rely on client-side role state.
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
@@ -354,5 +387,9 @@ jobs:
           status=$(curl -sS --max-time 15 -o /dev/null -w '%{http_code}' https://sohojac.com/api/staff/academic-years)
           test "$status" = "401" || { echo "::error::Academic year endpoint returned HTTP $status instead of 401"; exit 1; }
           echo "Academic-year endpoint deployed with anonymous access denied."
+          status=$(curl -sS --max-time 15 -o /dev/null -w '%{http_code}' https://sohojac.com/api/staff/offerings)
+          test "$status" = "401" || { echo "::error::Programme offering endpoint returned HTTP $status instead of 401"; exit 1; }
+          echo "Programme offerings endpoint deployed with anonymous access denied."
+
           echo "Site healthy; unauthenticated prospect access denied."
 
