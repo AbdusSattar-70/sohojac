@@ -69,7 +69,7 @@ export async function correctAdmissionPlacement(input:unknown){
     old.version,v.offering_id,v.batch_id),
    env.DB.prepare([
     "INSERT INTO erp_audit_events(id,entity_type,entity_id,action,actor_id,reason,before_json,after_json)",
-    "SELECT ?,'admission',?,'PLACEMENT_CORRECTED',?,?,?,?,? WHERE changes()=1"
+    "SELECT ?,'admission',?,'PLACEMENT_CORRECTED',?,?,?,? WHERE changes()=1"
    ].join(" ")).bind(crypto.randomUUID(),v.admission_id,context.profileId,v.reason,
     JSON.stringify({version:old.version}),
     JSON.stringify({offeringId:v.offering_id,batchId:v.batch_id,version:old.version+1}))
@@ -131,12 +131,12 @@ export async function editAdmissionIdentity(input:unknown){
     ...keys.map(k=>values[k as keyof typeof values])),
    env.DB.prepare([
     "INSERT INTO erp_audit_events(id,entity_type,entity_id,action,actor_id,reason,before_json,after_json)",
-    "SELECT ?,'admission',?,'IDENTITY_CORRECTED',?,?,?,?,? WHERE changes()=1"
+    "SELECT ?,'admission',?,'IDENTITY_CORRECTED',?,?,?,? WHERE changes()=1"
    ].join(" ")).bind(crypto.randomUUID(),v.admission_id,context.profileId,v.reason,
     JSON.stringify({version:old.version}),
     JSON.stringify({version:old.version+1,fields:Object.keys(a)}))
   ]);
-  if(tx.some(x=>(x.results?.length??0)!==1 && x.meta.changes!==1))
+  if(tx[0].results?.length!==1||tx[1].results?.length!==1||tx[2].meta.changes!==1)
    return {ok:false,message:"Case changed. Reload to review the latest saved details."};
   changed(v.admission_id);
   return {ok:true,message:"Application details saved. Verify the corrected identity and paper consent before approval."};
