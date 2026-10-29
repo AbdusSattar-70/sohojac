@@ -413,7 +413,7 @@ export function StaffAdmissionIntakeForm({
             <Button
               type="submit"
               disabled={pending || data.offerings.length === 0}
-              loading={pending}
+              
             >
               {pending ? "Creating admission draft…" : "Review application"}
             </Button>
@@ -421,7 +421,7 @@ export function StaffAdmissionIntakeForm({
               type="button"
               variant="outline"
               disabled={pending}
-              loading={pending}
+              
               onClick={() => {
                 bypassReview.current = true;
                 formRef.current?.requestSubmit();
@@ -474,7 +474,7 @@ export function StaffAdmissionIntakeForm({
             type="button"
             className="ml-3"
             disabled={pending}
-            loading={pending}
+            
             onClick={() => {
               bypassReview.current = true;
               formRef.current?.requestSubmit();
