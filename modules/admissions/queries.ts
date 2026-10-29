@@ -59,7 +59,8 @@ export async function getAdmissionWorkspace() {
    "FROM academy_admissions a",
    "LEFT JOIN academy_students s ON s.id=a.student_id",
    "LEFT JOIN academy_admission_bills bill ON bill.admission_id=a.id",
-   "LEFT JOIN finance_invoices inv ON inv.admission_id=a.id",
+   "LEFT JOIN finance_invoices inv ON inv.id=(SELECT i2.id FROM finance_invoices i2",
+   "WHERE i2.admission_id=a.id ORDER BY i2.issue_on,i2.created_at,i2.id LIMIT 1)",
    "LEFT JOIN academy_admission_intake_details d ON d.admission_id=a.id",
    "ORDER BY a.created_at DESC,a.id DESC LIMIT 300"
   ].join(" ")).all<Case>(),
@@ -152,7 +153,8 @@ export async function getAdmissionCase(admissionId:string){
    "LEFT JOIN academy_batches b ON b.id=a.batch_id",
    "LEFT JOIN academy_students s ON s.id=a.student_id",
    "LEFT JOIN academy_admission_bills bill ON bill.admission_id=a.id",
-   "LEFT JOIN finance_invoices inv ON inv.admission_id=a.id",
+   "LEFT JOIN finance_invoices inv ON inv.id=(SELECT i2.id FROM finance_invoices i2",
+   "WHERE i2.admission_id=a.id ORDER BY i2.issue_on,i2.created_at,i2.id LIMIT 1)",
    "LEFT JOIN academy_admission_intake_details d ON d.admission_id=a.id",
    "WHERE a.id=?"
   ].join(" ")).bind(admissionId).first<CaseDetail>(),
