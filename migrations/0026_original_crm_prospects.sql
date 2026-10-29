@@ -53,3 +53,19 @@ BEGIN
  INSERT INTO academy_prospects(id,status,created_at)
  VALUES (NEW.id,'NEW',NEW.submitted_at);
 END;
+
+-- Compatibility for the temporarily retained legacy /app prospect editor.
+-- Preserve the richer source workflow once any advanced status is set.
+CREATE TRIGGER IF NOT EXISTS tr_legacy_enquiry_status_prospect
+AFTER UPDATE OF status ON public_enquiries
+WHEN OLD.status<>NEW.status
+BEGIN
+ UPDATE academy_prospects
+ SET status=CASE NEW.status WHEN 'CLOSED' THEN 'LEGACY_CLOSED'
+  WHEN 'CONTACTED' THEN 'CONTACTED' ELSE 'NEW' END,
+  version=version+1,
+  updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
+ WHERE id=NEW.id AND status IN ('NEW','CONTACTED','LEGACY_CLOSED')
+ AND status<>(CASE NEW.status WHEN 'CLOSED' THEN 'LEGACY_CLOSED'
+  WHEN 'CONTACTED' THEN 'CONTACTED' ELSE 'NEW' END);
+END;

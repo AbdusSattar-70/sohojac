@@ -56,6 +56,12 @@ export async function PATCH(request: Request, ctx: Context) {
       "SELECT status FROM public_enquiries WHERE id = ?"
     ).bind(id).first<{status: string}>();
     if (!current) return privateJson({ error: "Prospect not found" }, 404);
+    const canonical=await env.DB.prepare(
+      "SELECT status FROM academy_prospects WHERE id=?"
+    ).bind(id).first<{status:string}>();
+    if(canonical && !["NEW","CONTACTED","LEGACY_CLOSED"].includes(canonical.status)){
+      return privateJson({error:"Use the original CRM workspace for this advanced prospect status."},409);
+    }
     if (current.status === parsed.data.status && !parsed.data.note) {
       return privateJson({ error: "Nothing to update" }, 400);
     }
@@ -71,7 +77,7 @@ export async function PATCH(request: Request, ctx: Context) {
       ).bind(crypto.randomUUID(), id, staff.userId, current.status,
         parsed.data.status, parsed.data.note),
     ]);
-    if (outcome[0].meta.changes !== 1 || outcome[1].meta.changes !== 1) {
+    if ((outcome[0].meta.changes??0) < 1 || outcome[1].meta.changes !== 1) {
       return privateJson({ error: "This prospect changed. Refresh and retry." }, 409);
     }
     return privateJson({ ok: true, status: parsed.data.status });

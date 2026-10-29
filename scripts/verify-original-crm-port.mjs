@@ -21,7 +21,7 @@ const migration=read("migrations/0026_original_crm_prospects.sql");
 for(const invariant of [
  "seq INTEGER PRIMARY KEY AUTOINCREMENT",
  "LEGACY_CLOSED","tr_new_public_enquiry_prospect",
- "AFTER INSERT ON public_enquiries",
+ "AFTER INSERT ON public_enquiries", "AFTER UPDATE OF status ON public_enquiries",
  "academy_prospect_followups","ON DELETE RESTRICT"
 ])if(!migration.includes(invariant))throw Error("CRM D1 missing "+invariant);
 if(migration.includes("THEN 'LOST'")||migration.includes("UPDATE public_enquiries"))
@@ -32,6 +32,10 @@ for(const term of [
  "allowedProspectStatuses","academy_prospect_followups",
  "erp_audit_events","env.DB.batch","WHERE changes()=1"
 ])if(!actions.includes(term))throw Error("CRM followup missing "+term);
+const legacy=read("app/api/staff/prospects/[id]/route.ts");
+if(!legacy.includes('["NEW","CONTACTED","LEGACY_CLOSED"]') ||
+   !legacy.includes("original CRM workspace"))
+ throw new Error("Legacy /app must not overwrite an advanced source prospect status");
 const assignment=read("modules/crm/assignment-actions.ts");
 if(!assignment.includes('permissions.includes("crm.prospects.manage")')||
    !assignment.includes("erp_audit_events"))
