@@ -721,7 +721,7 @@ jobs:
           echo "Source case detail bridge HTTP: $source_case"
           test "$source_case" = "200"
           legacy_case_code=$(curl -sS -D /tmp/ci-legacy-case-headers -o /dev/null -w '%{http_code}' \
-            -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/admissions/$admission_id")
+            -b /tmp/staff-ci-cookies "http://localhost:4173/app/admissions/$admission_id")
           test "$legacy_case_code" = "307"
           grep -qi "location: /dashboard/admissions/$admission_id" /tmp/ci-legacy-case-headers
           grep -q 'Verify application and placement' /tmp/ci-source-case.html
