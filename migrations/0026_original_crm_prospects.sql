@@ -68,7 +68,7 @@ BEGIN
   WHEN 'CONTACTED' THEN 'CONTACTED' ELSE 'NEW' END,
   version=version+1,
   updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
- WHERE id=NEW.id AND status IN ('NEW','CONTACTED','LEGACY_CLOSED')
+ WHERE id=NEW.id AND status IN ('NEW','CONTACTED')
  AND status<>(CASE NEW.status WHEN 'CLOSED' THEN 'LEGACY_CLOSED'
   WHEN 'CONTACTED' THEN 'CONTACTED' ELSE 'NEW' END);
 END;
