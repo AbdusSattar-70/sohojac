@@ -495,6 +495,27 @@ jobs:
           audit_page=$(curl -sS -o /tmp/ci-audit-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/audit")
           test "$audit_page" = "200"
 
+          echo 'CI entering operating expense checks'
+
+          # Operating expenses: owner approval, immutable balanced GL and date guard.
+          anon_expense=$(curl -sS -o /tmp/ci-anon-expense.json -w '%{http_code}' "http://localhost:4173/api/staff/expenses")
+          test "$anon_expense" = "401"
+          teacher_expense=$(curl -sS -o /tmp/ci-teacher-expense.json -w '%{http_code}' -b /tmp/teacher-ci-cookies "http://localhost:4173/api/staff/expenses")
+          test "$teacher_expense" = "403"
+          invalid_expense=$(curl -sS -o /tmp/ci-invalid-expense.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/expenses" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"category":"RENT","payee":"Synthetic landlord","description":"CI rent payment","spentOn":"2026-01-01","amountPaisa":-500,"method":"CASH","reason":"Reject invalid negative expense"}')
+          test "$invalid_expense" = "400"
+          future_expense=$(curl -sS -o /tmp/ci-future-expense.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/expenses" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"category":"RENT","payee":"Synthetic landlord","description":"Future CI rent payment","spentOn":"2099-01-01","amountPaisa":50000,"method":"CASH","reason":"Reject any future expense posting"}')
+          test "$future_expense" = "409"
+          expense_spent_on=$(date -u +%F)
+          posted_expense=$(curl -sS -o /tmp/ci-posted-expense.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/expenses" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"category\":\"RENT\",\"payee\":\"Synthetic landlord\",\"description\":\"Recorded CI rent payment\",\"spentOn\":\"$expense_spent_on\",\"amountPaisa\":50000,\"method\":\"CASH\",\"reason\":\"Verify cash rent expense accounting entry\"}")
+          echo "Expense posting HTTP: $posted_expense"
+          if [ "$posted_expense" != "201" ]; then cat /tmp/ci-posted-expense.json; fi
+          test "$posted_expense" = "201"
+          expense_page=$(curl -sS -o /tmp/ci-expense-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/expenses")
+          test "$expense_page" = "200"
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM finance_operating_expenses WHERE amount_paisa=50000 AND category='RENT'),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type='finance_expense'),(SELECT COUNT(*) FROM finance_journals WHERE reference LIKE 'EXP:%' AND status='POSTED'),(SELECT SUM(debit_paisa) FROM finance_journal_lines),(SELECT SUM(credit_paisa) FROM finance_journal_lines)" > /tmp/ci-expense-gl.json
+          node -e 'const r=require("/tmp/ci-expense-gl.json")[0]?.results?.rows?.[0];if(r?.[0]!==1||r?.[1]!==1||r?.[2]!==1||r?.[3]!==850000||r?.[4]!==850000)process.exit(1);'
+
           # Revoking a staff membership removes access even with a live
           # Better Auth session cookie; do not rely on client-side role state.
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
