@@ -39,32 +39,34 @@ export async function POST(request:Request,context:Context){
         "AND b.capacity>(SELECT COUNT(*) FROM academy_enrollments e",
         "WHERE e.batch_id=b.id AND e.status='ACTIVE')",
         "AND EXISTS(SELECT 1 FROM public_programme_offerings p",
-        "WHERE p.id=a.offering_id AND p.is_active=1)"
+        "WHERE p.id=a.offering_id AND p.is_active=1) RETURNING id"
       ].join(" ")).bind(studentId,studentNo,id,data.expectedVersion),
       env.DB.prepare([
         "INSERT INTO academy_enrollments(id,student_id,batch_id,admission_id,status)",
         "SELECT ?,?,a.batch_id,a.id,'ACTIVE' FROM academy_admissions a",
-        "WHERE a.id=? AND a.status='BILLED' AND a.version=? AND changes()=1"
+        "WHERE a.id=? AND a.status='BILLED' AND a.version=? AND changes()=1 RETURNING id"
       ].join(" ")).bind(enrollmentId,studentId,id,data.expectedVersion),
       env.DB.prepare([
         "INSERT INTO finance_invoices",
         "(id,invoice_no,student_id,admission_id,issue_on,due_on,amount_paisa,status,created_by)",
         "SELECT ?,bill.reference,?,a.id,bill.issue_on,NULL,bill.amount_paisa,'ISSUED',?",
         "FROM academy_admissions a JOIN academy_admission_bills bill ON bill.admission_id=a.id",
-        "WHERE a.id=? AND a.status='BILLED' AND a.version=? AND changes()=1"
+        "WHERE a.id=? AND a.status='BILLED' AND a.version=? AND changes()=1 RETURNING id"
       ].join(" ")).bind(invoiceId,studentId,staff.userId,id,data.expectedVersion),
       env.DB.prepare([
         "UPDATE academy_admissions SET student_id=?,status='ENROLLED',version=version+1,",
         "updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')",
-        "WHERE id=? AND status='BILLED' AND version=? AND changes()=1"
+        "WHERE id=? AND status='BILLED' AND version=? AND changes()=1 RETURNING id"
       ].join(" ")).bind(studentId,id,data.expectedVersion),
       env.DB.prepare([
         "INSERT INTO erp_audit_events(id,entity_type,entity_id,action,actor_id,reason,after_json)",
-        "SELECT ?,'admission',?,'ENROLLED',?,?,? WHERE changes()=1"
+        "SELECT ?,'admission',?,'ENROLLED',?,?,? WHERE changes()=1 RETURNING id"
       ].join(" ")).bind(crypto.randomUUID(),id,staff.userId,data.reason,
         JSON.stringify({studentId,studentNo,enrollmentId,invoiceId})),
     ]);
-    if(tx.some(x=>x.meta.changes!==1)){
+    // Cloudflare D1 meta.changes includes trigger effects, so posted GL
+    // can increase it. RETURNING verifies the exact *direct* write instead.
+    if(tx.some(x=>(x.results?.length??0)!==1)){
       return privateJson({error:"Enrollment rejected: already processed, full or inactive batch"},409);
     }
     return privateJson({ok:true,status:"ENROLLED",studentId,studentNo,invoiceId,version:data.expectedVersion+1},201);
