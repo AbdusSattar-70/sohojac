@@ -699,8 +699,12 @@ jobs:
             -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/admissions/$admission_id")
           echo "Source case detail bridge HTTP: $source_case"
           test "$source_case" = "200"
-          grep -q 'Verified application data' /tmp/ci-source-case.html
-          grep -q 'Permanent Student ID' /tmp/ci-source-case.html
+          grep -q 'Verify application and placement' /tmp/ci-source-case.html
+          grep -q 'Record Organic or referrer' /tmp/ci-source-case.html
+          grep -q 'Receive signed paper consent' /tmp/ci-source-case.html
+          grep -q 'Review fees and confirm admission' /tmp/ci-source-case.html
+          grep -q 'Payment and enrollment' /tmp/ci-source-case.html
+          grep -q 'Application record' /tmp/ci-source-case.html
           anonymous_case=$(curl -sS -o /dev/null -w '%{http_code}' \
             "http://localhost:4173/dashboard/admissions/$admission_id")
           test "$anonymous_case" != "200"
