@@ -51,3 +51,15 @@ The four source files introduced with this draft PR are copied verbatim
 as reference contracts, **not yet connected to production**. This draft
 is not proof that the ERP is migrated. The current `/app` shell and
 `lib/erp-*.ts` are interim implementations, not the target architecture.
+
+## Implemented on migration branch (not yet production)
+- Added `modules/platform/auth/erp-context.ts`: Better Auth verified staff
+  session → D1 user-scoped permission grants → source `ErpContext`, with
+  explicit denial and no public staff-account creation.
+- Added D1 schema for user-scoped permissions; no automatic elevated grants.
+- Added schema-only index correction for the original multi-active-year
+  behavior; existing academic records are not deleted or rewritten.
+- Added source-parity structural checks in CI.
+- **Not complete:** The original `ErpShell`, page components, each domain's
+  queries/actions and authenticated end-to-end workflow parity still need
+  implementation and verification before replacing the live `/app` routes.

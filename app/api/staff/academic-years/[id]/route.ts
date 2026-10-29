@@ -55,5 +55,5 @@ export async function PATCH(request:Request,context:Context){
       return privateJson({error:"Year changed. Refresh first."},409);
     }
     return privateJson({ok:true,version:updated.version,status:updated.status});
-  }catch{return privateJson({error:"Could not save. Only one academic year may be active at once."},409);}
+  }catch{return privateJson({error:"Could not save academic year. Refresh and verify the details."},409);}
 }

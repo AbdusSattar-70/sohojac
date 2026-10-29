@@ -36,6 +36,8 @@ jobs:
         run: pnpm exec tsc --noEmit
       - name: Verify pinned original ERP architecture contract
         run: node scripts/check-erp-architecture-parity.mjs
+      - name: Verify original ERP auth and D1 parity contracts
+        run: node scripts/check-legacy-erp-d1-parity.mjs
       - name: Reject destructive migrations before any deployment
         run: node scripts/check-d1-migrations.mjs
       - name: Apply public D1 migrations locally
