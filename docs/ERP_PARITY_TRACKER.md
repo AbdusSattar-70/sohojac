@@ -183,3 +183,55 @@ auto-deploy; only `master` is currently production.
 
 **Release gate unchanged**: these slices are development code in draft PR #16,
 not a fully restored ERP and not a reason to deploy or merge it.
+
+
+## Admissions source-first checkpoint (2026-10-30; draft PR #16)
+
+The latest manifest inventory counts **16/66** original dashboard page paths
+and **60/255** original module paths present. These are coverage counts, **not**
+acceptance claims; the case-detail bridge is not the source case-detail UI.
+
+New real source-first work:
+- Restored the original Admissions case register, separate staff/new enquiry
+  entry paths, original staff-intake forms, choice widgets and source validation.
+  The original dashboard Admissions page is Git-blob exact; forms have minor
+  D1/UI compatibility adjustments.
+- Source's UUID-only offering validation was adapted to the **existing**
+  immutable D1 offering keys (`sa-annual-2026`, `sa-ssc-science`), rather
+  than renumbering linked public prospects and risking broken references.
+- The D1 admissions workspace reads actual `academy_admissions`, active
+  batches, verified available `academy_prospects`, academic options and bills.
+  Drafts with no pinned fee plan or batch remain visibly unpinned; no
+  placeholder IDs or fabricated financial balances.
+- Added additive `0027_source_admission_intake.sql` for detailed applicant
+  facts and unique idempotency keys, with no legacy data deletion. The
+  authorized staff-intake and CRM conversion commands create **DRAFT only**,
+  log the actor/reason and preserve retry safety. They never create a Student
+  ID, login, invoice, reserve a seat, or mark an unsigned physical consent
+  as verified.
+- Ported original blank A4 application, source two-page print styles,
+  original per-case A4 print route and original case error boundary.
+  Programme/subject print options and actual posted money allocations are
+  read from D1. Missing receipt references are denied, not redirected to
+  another student's receipt.
+- Added a **temporary source-path case detail bridge** showing verified D1
+  identity/placement/billing and directing authorized staff to the already
+  supported `/app/admissions` case controls. It is **not** the original
+  source case detail workbench.
+
+**Still missing before production**:
+- Original source `[admissionId]/page.tsx` case-step commands (return to
+  draft, READY/review, ACCEPT, fee pinning, BILL, ACTIVATE, real consent
+  verification, identity editor, referral, discounts and extra charges).
+- Review of migration 0027 and two new Server Actions with authenticated
+  **action-level** E2E, conflict/retry and concurrent insert tests (current CI
+  validates source screen rendering, D1 migration and smoke, not all mutations).
+- Historic Supabase-to-D1 data import/crosswalk and signed paper records,
+  source student lifecycle, finance and payroll parity.
+- Original full setup, branch/teacher work, reports, approvals, audit
+  reconciliation, complete backup/rollback plan and staff acceptance.
+- The academy identity in the interim D1 print adapter uses the verified
+  public academy name; source dynamic setup-status management remains unported.
+
+**Release remains BLOCKED.** Do not merge PR #16 or deploy master based on
+path coverage or a green CI alone.
