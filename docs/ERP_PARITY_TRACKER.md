@@ -100,3 +100,55 @@ The live `master` implementation above is **not** the source-parity ERP. On
 Finance, admissions, workforce, teacher academics and other source workflows
 are still incomplete; neither the old `/app` UI nor this preview is an
 exact source-parity ERP. No production D1 migration has been applied by this PR.
+
+
+## Source-first migration checkpoint (2026-10-30)
+
+Pinned source is `sohoj-academy@f46b6161`. The migration draft is
+**not production-equivalent**. Exact source-path inventory currently detects
+**10 of 66** original dashboard pages and **43 of 255** original module files
+present at their original paths. Presence is not proof of runtime parity.
+
+### Implemented in draft PR #16, not released
+
+- Original dashboard visual layout, ported DashboardOverview D1 adapter.
+- Original Staff + Access screen, employee IDs, staff editing/lifecycle
+  actions, invitation and access request workflows. Full browser
+  end-to-end action acceptance and source staff history still required.
+- Original Help & Workflows three pages and five module files, byte exact.
+- Original CRM Prospect list/detail and Student Bank components,
+  nine-state source workflow, staff assignment, follow-up forms/actions
+  on D1 with audit and stable public enquiry identity.
+- Original CRM Website Management and public-controls form, D1-backed
+  content/visibility/application updates, preserving the public website
+  catalogue. Subject editing and original fee-plan versioning remain in
+  the pending Academic Offerings module.
+- Historical coarse public CLOSED enquiries are not guessed as LOST.
+  Reconciliation requires a verified staff decision and audit; legacy
+  /app changes cannot overwrite richer CRM states.
+
+### Required next end-to-end deliverables
+
+1. Finish CRM **action-level** signed-in browser tests: public intake
+   through staff follow-up, assignment, verified historical reconciliation,
+   status transitions, and public website management edits. Confirm
+   public form and legacy editor remain safe; preserve audit trace.
+2. Port original **Admissions** 28 source module files and all original
+   admission routes/components, including identity, guardian, offering
+   placement, paper consent, review, admission approval, billing, print
+   and enrollment; reconcile old Supabase IDs against D1.
+3. Port original **Academics/Offerings** workflow and fee versions,
+   batches, class calendar, timetable, teaching and exams. Restore
+   source component hierarchy, not the simplified substitutes.
+4. Port original **Finance** 86 source module files: GL, billing,
+   receivables, payments/refunds, expenses, cash handling, suppliers,
+   stock, payroll, reporting and year-end. Verify exact monetary/audit
+   invariants before enabling write operations.
+5. Port **Workforce, Teacher, Students, Governance, Referrals,
+   Action Center, Settings** and finish original dashboard routes.
+6. Verify every original route/UI, permission, workflow, A4 print,
+   DB record and audit through automated tests. Then perform a
+   reversible production cutover; no premature final signoff.
+
+The source-first branch is intentionally **draft** and must not
+auto-deploy; only `master` is currently production.
