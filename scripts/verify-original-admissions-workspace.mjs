@@ -2,7 +2,8 @@ import fs from "node:fs";
 import crypto from "node:crypto";
 const read=p=>fs.readFileSync(p,"utf8");
 const hash=p=>{const b=fs.readFileSync(p);return crypto.createHash("sha1").update("blob "+b.length+"\0").update(b).digest("hex");};
-if(hash("app/dashboard/admissions/page.tsx")!=="0" /* overridden below */){
+if(hash("app/dashboard/admissions/page.tsx")!=="6b44a46a490bdca35ec43f8591223929dcb608bc")throw Error("Original admissions register page source drift");
+{
  const page=read("app/dashboard/admissions/page.tsx");
  for(const marker of ["Start an admission","Already in Enquiries","New applicant with staff assistance","Paper application","Admission cases","getAdmissionWorkspace"])
   if(!page.includes(marker))throw Error("Original admissions register missing "+marker);
