@@ -62,7 +62,7 @@ export function CentralSearch({ permissions }: { permissions: string[] }) {
   const pages = erpRouteRegistry
     .filter(
       (r) =>
-        permissions.includes(r.permission) && r.href === "/dashboard" &&
+        permissions.includes(r.permission) && ["/dashboard","/dashboard/academics/settings"].includes(r.href) &&
         q.trim() &&
         (navigationLabel(r.id, r.title, locale) + " " + r.title)
           .toLowerCase()
