@@ -529,13 +529,23 @@ jobs:
 
 
 
-          # Server-rendered staff pages also require the valid owner session.
-          for route in /app /app/prospects; do
-            code=$(curl -sS -o /tmp/sohojac-staff-page.html -w '%{http_code}' \
-              -b /tmp/staff-ci-cookies "http://localhost:4173$route")
-            echo "authorized $route HTTP: $code"
-            test "$code" = "200"
-          done
+          # Source ERP is canonical after sign-in; legacy homepage cannot render
+          # the outdated parallel workbench (even with a valid authenticated session).
+          grep -q 'router.replace("/dashboard")' app/sign-in/page.tsx
+          grep -q 'href: "/dashboard/admissions"' components/staff/staff-shell.tsx
+          legacy_home=$(curl -sS -D /tmp/ci-legacy-home-headers -o /dev/null -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies "http://localhost:4173/app")
+          echo "legacy /app redirect HTTP: $legacy_home"
+          test "$legacy_home" = "307"
+          grep -qi 'location: /dashboard' /tmp/ci-legacy-home-headers
+          canonical_home=$(curl -sS -L -o /tmp/ci-canonical-home.html -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies "http://localhost:4173/app")
+          test "$canonical_home" = "200"
+          grep -q 'Digital Campus' /tmp/ci-canonical-home.html
+          # Legacy operational routes not yet migrated remain independently available.
+          code=$(curl -sS -o /tmp/sohojac-staff-page.html -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies "http://localhost:4173/app/prospects")
+          test "$code" = "200"
 
           # Only the role-authorized owner can update the synthetic enquiry.
           enquiry_id=$(node -e 'const fs=require("fs"); const d=JSON.parse(fs.readFileSync("/tmp/staff-prospects.json","utf8"));const item=d.items?.find(x=>/^01700000000$/.test(x.mobile) && /^Smoke\sTest\sStudent$/.test(x.student_name));if(!item)process.exit(1);process.stdout.write(item.id)')
@@ -631,8 +641,16 @@ jobs:
           test "$approved" = "200"
           duplicate_approval=$(curl -sS -o /tmp/ci-duplicate-approval.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/admissions/$admission_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"action\":\"ACCEPT\",\"expectedVersion\":2,\"batchId\":\"$admission_batch_id\",\"feePlanId\":\"$admission_fee_id\",\"consentVerified\":true,\"reason\":\"A second approval should always fail\"}")
           test "$duplicate_approval" = "409"
-          admission_page=$(curl -sS -o /tmp/ci-admission-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/admissions")
-          test "$admission_page" = "200"
+          # Historical /app/admissions links must resolve to the original ERP.
+          admission_page=$(curl -sS -D /tmp/ci-legacy-admission-headers -o /dev/null -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/admissions")
+          echo "Legacy Admissions redirect HTTP: $admission_page"
+          test "$admission_page" = "307"
+          grep -qi 'location: /dashboard/admissions' /tmp/ci-legacy-admission-headers
+          redirected_admissions=$(curl -sS -L -o /tmp/ci-admission-page.html -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies "http://localhost:4173/app/admissions")
+          test "$redirected_admissions" = "200"
+          grep -q 'Start an admission' /tmp/ci-admission-page.html
+          grep -q 'Admission cases' /tmp/ci-admission-page.html
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM academy_admissions WHERE status='ACCEPTED' AND consent_verified=1),(SELECT COUNT(*) FROM academy_students),(SELECT COUNT(*) FROM finance_invoices),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type='admission')" > /tmp/ci-admission-approval.json
           node -e 'const n=require("/tmp/ci-admission-approval.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==0||n?.[2]!==0||n?.[3]!==3)process.exit(1);'
 
@@ -699,6 +717,10 @@ jobs:
             -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/admissions/$admission_id")
           echo "Source case detail bridge HTTP: $source_case"
           test "$source_case" = "200"
+          legacy_case_code=$(curl -sS -D /tmp/ci-legacy-case-headers -o /dev/null -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies "http://localhost:4173/app/admissions/$admission_id")
+          test "$legacy_case_code" = "307"
+          grep -qi "location: /dashboard/admissions/$admission_id" /tmp/ci-legacy-case-headers
           grep -q 'Verify application and placement' /tmp/ci-source-case.html
           grep -q 'Record Organic or referrer' /tmp/ci-source-case.html
           grep -q 'Receive signed paper consent' /tmp/ci-source-case.html

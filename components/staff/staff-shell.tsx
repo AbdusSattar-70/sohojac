@@ -37,7 +37,7 @@ const groups: Group[] = [
     title: "CRM & admissions",
     items: [
       { label: "Enquiries", href: "/app/prospects", icon: Search, restricted: true },
-      { label: "Admissions", href: "/app/admissions", icon: BookOpenCheck },
+      { label: "Admissions", href: "/dashboard/admissions", icon: BookOpenCheck },
     ],
   },
   {

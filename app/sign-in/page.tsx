@@ -23,7 +23,7 @@ export default function SignInPage() {
         setError("Sign-in failed. Check your credentials or contact the administrator.");
         return;
       }
-      router.push("/app");
+      router.replace("/dashboard");
       router.refresh();
     } catch {
       setError("Unable to connect to authentication. Please try again.");
