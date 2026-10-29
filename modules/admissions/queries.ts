@@ -56,6 +56,7 @@ export async function getAdmissionWorkspace() {
    "inv.paid_paisa AS invoice_paid_paisa,",
    "a.class_grade,d.student_mobile,d.student_email,d.present_landmark,d.permanent_address,d.permanent_same_as_present,",
    "d.student_name_bn,d.gender,d.date_of_birth,d.school_roll,d.guardian_address,",
+   "d.student_mobile,d.student_email,d.present_landmark,d.permanent_address,d.permanent_same_as_present,",
    "d.alternate_mobile,d.guardian_relationship",
    "FROM academy_admissions a",
    "LEFT JOIN academy_students s ON s.id=a.student_id",
