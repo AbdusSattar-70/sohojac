@@ -636,7 +636,7 @@ export function AdmissionCommandForm({
           <Button
             type="submit"
             disabled={pending || !isDirty}
-            loading={pending}
+            
           >
             {pending ? "Working…" : label}
           </Button>
@@ -645,7 +645,7 @@ export function AdmissionCommandForm({
               type="button"
               variant="outline"
               disabled={pending}
-              loading={pending}
+              
               onClick={onCancel}
             >
               Cancel
