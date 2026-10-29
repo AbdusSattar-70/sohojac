@@ -20,6 +20,7 @@ type Entry = {
   icon: LucideIcon;
   restricted?: boolean;
   ownerAdminOnly?: boolean;
+  teacherOnly?: boolean;
 };
 type Group = { title: string; items: Entry[] };
 
@@ -28,6 +29,7 @@ const groups: Group[] = [
     title: "Daily work",
     items: [
       { label: "Overview", href: "/app", icon: LayoutDashboard },
+      { label: "My classes", href: "/app/teacher", icon: GraduationCap, teacherOnly: true },
       { label: "Action center", icon: ClipboardList },
     ],
   },
@@ -64,6 +66,7 @@ const groups: Group[] = [
     title: "Administration",
     items: [
       { label: "Staff & access", href: "/app/staff-access", icon: ShieldCheck, ownerAdminOnly: true },
+      { label: "Teacher assignments", href: "/app/staff-teachers", icon: UsersRound, ownerAdminOnly: true },
       { label: "Settings", icon: Settings2 },
       { label: "Audit history", href: "/app/audit", icon: ShieldCheck, ownerAdminOnly: true },
       { label: "Help & workflows", icon: CircleHelp },
@@ -95,6 +98,8 @@ export function StaffShell({ staff, children }: { staff: StaffAccess; children: 
   const pageTitle = pathname.startsWith("/app/prospects") ? "Enquiries"
     : pathname.startsWith("/app/staff-access") ? "Staff & access"
     : pathname.startsWith("/app/academic-years") ? "Academic years"
+    : pathname.startsWith("/app/staff-teachers") ? "Teacher assignments"
+    : pathname.startsWith("/app/teacher") ? "My classes"
     : pathname.startsWith("/app/subjects") ? "Subjects"
     : pathname.startsWith("/app/assessments") ? "Assessments"
     : pathname.startsWith("/app/routine") ? "Routines"
@@ -147,7 +152,8 @@ export function StaffShell({ staff, children }: { staff: StaffAccess; children: 
         {groups.map((group) => {
           const visible = group.items.filter(item =>
             (!item.restricted || canManage) &&
-            (!item.ownerAdminOnly || staff.role === "OWNER" || staff.role === "ADMIN")
+            (!item.ownerAdminOnly || staff.role === "OWNER" || staff.role === "ADMIN") &&
+            (!item.teacherOnly || staff.role === "TEACHER")
           );
           if (!visible.length) return null;
           return <section key={group.title}>

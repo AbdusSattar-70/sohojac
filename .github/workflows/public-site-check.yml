@@ -625,6 +625,43 @@ jobs:
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT json_array_length(subjects_json) FROM public_programme_offerings WHERE id='sa-ssc-science'),(SELECT COUNT(*) FROM academy_subjects),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type IN ('academy_subject','offering_subject'))" > /tmp/ci-subject-final.json
           node -e 'const x=require("/tmp/ci-subject-final.json")[0]?.results?.rows?.[0];if(x?.[0]!==4||x?.[1]!==5||x?.[2]!==3)process.exit(1);'
 
+          echo 'CI entering teacher class scoping checks'
+
+          # Teacher assignments: no classroom data without a matching active batch.
+          anonymous_teacher_classes=$(curl -sS -o /tmp/ci-anon-teacher-classes.json -w '%{http_code}' "http://localhost:4173/api/teacher/classes")
+          test "$anonymous_teacher_classes" = "401"
+          owner_as_teacher=$(curl -sS -o /tmp/ci-owner-as-teacher.json -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/api/teacher/classes")
+          test "$owner_as_teacher" = "403"
+          teacher_before=$(curl -sS -o /tmp/ci-teacher-before.json -w '%{http_code}' -b /tmp/teacher-ci-cookies "http://localhost:4173/api/teacher/classes")
+          test "$teacher_before" = "200"
+          node -e 'const d=require("/tmp/ci-teacher-before.json");if(d.batches?.length!==0||d.students?.length!==0)process.exit(1);'
+          teacher_assignment_list=$(curl -sS -o /tmp/ci-teacher-assignment-list.json -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/api/staff/teacher-assignments")
+          test "$teacher_assignment_list" = "200"
+          teacher_user_id=$(node -e 'const d=require("/tmp/ci-teacher-assignment-list.json");if(d.teachers?.length!==1)process.exit(1);process.stdout.write(d.teachers[0].user_id)')
+          teacher_cannot_assign=$(curl -sS -o /tmp/ci-teacher-cannot-assign.json -w '%{http_code}' -b /tmp/teacher-ci-cookies -X POST "http://localhost:4173/api/staff/teacher-assignments" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{}')
+          test "$teacher_cannot_assign" = "403"
+          teacher_assigned=$(curl -sS -o /tmp/ci-teacher-assigned.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/teacher-assignments" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"teacherUserId\":\"$teacher_user_id\",\"batchId\":\"$admission_batch_id\",\"reason\":\"Assign verified synthetic teacher to CI batch\"}")
+          echo "Teacher assignment HTTP: $teacher_assigned"
+          if [ "$teacher_assigned" != "201" ]; then cat /tmp/ci-teacher-assigned.json; fi
+          test "$teacher_assigned" = "201"
+          teacher_assignment_id=$(node -e 'process.stdout.write(require("/tmp/ci-teacher-assigned.json").id)')
+          teacher_after=$(curl -sS -o /tmp/ci-teacher-after.json -w '%{http_code}' -b /tmp/teacher-ci-cookies "http://localhost:4173/api/teacher/classes")
+          test "$teacher_after" = "200"
+          node -e 'const d=require("/tmp/ci-teacher-after.json");if(d.batches?.length!==1||d.students?.length!==1||d.sessions?.length!==1||d.exams?.length!==1||JSON.stringify(d).includes("guardian_mobile"))process.exit(1);'
+          teacher_page=$(curl -sS -o /tmp/ci-teacher-page.html -w '%{http_code}' -b /tmp/teacher-ci-cookies "http://localhost:4173/app/teacher")
+          test "$teacher_page" = "200"
+          teacher_revoke=$(curl -sS -o /tmp/ci-teacher-revoke.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/teacher-assignments/$teacher_assignment_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"active":false,"expectedVersion":1,"reason":"Revoke assigned classroom access in CI"}')
+          test "$teacher_revoke" = "200"
+          teacher_revoked=$(curl -sS -o /tmp/ci-teacher-revoked.json -w '%{http_code}' -b /tmp/teacher-ci-cookies "http://localhost:4173/api/teacher/classes")
+          test "$teacher_revoked" = "200"
+          node -e 'const d=require("/tmp/ci-teacher-revoked.json");if(d.batches?.length!==0||d.students?.length!==0)process.exit(1);'
+          teacher_stale_revoke=$(curl -sS -o /tmp/ci-teacher-stale-revoke.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/teacher-assignments/$teacher_assignment_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"active":false,"expectedVersion":1,"reason":"Stale assignment version must fail"}')
+          test "$teacher_stale_revoke" = "409"
+          teacher_assignment_page=$(curl -sS -o /tmp/ci-teacher-assignment-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/staff-teachers")
+          test "$teacher_assignment_page" = "200"
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM academy_batch_teachers WHERE active=0 AND version=2),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type='teacher_assignment')" > /tmp/ci-teacher-verified.json
+          node -e 'const n=require("/tmp/ci-teacher-verified.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==2)process.exit(1);'
+
           # Revoking a staff membership removes access even with a live
           # Better Auth session cookie; do not rely on client-side role state.
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \

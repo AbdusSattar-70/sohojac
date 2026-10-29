@@ -29,7 +29,7 @@ in the live D1, no student/guardian login, staff UI English only.
 | Admissions, reviews, consent, print form | Draft → review → accept → bill → enroll | Draft → review → accept → bill → enroll and A4 consent form implemented on isolated branch; production checks pending |
 | Students, enrollments, transfers, lifecycle | Verified records only after enrollment | Atomic enrollment and student register staged; transfers/lifecycle pending |
 | Attendance, timetable, homework, exams | Classroom operations and assessments | Attendance, dated class routines and assessments/results staged with audit/security tests; homework and teacher assignment pending |
-| Staff/teacher/workforce attendance & tasks | Workforce dashboard and assigned work | Missing |
+| Staff/teacher/workforce attendance & tasks | Workforce dashboard and assigned work | Scoped teacher batch assignments and read-only classroom staged; staff attendance and tasks missing |
 | Payroll, compensation, referral rewards | Staff compensation controls | Missing |
 | Finance GL/journals/accounting | Double-entry, immutable posted journals and reports | Initial invoices and collections use balanced GL; revenue recognition and full statements pending |
 | Invoices, collections, receipts, allocations | Student receivables and reconciliations | Exact-price invoice, overpayment-guarded collection, audit and GL journal staged; further reconciliation pending |
