@@ -33,7 +33,7 @@ export async function changeRecordState(input:unknown){
   }>();
   if(!row)return {ok:false,message:"Staff record unavailable."};
   const isArchived=row.status==="ARCHIVED";
-  if(isArchived===value.active)
+  if(isArchived===!value.active)
    return {ok:false,message:"Record state changed; refresh before retrying."};
   if(!value.active && row.linked_user_id===context.profileId)
    return {ok:false,message:"You cannot archive your own authenticated staff identity."};
