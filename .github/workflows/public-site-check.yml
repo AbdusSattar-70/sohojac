@@ -533,6 +533,30 @@ jobs:
           report_page=$(curl -sS -o /tmp/ci-report-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/reports")
           test "$report_page" = "200"
 
+          echo 'CI entering class routine checks'
+
+          # Dated routine: valid session, overlap rejection, atomic audit and terminal state.
+          anon_routine=$(curl -sS -o /tmp/ci-anon-routine.json -w '%{http_code}' "http://localhost:4173/api/staff/routine")
+          test "$anon_routine" = "401"
+          teacher_routine=$(curl -sS -o /tmp/ci-teacher-routine.json -w '%{http_code}' -b /tmp/teacher-ci-cookies "http://localhost:4173/api/staff/routine")
+          test "$teacher_routine" = "403"
+          routine_day=$(date -u +%F)
+          scheduled=$(curl -sS -o /tmp/ci-scheduled.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/routine" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"batchId\":\"$admission_batch_id\",\"classOn\":\"$routine_day\",\"startsAt\":\"16:00\",\"endsAt\":\"17:00\",\"title\":\"Synthetic science lesson\",\"topic\":\"Chapter 1\",\"reason\":\"Plan a synthetic classroom session\"}")
+          echo "Routine schedule HTTP: $scheduled"
+          if [ "$scheduled" != "201" ]; then cat /tmp/ci-scheduled.json; fi
+          test "$scheduled" = "201"
+          session_id=$(node -e 'process.stdout.write(require("/tmp/ci-scheduled.json").id)')
+          overlap=$(curl -sS -o /tmp/ci-overlap.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/routine" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"batchId\":\"$admission_batch_id\",\"classOn\":\"$routine_day\",\"startsAt\":\"16:30\",\"endsAt\":\"17:30\",\"title\":\"Overlapping science lesson\",\"topic\":\"Chapter 2\",\"reason\":\"Overlap must be rejected by D1\"}")
+          test "$overlap" = "409"
+          routine_held=$(curl -sS -o /tmp/ci-routine-held.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/routine/$session_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"expectedVersion":1,"nextStatus":"HELD","reason":"Classroom session took place in CI"}')
+          test "$routine_held" = "200"
+          routine_stale=$(curl -sS -o /tmp/ci-routine-stale.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/routine/$session_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"expectedVersion":1,"nextStatus":"CANCELLED","reason":"Cannot cancel a completed class"}')
+          test "$routine_stale" = "409"
+          routine_page=$(curl -sS -o /tmp/ci-routine-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/routine")
+          test "$routine_page" = "200"
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM academy_class_sessions WHERE status='HELD' AND version=2),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type='class_session')" > /tmp/ci-routine-count.json
+          node -e 'const x=require("/tmp/ci-routine-count.json")[0]?.results?.rows?.[0];if(x?.[0]!==1||x?.[1]!==2)process.exit(1);'
+
           # Revoking a staff membership removes access even with a live
           # Better Auth session cookie; do not rely on client-side role state.
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
