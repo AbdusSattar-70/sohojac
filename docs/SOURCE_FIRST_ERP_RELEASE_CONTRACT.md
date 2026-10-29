@@ -22,7 +22,7 @@ Target repository: AbdusSattar-70/sohojac (Cloudflare Workers, D1, R2; Better Au
 
 ## Full-release gates
 
-1. Every original 65 dashboard page and 255 module file has an equivalent at its ORIGINAL route/path, adapting only infrastructure-specific pieces.
+1. Every original 66 dashboard page and 255 module file has an equivalent at its ORIGINAL route/path, adapting only infrastructure-specific pieces.
 2. UI snapshot/interaction comparison against the pinned original source passes on every page.
 3. Authenticated end-to-end positive/negative workflow tests, finance integrity and audit, print/export and role boundaries pass for all modules.
 4. Original data, IDs and history are reconciled; never infer legacy staff numbers from names or silently overwrite records.
