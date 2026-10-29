@@ -557,6 +557,42 @@ jobs:
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM academy_class_sessions WHERE status='HELD' AND version=2),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type='class_session')" > /tmp/ci-routine-count.json
           node -e 'const x=require("/tmp/ci-routine-count.json")[0]?.results?.rows?.[0];if(x?.[0]!==1||x?.[1]!==2)process.exit(1);'
 
+          echo 'CI entering assessment and grading checks'
+
+          # Assessments: scores belong to active enrolments and lock on publish.
+          anon_assess=$(curl -sS -o /tmp/ci-anon-assess.json -w '%{http_code}' "http://localhost:4173/api/staff/assessments")
+          test "$anon_assess" = "401"
+          teacher_assess=$(curl -sS -o /tmp/ci-teacher-assess.json -w '%{http_code}' -b /tmp/teacher-ci-cookies "http://localhost:4173/api/staff/assessments")
+          test "$teacher_assess" = "403"
+          assessment_day=$(date -u +%F)
+          exam_create=$(curl -sS -o /tmp/ci-exam-create.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/assessments" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"batchId\":\"$admission_batch_id\",\"title\":\"Synthetic monthly mathematics exam\",\"subject\":\"Mathematics\",\"heldOn\":\"$assessment_day\",\"maxMarks\":100,\"reason\":\"Create classroom performance test\"}")
+          echo "Assessment creation HTTP: $exam_create"
+          if [ "$exam_create" != "201" ]; then cat /tmp/ci-exam-create.json; fi
+          test "$exam_create" = "201"
+          exam_id=$(node -e 'process.stdout.write(require("/tmp/ci-exam-create.json").id)')
+          premature_publish=$(curl -sS -o /tmp/ci-premature-publish.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/assessments/$exam_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"expectedVersion":1,"reason":"Should reject an ungraded exam"}')
+          test "$premature_publish" = "409"
+          invalid_mark=$(curl -sS -o /tmp/ci-invalid-mark.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/assessments/$exam_id/results" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"enrollmentId\":\"$attendance_enrollment_id\",\"marks\":120,\"expectedVersion\":0,\"reason\":\"Out of range marks are forbidden\"}")
+          test "$invalid_mark" = "409"
+          first_mark=$(curl -sS -o /tmp/ci-first-mark.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/assessments/$exam_id/results" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"enrollmentId\":\"$attendance_enrollment_id\",\"marks\":82,\"expectedVersion\":0,\"reason\":\"Recorded verified examination marks\"}")
+          echo "Grade record HTTP: $first_mark"
+          if [ "$first_mark" != "200" ]; then cat /tmp/ci-first-mark.json; fi
+          test "$first_mark" = "200"
+          stale_mark=$(curl -sS -o /tmp/ci-stale-mark.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/assessments/$exam_id/results" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"enrollmentId\":\"$attendance_enrollment_id\",\"marks\":60,\"expectedVersion\":0,\"reason\":\"Stale grade edit must fail\"}")
+          test "$stale_mark" = "409"
+          corrected_mark=$(curl -sS -o /tmp/ci-corrected-mark.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/assessments/$exam_id/results" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"enrollmentId\":\"$attendance_enrollment_id\",\"marks\":86,\"expectedVersion\":1,\"reason\":\"Grade correction after answer review\"}")
+          test "$corrected_mark" = "200"
+          exam_publish=$(curl -sS -o /tmp/ci-exam-publish.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/assessments/$exam_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"expectedVersion":1,"reason":"All student marks checked and approved"}')
+          echo "Assessment publication HTTP: $exam_publish"
+          if [ "$exam_publish" != "200" ]; then cat /tmp/ci-exam-publish.json; fi
+          test "$exam_publish" = "200"
+          locked_mark=$(curl -sS -o /tmp/ci-locked-mark.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/assessments/$exam_id/results" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"enrollmentId\":\"$attendance_enrollment_id\",\"marks\":90,\"expectedVersion\":2,\"reason\":\"Published results cannot be edited\"}")
+          test "$locked_mark" = "409"
+          exam_page=$(curl -sS -o /tmp/ci-exam-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/assessments")
+          test "$exam_page" = "200"
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM academy_assessments WHERE status='PUBLISHED' AND version=2),(SELECT COUNT(*) FROM academy_assessment_results WHERE obtained_marks=86 AND version=2),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type IN ('academy_assessment','academy_assessment_result'))" > /tmp/ci-assessments-verified.json
+          node -e 'const r=require("/tmp/ci-assessments-verified.json")[0]?.results?.rows?.[0];if(r?.[0]!==1||r?.[1]!==1||r?.[2]!==4)process.exit(1);'
+
           # Revoking a staff membership removes access even with a live
           # Better Auth session cookie; do not rely on client-side role state.
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
