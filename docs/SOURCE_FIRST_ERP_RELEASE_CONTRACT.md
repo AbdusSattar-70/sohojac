@@ -47,3 +47,14 @@ Start from the ACTUAL original screen/component/module files. Preserve UI, route
   why this migration branch is not yet releasable.
 - CI checks the original dashboard Git blob hash. All other original
   domain workflows and pages must still be moved before final release.
+
+## Staff & access workspace source-first slice (draft branch)
+- The original app/dashboard/staff/page.tsx screen structure is retained, including source StaffRegister, AccessRequestRegister, RecordStateButton, StaffEditButton, ActionPanel and EmptyState components.
+- The original modules/staff/queries.ts interface now reads the canonical academy_staff records in Cloudflare D1.
+- The original editStaffRecord form action is restored with strict source-compatible validation, linked-account email protection, concurrency/version checks and atomic D1 audit.
+- The original staff lifecycle control archives and reactivates staff without deleting permanent identity. Unported entity lifecycle commands explicitly reject.
+- The original access-review UI uses D1 for verification, decline and guarded email invitation. Public /request-access stays Turnstile-protected; no server-action bypass.
+- Owner's missing system.users.manage permission was restored.
+- CI verifies unchanged original component blob SHAs, TypeScript, Worker build, local migration replay, owner-rendered staff ID, edit/lifecycle controls and staff access request panel, and anonymous/teacher denials.
+- Still required: browser-driven create/edit/archive/reactivate/review E2E tests, source Supabase staff/role reconciliation, branch-aware original role assignments and end-to-end workflow validation.
+- THIS IS A DRAFT PREVIEW. Do not deploy or claim total staff/domain parity on only these checks.
