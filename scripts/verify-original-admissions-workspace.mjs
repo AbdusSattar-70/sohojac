@@ -25,4 +25,6 @@ if(!schema.includes('const option = z.object({ id: z.string().min(2).max(100)'))
  throw Error("Pinned original source IDs must accept existing non-UUID D1 offering keys");
 if(!read("modules/admissions/intake-schema.ts").includes("offeringId: z.string().min(2).max(100)"))
  throw Error("Source intake rejects existing D1 offering keys");
+if((workspace.match(/LEFT JOIN finance_invoices inv ON inv\.id=/g)||[]).length!==2)
+ throw Error("Admission cases must be stable when recurring finance invoices exist");
 console.log("Original Admissions register and guarded D1 staff/CRM draft adapters verified.");
