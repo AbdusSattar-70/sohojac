@@ -42,6 +42,8 @@ jobs:
         run: node scripts/check-staff-number-parity.mjs
       - name: Report original ERP route and module coverage (not a parity pass)
         run: node scripts/audit-source-first-erp.mjs
+      - name: Verify canonical ERP navigation and route coverage
+        run: node scripts/check-dashboard-navigation.mjs
       - name: Verify exact original dashboard UI port
         run: node scripts/verify-original-dashboard-ui.mjs
       - name: Verify source Staff Register UI and D1 security adapters
@@ -78,11 +80,12 @@ jobs:
       - name: Verify scoped dark-only staff UI and A4 printout
         run: |
           set -euo pipefail
-          grep -q 'erp-dark flex min-h-screen' components/staff/staff-shell.tsx
+          grep -q 'SidebarProvider' components/erp/erp-shell.tsx
+          grep -q 'group/sidebar' components/ui/sidebar.tsx
           grep -q 'staff-auth-dark' app/sign-in/page.tsx
           grep -q 'staff-auth-dark' app/request-access/page.tsx
-          grep -q 'erp-paper' app/app/admissions/'[id]'/print/page.tsx
-          grep -q 'erp-paper' app/app/admissions/'[id]'/bill/page.tsx
+          grep -q 'AdmissionPaper' app/dashboard/admissions/'[admissionId]'/print/page.tsx
+          grep -q 'erp-paper' app/dashboard/admissions/'[admissionId]'/bill/page.tsx
           grep -q 'color-scheme: dark' app/globals.css
           grep -q 'STAFF_EMAIL_FROM' lib/staff-mail.ts
 
@@ -532,7 +535,7 @@ jobs:
           # Source ERP is canonical after sign-in; legacy homepage cannot render
           # the outdated parallel workbench (even with a valid authenticated session).
           grep -q 'router.replace("/dashboard")' app/sign-in/page.tsx
-          grep -q 'href: "/dashboard/admissions"' components/staff/staff-shell.tsx
+          grep -q 'href: "/dashboard/admissions"' modules/platform/navigation/erp-route-registry.ts
           legacy_home=$(curl -sS -D /tmp/ci-legacy-home-headers -o /dev/null -w '%{http_code}' \
             -b /tmp/staff-ci-cookies "http://localhost:4173/app")
           echo "legacy /app redirect HTTP: $legacy_home"
@@ -544,7 +547,7 @@ jobs:
           grep -q 'Digital Campus' /tmp/ci-canonical-home.html
           # Legacy operational routes not yet migrated remain independently available.
           code=$(curl -sS -o /tmp/sohojac-staff-page.html -w '%{http_code}' \
-            -b /tmp/staff-ci-cookies "http://localhost:4173/app/prospects")
+            -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/crm/prospects")
           test "$code" = "200"
 
           # Only the role-authorized owner can update the synthetic enquiry.
@@ -587,7 +590,7 @@ jobs:
           test "$batch_close" = "200"
           batch_reopen=$(curl -sS -o /tmp/ci-reopen-batch.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/batches/$batch_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"name":"SSC Science CI Batch","capacity":12,"beginsOn":"","endsOn":"","nextStatus":"ACTIVE","expectedVersion":3,"reason":"Closed batch must not reopen"}')
           test "$batch_reopen" = "409"
-          batch_page=$(curl -sS -o /tmp/ci-batch-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/batches")
+          batch_page=$(curl -sS -o /tmp/ci-batch-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/academics/batches")
           test "$batch_page" = "200"
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM academy_batches WHERE status='COMPLETED' AND capacity=12),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type='academy_batch')" > /tmp/ci-batches-checked.json
           node -e 'const n=require("/tmp/ci-batches-checked.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==3)process.exit(1);'
@@ -608,7 +611,7 @@ jobs:
           test "$updated_fee" = "200"
           stale_fee=$(curl -sS -o /tmp/ci-stale-fee.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/fee-plans/$fee_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"title":"Stale CI monthly","monthlyAmountPaisa":999999,"admissionAmountPaisa":0,"active":true,"expectedVersion":1,"reason":"A stale fee update must fail"}')
           test "$stale_fee" = "409"
-          fee_page=$(curl -sS -o /tmp/ci-fee-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/fee-plans")
+          fee_page=$(curl -sS -o /tmp/ci-fee-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/finance/fee-plans")
           test "$fee_page" = "200"
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM academy_fee_plans WHERE monthly_amount_paisa=260000 AND active=0),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type='academy_fee_plan')" > /tmp/ci-fees-checked.json
           node -e 'const n=require("/tmp/ci-fees-checked.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==2)process.exit(1);'
@@ -665,7 +668,7 @@ jobs:
           test "$initial_bill" = "200"
           duplicate_bill=$(curl -sS -o /tmp/ci-dupe-bill.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/admissions/$admission_id/bill" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"expectedVersion":3,"reason":"Duplicate bill must be rejected"}')
           test "$duplicate_bill" = "409"
-          bill_page=$(curl -sS -o /tmp/ci-bill-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/admissions/$admission_id/bill")
+          bill_page=$(curl -sS -o /tmp/ci-bill-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/admissions/$admission_id/bill")
           test "$bill_page" = "200"
           grep -q "Initial admission bill" /tmp/ci-bill-page.html
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM academy_admissions WHERE status='BILLED'),(SELECT COUNT(*) FROM academy_admission_bills WHERE monthly_amount_paisa=250000 AND admission_amount_paisa=150000 AND amount_paisa=400000),(SELECT COUNT(*) FROM academy_students),(SELECT COUNT(*) FROM finance_invoices),(SELECT COUNT(*) FROM erp_audit_events WHERE action='INITIAL_BILL_ISSUED')" > /tmp/ci-initial-bill-check.json
@@ -691,7 +694,7 @@ jobs:
           test "$students_api" = "200"
           teacher_students=$(curl -sS -o /tmp/ci-teacher-students.json -w '%{http_code}' -b /tmp/teacher-ci-cookies "http://localhost:4173/api/staff/students")
           test "$teacher_students" = "403"
-          student_page=$(curl -sS -o /tmp/ci-student-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/students")
+          student_page=$(curl -sS -o /tmp/ci-student-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/students")
           test "$student_page" = "200"
           # Original Admissions register and two source intake modes.
           for source_route in /dashboard/admissions /dashboard/admissions?start=staff /dashboard/admissions?start=enquiry; do
@@ -718,7 +721,7 @@ jobs:
           echo "Source case detail bridge HTTP: $source_case"
           test "$source_case" = "200"
           legacy_case_code=$(curl -sS -D /tmp/ci-legacy-case-headers -o /dev/null -w '%{http_code}' \
-            -b /tmp/staff-ci-cookies "http://localhost:4173/app/admissions/$admission_id")
+            -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/admissions/$admission_id")
           test "$legacy_case_code" = "307"
           grep -qi "location: /dashboard/admissions/$admission_id" /tmp/ci-legacy-case-headers
           grep -q 'Verify application and placement' /tmp/ci-source-case.html
@@ -789,7 +792,7 @@ jobs:
 
           echo 'CI entering printable form checks'
           # A4 signature form must be available to an authenticated operator.
-          consent_form=$(curl -sS -o /tmp/ci-admission-form.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/admissions/$admission_id/print")
+          consent_form=$(curl -sS -o /tmp/ci-admission-form.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/admissions/$admission_id/print")
           test "$consent_form" = "200"
           grep -q "Student signature" /tmp/ci-admission-form.html
           grep -q "Guardian signature" /tmp/ci-admission-form.html
@@ -821,7 +824,7 @@ jobs:
           test "$collection_two" = "201"
           settled_collection=$(curl -sS -o /tmp/ci-settled-collection.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/collections" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"invoiceId\":\"$invoice_id\",\"amountPaisa\":1,\"method\":\"CASH\",\"reference\":\"\",\"reason\":\"Settled invoices reject new money\"}")
           test "$settled_collection" = "409"
-          collections_page=$(curl -sS -o /tmp/ci-collections-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/collections")
+          collections_page=$(curl -sS -o /tmp/ci-collections-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/finance/collections")
           test "$collections_page" = "200"
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM finance_invoices WHERE paid_paisa=400000 AND amount_paisa=400000 AND status='PAID'),(SELECT COUNT(*) FROM finance_payments),(SELECT COUNT(*) FROM finance_allocations),(SELECT COUNT(*) FROM finance_journals WHERE status='POSTED'),(SELECT SUM(debit_paisa) FROM finance_journal_lines),(SELECT SUM(credit_paisa) FROM finance_journal_lines)" > /tmp/ci-gl-check.json
           cat /tmp/ci-gl-check.json
@@ -847,7 +850,7 @@ jobs:
           echo "Attendance correction HTTP: $attend_correct"
           if [ "$attend_correct" != "200" ]; then cat /tmp/ci-attend-correct.json; fi
           test "$attend_correct" = "200"
-          attendance_page=$(curl -sS -o /tmp/ci-attendance-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/attendance")
+          attendance_page=$(curl -sS -o /tmp/ci-attendance-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/attendance")
           test "$attendance_page" = "200"
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM academy_attendance WHERE state='LATE' AND version=2),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type='academy_attendance')" > /tmp/ci-attendance-verified.json
           node -e 'const n=require("/tmp/ci-attendance-verified.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==2)process.exit(1);'
@@ -862,7 +865,7 @@ jobs:
           owner_audit=$(curl -sS -o /tmp/ci-owner-audit.json -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/api/staff/audit?type=academy_attendance&page=1")
           test "$owner_audit" = "200"
           node -e 'const x=require("/tmp/ci-owner-audit.json");if(x.items?.length!==2||x.items.some(e=>Object.hasOwn(e,"before_json")||Object.hasOwn(e,"after_json")))process.exit(1);'
-          audit_page=$(curl -sS -o /tmp/ci-audit-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/audit")
+          audit_page=$(curl -sS -o /tmp/ci-audit-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/governance/audit")
           test "$audit_page" = "200"
           # Source ERP audit page reads the same real D1 events with actor
           # identity, rather than showing an empty placeholder.
@@ -900,7 +903,7 @@ jobs:
           echo "Expense posting HTTP: $posted_expense"
           if [ "$posted_expense" != "201" ]; then cat /tmp/ci-posted-expense.json; fi
           test "$posted_expense" = "201"
-          expense_page=$(curl -sS -o /tmp/ci-expense-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/expenses")
+          expense_page=$(curl -sS -o /tmp/ci-expense-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/finance/expenses")
           test "$expense_page" = "200"
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM finance_operating_expenses WHERE amount_paisa=50000 AND category='RENT'),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type='finance_expense'),(SELECT COUNT(*) FROM finance_journals WHERE reference LIKE 'EXP:%' AND status='POSTED'),(SELECT SUM(debit_paisa) FROM finance_journal_lines),(SELECT SUM(credit_paisa) FROM finance_journal_lines)" > /tmp/ci-expense-gl.json
           node -e 'const r=require("/tmp/ci-expense-gl.json")[0]?.results?.rows?.[0];if(r?.[0]!==1||r?.[1]!==1||r?.[2]!==1||r?.[3]!==850000||r?.[4]!==850000)process.exit(1);'
@@ -919,7 +922,7 @@ jobs:
           echo "Management report HTTP: $report_api"
           test "$report_api" = "200"
           node -e 'const r=require("/tmp/ci-report.json");if(r.billedPaisa!==400000||r.collectedPaisa!==400000||r.operatingExpensePaisa!==50000||r.cashMovementPaisa!==350000||r.outstandingPaisa!==0||r.activeStudents!==1||r.ledgerBalanced!==true||r.ledgerDebitsPaisa!==850000||r.ledgerCreditsPaisa!==850000)process.exit(1);'
-          report_page=$(curl -sS -o /tmp/ci-report-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/reports")
+          report_page=$(curl -sS -o /tmp/ci-report-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/finance/reports")
           test "$report_page" = "200"
 
           echo 'CI entering class routine checks'
@@ -941,7 +944,7 @@ jobs:
           test "$routine_held" = "200"
           routine_stale=$(curl -sS -o /tmp/ci-routine-stale.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/routine/$session_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"expectedVersion":1,"nextStatus":"CANCELLED","reason":"Cannot cancel a completed class"}')
           test "$routine_stale" = "409"
-          routine_page=$(curl -sS -o /tmp/ci-routine-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/routine")
+          routine_page=$(curl -sS -o /tmp/ci-routine-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/academics/routine")
           test "$routine_page" = "200"
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM academy_class_sessions WHERE status='HELD' AND version=2),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type='class_session')" > /tmp/ci-routine-count.json
           node -e 'const x=require("/tmp/ci-routine-count.json")[0]?.results?.rows?.[0];if(x?.[0]!==1||x?.[1]!==2)process.exit(1);'
@@ -977,7 +980,7 @@ jobs:
           test "$exam_publish" = "200"
           locked_mark=$(curl -sS -o /tmp/ci-locked-mark.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/assessments/$exam_id/results" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"enrollmentId\":\"$attendance_enrollment_id\",\"marks\":90,\"expectedVersion\":2,\"reason\":\"Published results cannot be edited\"}")
           test "$locked_mark" = "409"
-          exam_page=$(curl -sS -o /tmp/ci-exam-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/assessments")
+          exam_page=$(curl -sS -o /tmp/ci-exam-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/academics/assessments")
           test "$exam_page" = "200"
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM academy_assessments WHERE status='PUBLISHED' AND version=2),(SELECT COUNT(*) FROM academy_assessment_results WHERE obtained_marks=86 AND version=2),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type IN ('academy_assessment','academy_assessment_result'))" > /tmp/ci-assessments-verified.json
           node -e 'const r=require("/tmp/ci-assessments-verified.json")[0]?.results?.rows?.[0];if(r?.[0]!==1||r?.[1]!==1||r?.[2]!==4)process.exit(1);'
@@ -1009,7 +1012,7 @@ jobs:
           updated_offering_version=$(node -e 'const d=require("/tmp/ci-subject-after.json");process.stdout.write(String(d.offerings.find(o=>o.id==="sa-ssc-science").version))')
           subject_unlink=$(curl -sS -o /tmp/ci-subject-unlink.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/subjects/assignment" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"offeringId\":\"sa-ssc-science\",\"subjectId\":\"$subject_id\",\"expectedOfferingVersion\":$updated_offering_version,\"action\":\"REMOVE\",\"reason\":\"Test reversible subject assignment\"}")
           test "$subject_unlink" = "200"
-          subject_page=$(curl -sS -o /tmp/ci-subject-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/subjects")
+          subject_page=$(curl -sS -o /tmp/ci-subject-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/academics/subjects")
           test "$subject_page" = "200"
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT json_array_length(subjects_json) FROM public_programme_offerings WHERE id='sa-ssc-science'),(SELECT COUNT(*) FROM academy_subjects),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type IN ('academy_subject','offering_subject'))" > /tmp/ci-subject-final.json
           node -e 'const x=require("/tmp/ci-subject-final.json")[0]?.results?.rows?.[0];if(x?.[0]!==4||x?.[1]!==5||x?.[2]!==3)process.exit(1);'
@@ -1037,7 +1040,7 @@ jobs:
           teacher_after=$(curl -sS -o /tmp/ci-teacher-after.json -w '%{http_code}' -b /tmp/teacher-ci-cookies "http://localhost:4173/api/teacher/classes")
           test "$teacher_after" = "200"
           node -e 'const d=require("/tmp/ci-teacher-after.json");if(d.batches?.length!==1||d.students?.length!==1||d.sessions?.length!==1||d.exams?.length!==1||JSON.stringify(d).includes("guardian_mobile"))process.exit(1);'
-          teacher_page=$(curl -sS -o /tmp/ci-teacher-page.html -w '%{http_code}' -b /tmp/teacher-ci-cookies "http://localhost:4173/app/teacher")
+          teacher_page=$(curl -sS -o /tmp/ci-teacher-page.html -w '%{http_code}' -b /tmp/teacher-ci-cookies "http://localhost:4173/dashboard/teacher")
           test "$teacher_page" = "200"
           teacher_revoke=$(curl -sS -o /tmp/ci-teacher-revoke.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/teacher-assignments/$teacher_assignment_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"active":false,"expectedVersion":1,"reason":"Revoke assigned classroom access in CI"}')
           test "$teacher_revoke" = "200"
@@ -1046,7 +1049,7 @@ jobs:
           node -e 'const d=require("/tmp/ci-teacher-revoked.json");if(d.batches?.length!==0||d.students?.length!==0)process.exit(1);'
           teacher_stale_revoke=$(curl -sS -o /tmp/ci-teacher-stale-revoke.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/teacher-assignments/$teacher_assignment_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"active":false,"expectedVersion":1,"reason":"Stale assignment version must fail"}')
           test "$teacher_stale_revoke" = "409"
-          teacher_assignment_page=$(curl -sS -o /tmp/ci-teacher-assignment-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/staff-teachers")
+          teacher_assignment_page=$(curl -sS -o /tmp/ci-teacher-assignment-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/staff/teachers")
           test "$teacher_assignment_page" = "200"
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM academy_batch_teachers WHERE active=0 AND version=2),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type='teacher_assignment')" > /tmp/ci-teacher-verified.json
           node -e 'const n=require("/tmp/ci-teacher-verified.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==2)process.exit(1);'
