@@ -9,7 +9,8 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { erpRouteRegistry } from "@/modules/platform/navigation/erp-route-registry";
+import { erpRouteRegistry, isAvailableErpRoute } from "@/modules/platform/navigation/erp-route-registry";
+import {operationalErpRoutes} from "@/modules/platform/navigation/erp-operational-routes";
 import { navigationLabel } from "@/modules/platform/navigation/workspace-navigation";
 import {
   searchErpRecords,
@@ -59,10 +60,11 @@ export function CentralSearch({ permissions }: { permissions: string[] }) {
       clearTimeout(timer);
     };
   }, [q, open]);
-  const pages = erpRouteRegistry
+  const pages = [...erpRouteRegistry,...operationalErpRoutes]
     .filter(
       (r) =>
-        permissions.includes(r.permission) && ["/dashboard","/dashboard/academics/settings"].includes(r.href) &&
+        permissions.includes(r.permission) &&
+        isAvailableErpRoute(r.href) &&
         q.trim() &&
         (navigationLabel(r.id, r.title, locale) + " " + r.title)
           .toLowerCase()

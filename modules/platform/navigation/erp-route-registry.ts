@@ -1,3 +1,4 @@
+import {operationalErpRoutes} from "./erp-operational-routes";
 export type ErpRouteIcon =
   | "dashboard"
   | "action-center"
@@ -367,6 +368,28 @@ export const erpRouteRegistry: ErpRouteDefinition[] = [
   },
 ];
 
+/** The route registry describes the original ERP information architecture.
+ * Only pages actually implemented on D1 are clickable. Do not hide pages
+ * behind shell-specific one-off filters or advertise placeholder 404 routes.
+ * Keep this list synchronized with scripts/check-dashboard-navigation.mjs.
+ */
+export const implementedErpRoutes = [
+ "/dashboard", "/dashboard/help", "/dashboard/account",
+ "/dashboard/admissions", "/dashboard/students", "/dashboard/crm/prospects",
+ "/dashboard/crm/manage", "/dashboard/academics/settings",
+ "/dashboard/staff", "/dashboard/governance/audit",
+ "/dashboard/academics/academic-years", "/dashboard/academics/offerings",
+ "/dashboard/academics/subjects", "/dashboard/academics/batches",
+ "/dashboard/academics/routine", "/dashboard/academics/assessments",
+ "/dashboard/attendance", "/dashboard/teacher",
+ "/dashboard/finance/fee-plans", "/dashboard/finance/collections",
+ "/dashboard/finance/billing", "/dashboard/finance/expenses",
+ "/dashboard/finance/reports", "/dashboard/staff/access",
+ "/dashboard/staff/directory", "/dashboard/staff/teachers"
+] as const;
+const available=new Set<string>(implementedErpRoutes);
+export function isAvailableErpRoute(href:string){return available.has(href);}
+
 export function routeMatches(pathname: string, route: ErpRouteDefinition) {
   if (
     route.id === "academic-operations" &&
@@ -381,7 +404,7 @@ export function routeMatches(pathname: string, route: ErpRouteDefinition) {
 
 export function getErpRoute(pathname: string) {
   return (
-    erpRouteRegistry
+    [...erpRouteRegistry,...operationalErpRoutes]
       .filter((route) => routeMatches(pathname, route))
       .sort((a, b) => b.href.length - a.href.length)[0] ?? null
   );
