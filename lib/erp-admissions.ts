@@ -27,5 +27,6 @@ export type AdmissionRow={
   batch_id:string|null;batch_name:string|null;fee_plan_id:string|null;
   fee_plan_title:string|null;review_note:string|null;consent_verified:number;
   prepared_by:string;verified_by:string|null;approved_by:string|null;
+  bill_reference:string|null;bill_total_paisa:number|null;
   created_at:string;version:number;
 };

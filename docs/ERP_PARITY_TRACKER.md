@@ -26,7 +26,7 @@ in the live D1, no student/guardian login, staff UI English only.
 | Subjects, programmes, offerings, fee plans | Academic catalogue, public website projections | Offering and fee-plan management staged; subjects/programme setup pending |
 | Batches, schedules, capacity | Academic offerings and batch register | Batch create/edit/lifecycle tested on isolated branch; timetable pending |
 | CRM prospects, assignments, referral sources | CRM pipeline, staff follow-up | Prospect list/status/audit live; assignment/referral missing |
-| Admissions, reviews, consent, print form | Draft → review → accept → bill → enroll | Draft/review/approval staged with CI; billing, print and enrollment pending |
+| Admissions, reviews, consent, print form | Draft → review → accept → bill → enroll | Draft/review/approval and initial bill staged and tested; enrollment and A4 admission consent form pending |
 | Students, enrollments, transfers, lifecycle | Verified records only after enrollment | D1 foundation only |
 | Attendance, timetable, homework, exams | Classroom operations and assessments | D1 foundation only |
 | Staff/teacher/workforce attendance & tasks | Workforce dashboard and assigned work | Missing |

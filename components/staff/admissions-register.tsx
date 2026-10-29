@@ -1,6 +1,8 @@
 "use client";
 import {useCallback,useEffect,useState,type FormEvent} from "react";
 import type {AdmissionRow} from "@/lib/erp-admissions";
+import Link from "next/link";
+import {AdmissionBilling} from "@/components/staff/admission-billing";
 
 type Offering={id:string;name:string;is_active:number};
 type Batch={id:string;name:string;offering_id:string;capacity:number;occupied:number};
@@ -150,7 +152,12 @@ export function AdmissionsRegister(){
             </>}
             {!canApprove&&<p className="text-xs text-slate-500">Pending owner or administrator approval.</p>}
           </div>}
-          {row.status==="ACCEPTED"&&<p className="mt-3 text-sm text-amber-800">Accepted; initial billing and enrollment are separate controlled steps. No student record or seat has been created yet.</p>}
+          {row.status==="ACCEPTED"&&<AdmissionBilling id={row.id} version={row.version} onSuccess={refresh}/>}
+          {row.status==="BILLED"&&<div className="mt-3 space-y-2 text-sm">
+            <p className="font-semibold text-blue-800">Initial bill issued. Student enrollment remains pending.</p>
+            <p className="text-slate-600">Bill {row.bill_reference} · Total due ৳{((row.bill_total_paisa||0)/100).toFixed(2)}</p>
+            <Link className="text-xs font-bold text-blue-700 underline" href={"/app/admissions/"+row.id+"/bill"}>View printable bill</Link>
+          </div>}
           {row.status==="REJECTED"&&<p className="mt-3 text-sm text-slate-600">Rejected: {row.review_note}</p>}
         </article>;
       })}
