@@ -519,7 +519,7 @@ jobs:
           done
 
           # Only the role-authorized owner can update the synthetic enquiry.
-          enquiry_id=$(node -e 'const fs=require("fs"); const d=JSON.parse(fs.readFileSync("/tmp/staff-prospects.json","utf8"));const item=d.items?.find(x=>x.mobile==='01700000000' && x.student_name==='Smoke Test Student');if(!item)process.exit(1);process.stdout.write(item.id)')
+          enquiry_id=$(node -e 'const fs=require("fs"); const d=JSON.parse(fs.readFileSync("/tmp/staff-prospects.json","utf8"));const item=d.items?.find(x=>x.mobile==="01700000000" && x.student_name==="Smoke Test Student");if(!item)process.exit(1);process.stdout.write(item.id)')
           staff_update_status=$(curl -sS -o /tmp/staff-update.json -w '%{http_code}' \
             -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/prospects/$enquiry_id" \
             -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
