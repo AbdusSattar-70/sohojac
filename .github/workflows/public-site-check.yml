@@ -1,7 +1,7 @@
 name: Public Website Checks
 on:
   push:
-    branches: [feature/public_site_port]
+    branches: [master, feature/public_site_port, feature/erp_access_lifecycle]
   pull_request:
   workflow_dispatch:
 
@@ -21,15 +21,25 @@ jobs:
           run_install: false
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Configure isolated local staff-auth test
+        run: |
+          printf '%s\n' 'BETTER_AUTH_URL=http://localhost:4173' 'BETTER_AUTH_SECRET=ci-not-a-production-secret-0123456789-abcdefgh' > .env
+          chmod 600 .env
       - name: Generate Cloudflare Worker types
         run: pnpm run cf-typegen
       - name: Verify types
         run: pnpm exec tsc --noEmit
+      - name: Reject destructive migrations before any deployment
+        run: node scripts/check-d1-migrations.mjs
       - name: Apply public D1 migrations locally
         run: |
           DB=d6f3e4e9-2190-43bf-bc90-969687f6db78
           pnpm exec cf d1 migrations apply "$DB" --local --persist-to .cloudflare/state
           pnpm exec cf d1 raw "$DB" --sql "SELECT COUNT(*) AS published FROM public_programme_offerings WHERE show_on_website = 1" --local --persist-to .cloudflare/state
+      - name: Create synthetic Cloudflare D1 owner setup ticket (local only)
+        run: |
+          DB=d6f3e4e9-2190-43bf-bc90-969687f6db78
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "INSERT INTO staff_owner_setup (id,email,display_name,token,expires_at) VALUES ('first-owner','staff-ci@example.invalid','Synthetic Staff Owner','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',strftime('%Y-%m-%dT%H:%M:%fZ','now','+30 minutes'))" > /tmp/setup-ticket.json
       - name: Build Cloudflare Worker
         run: pnpm run build
 
@@ -55,6 +65,40 @@ jobs:
             }
           done
           grep -q "Learning should be" /tmp/sohojac-home.html
+          for route in /sign-in /forgot-password /reset-password /request-access /accept-invitation; do
+            code=$(curl -sS -o /tmp/staff-auth-page.html -w '%{http_code}' "http://localhost:4173$route")
+            echo "Auth route $route returned $code"
+            if [ "$code" != "200" ]; then
+              tail -n 100 /tmp/sohojac-vite.log | sed -E 's/(token|password|secret|email)=([^ ]+)/\\1=[REDACTED]/gi'
+              exit 1
+            fi
+          done
+          curl -fsS "http://localhost:4173/request-access" > /tmp/access-request-page.html
+          grep -q "Request staff access" /tmp/access-request-page.html
+
+          # Anonymous access requests only create review records, never a login.
+          anonymous_queue=$(curl -sS -o /tmp/private-access-queue.json -w '%{http_code}' \
+            "http://localhost:4173/api/staff/access-requests")
+          test "$anonymous_queue" = "401"
+          invalid_access=$(curl -sS -o /tmp/invalid-access.json -w '%{http_code}' \
+            -X POST "http://localhost:4173/api/staff/access-request" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"fullName":"T","email":"x","mobile":"123","requestedRole":"OWNER","purpose":"x","consent":true}')
+          test "$invalid_access" = "400"
+          valid_access=$(curl -sS -o /tmp/valid-access.json -w '%{http_code}' \
+            -X POST "http://localhost:4173/api/staff/access-request" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"fullName":"Synthetic Staff Applicant","email":"applicant-ci@example.invalid","mobile":"01700000002","requestedRole":"TEACHER","purpose":"Synthetic teacher access verification","consent":true,"website":"","turnstileToken":""}')
+          test "$valid_access" = "202"
+          duplicate_access=$(curl -sS -o /tmp/duplicate-access.json -w '%{http_code}' \
+            -X POST "http://localhost:4173/api/staff/access-request" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"fullName":"Synthetic Staff Applicant","email":"applicant-ci@example.invalid","mobile":"01700000002","requestedRole":"TEACHER","purpose":"Synthetic teacher access verification","consent":true,"website":"","turnstileToken":""}')
+          test "$duplicate_access" = "202"
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
+            --sql "SELECT COUNT(*) FROM staff_access_requests WHERE email='applicant-ci@example.invalid' AND status='PENDING'" > /tmp/access-count.json
+          node -e 'const r=require("/tmp/access-count.json");if(r[0]?.results?.rows?.[0]?.[0]!==1)process.exit(1);'
+
           curl -fsS --max-time 20 -X POST "http://localhost:4173/api/enquiries" \
             -H "Content-Type: application/json" \
             --data '{"intent":"interest","offeringId":"","studentName":"Smoke Test Student","className":"Class 8","guardianName":"Smoke Test Guardian","mobile":"01700000000","subjectNames":["English"],"preferredSchedule":"","preferredDays":[],"trialInterest":false,"consent":true,"website":"","turnstileToken":""}' \
@@ -63,6 +107,569 @@ jobs:
               cat /tmp/sohojac-enquiry.json || true
               exit 1
             }
+          # Private staff resources are never readable anonymously.
+          private_status=$(curl -sS -o /tmp/sohojac-private.json -w '%{http_code}' "http://localhost:4173/api/staff/prospects")
+          test "$private_status" = "401"
+          private_update_status=$(curl -sS -o /tmp/sohojac-private-update.json -w '%{http_code}' \
+            -X PATCH "http://localhost:4173/api/staff/prospects/00000000-0000-0000-0000-000000000000" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"status":"CLOSED","note":"Unauthorized"}')
+          test "$private_update_status" = "401"
+          signin_signup_status=$(curl -sS -o /tmp/sohojac-signup.json -w '%{http_code}' \
+            -X POST "http://localhost:4173/api/auth/sign-up/email" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"name":"Attacker","email":"attacker@example.invalid","password":"notasecret123456"}')
+          # Public self-signup must stay blocked even when staff auth is configured.
+          test "$signin_signup_status" -ge 400
+
+          # Cloudflare Dashboard issues the only setup ticket. A wrong ticket
+          # must fail; a correct ticket creates user + account + OWNER in D1.
+          bad_setup=$(curl -sS -o /tmp/bad-setup.json -w '%{http_code}' \
+            -X POST "http://localhost:4173/api/setup-owner" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"token":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","password":"Test123!"}')
+          test "$bad_setup" = "403"
+          owner_setup=$(curl -sS -o /tmp/owner-setup.json -w '%{http_code}' \
+            -X POST "http://localhost:4173/api/setup-owner" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"token":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","password":"Test123!"}')
+          echo "first owner setup HTTP: $owner_setup"
+          test "$owner_setup" = "201"
+          reused_setup=$(curl -sS -o /tmp/reused-setup.json -w '%{http_code}' \
+            -X POST "http://localhost:4173/api/setup-owner" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"token":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","password":"Test123!"}')
+          test "$reused_setup" = "403"
+
+          # Real Better Auth sign-in and D1 role check with a synthetic local
+          # staff user. No production secrets or real guardian data are used.
+          signin_status=$(curl -sS -o /tmp/staff-signin.json -w '%{http_code}' \
+            -c /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/auth/sign-in/email" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"email":"staff-ci@example.invalid","password":"Test123!"}')
+          echo "staff sign-in HTTP status: $signin_status"
+          test "$signin_status" = "200"
+          staff_list_status=$(curl -sS -o /tmp/staff-prospects.json -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies "http://localhost:4173/api/staff/prospects")
+          test "$staff_list_status" = "200"
+
+          # Owner can verify a request, but verification never creates a login.
+          queue_code=$(curl -sS -o /tmp/owner-access-queue.json -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies "http://localhost:4173/api/staff/access-requests")
+          test "$queue_code" = "200"
+          access_id=$(node -e 'const fs=require("fs");const r=JSON.parse(fs.readFileSync("/tmp/owner-access-queue.json","utf8"));const item=r.items.find(x=>x.email==="applicant-ci@example.invalid");if(!item)process.exit(1);process.stdout.write(item.id)')
+          review_code=$(curl -sS -o /tmp/owner-review.json -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/access-requests/$access_id" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"decision":"VERIFIED","assignedRole":"TEACHER","note":"Identity confirmed in synthetic local CI test"}')
+          echo "access review HTTP: $review_code"
+          test "$review_code" = "200"
+          reviewed_again=$(curl -sS -o /tmp/access-retry.json -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/access-requests/$access_id" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"decision":"VERIFIED","assignedRole":"TEACHER","note":"Attempt to verify again must be denied"}')
+          test "$reviewed_again" = "409"
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
+            --sql "SELECT (SELECT COUNT(*) FROM staff_access_requests WHERE status='VERIFIED'), (SELECT COUNT(*) FROM erp_audit_events WHERE entity_type='staff_access_request'), (SELECT COUNT(*) FROM \"user\")" > /tmp/access-verified.json
+          node -e 'const r=require("/tmp/access-verified.json");const n=r[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==1||n?.[2]!==1)process.exit(1);'
+
+          # No provider configured: sending an invitation must fail closed,
+          # not issue an unverified login or expose a token.
+          email_missing=$(curl -sS -o /tmp/unsent-invite.json -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/access-requests/$access_id/invite" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{}')
+          test "$email_missing" = "503"
+
+          # Simulate the VERIFIED -> INVITED mail-delivery step in isolated
+          # local D1 only, then validate activation, replay protection, and
+          # teacher's lack of access to guardian details.
+          invitation_token=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+          invitation_hash=$(node -e 'process.stdout.write(require("node:crypto").createHash("sha256").update(process.argv[1]).digest("hex"))' "$invitation_token")
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
+            --sql "UPDATE staff_access_requests SET status='INVITED' WHERE id='$access_id'" > /tmp/ci-invite-state.json
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
+            --sql "INSERT INTO staff_invitation_tokens (id,request_id,token_hash,expires_at,created_by) SELECT '11111111-1111-4111-8111-111111111111','$access_id','$invitation_hash',strftime('%Y-%m-%dT%H:%M:%fZ','now','+1 day'),id FROM \"user\" WHERE email='staff-ci@example.invalid'" > /tmp/ci-invite-token.json
+          invalid_invitation=$(curl -sS -o /tmp/ci-invalid-invite.json -w '%{http_code}' \
+            -X POST "http://localhost:4173/api/staff/accept-invitation" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"token":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc","password":"Employee123!"}')
+          test "$invalid_invitation" = "403"
+          accepted=$(curl -sS -o /tmp/ci-accepted-invite.json -w '%{http_code}' \
+            -X POST "http://localhost:4173/api/staff/accept-invitation" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"token":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","password":"Employee123!"}')
+          echo "staff activation HTTP: $accepted"
+          test "$accepted" = "201"
+          reused=$(curl -sS -o /tmp/ci-reused-invite.json -w '%{http_code}' \
+            -X POST "http://localhost:4173/api/staff/accept-invitation" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"token":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","password":"Employee123!"}')
+          test "$reused" = "403"
+          teacher_login=$(curl -sS -o /tmp/ci-teacher.json -w '%{http_code}' \
+            -c /tmp/teacher-ci-cookies -X POST "http://localhost:4173/api/auth/sign-in/email" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"email":"applicant-ci@example.invalid","password":"Employee123!"}')
+          test "$teacher_login" = "200"
+          teacher_access=$(curl -sS -o /tmp/teacher-forbidden.json -w '%{http_code}' \
+            -b /tmp/teacher-ci-cookies "http://localhost:4173/api/staff/prospects")
+          test "$teacher_access" = "403"
+
+          # Academic-year workflow: owner creates drafts, one active year,
+          # version-safe edits, irreversible closure and role protection.
+          anonymous_years=$(curl -sS -o /tmp/ci-anon-years.json -w '%{http_code}' \
+            "http://localhost:4173/api/staff/academic-years")
+          test "$anonymous_years" = "401"
+          year_one=$(curl -sS -o /tmp/ci-year-one.json -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/academic-years" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"code":"CI2026","title":"Academic Year CI 2026","startsOn":"2026-01-01","endsOn":"2026-12-31"}')
+          test "$year_one" = "201"
+          year_two=$(curl -sS -o /tmp/ci-year-two.json -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/academic-years" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"code":"CI2027","title":"Academic Year CI 2027","startsOn":"2027-01-01","endsOn":"2027-12-31"}')
+          test "$year_two" = "201"
+          year_one_id=$(node -e 'process.stdout.write(require("/tmp/ci-year-one.json").id)')
+          year_two_id=$(node -e 'process.stdout.write(require("/tmp/ci-year-two.json").id)')
+          year_activate=$(curl -sS -o /tmp/ci-year-activated.json -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/academic-years/$year_one_id" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"title":"Academic Year CI 2026","startsOn":"2026-01-01","endsOn":"2026-12-31","nextStatus":"ACTIVE","expectedVersion":1,"reason":"Activate academic year in CI"}')
+          test "$year_activate" = "200"
+          second_active=$(curl -sS -o /tmp/ci-second-active.json -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/academic-years/$year_two_id" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"title":"Academic Year CI 2027","startsOn":"2027-01-01","endsOn":"2027-12-31","nextStatus":"ACTIVE","expectedVersion":1,"reason":"This must fail while 2026 is active"}')
+          test "$second_active" = "409"
+          year_closed=$(curl -sS -o /tmp/ci-year-closed.json -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/academic-years/$year_one_id" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"title":"Academic Year CI 2026","startsOn":"2026-01-01","endsOn":"2026-12-31","nextStatus":"CLOSED","expectedVersion":2,"reason":"Close academic year in CI test"}')
+          test "$year_closed" = "200"
+          stale_year=$(curl -sS -o /tmp/ci-year-stale.json -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/academic-years/$year_one_id" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"title":"Stale academic update","nextStatus":"ACTIVE","expectedVersion":2,"reason":"Stale version must fail"}')
+          test "$stale_year" = "409"
+          second_now_active=$(curl -sS -o /tmp/ci-second-activate.json -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/academic-years/$year_two_id" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"title":"Academic Year CI 2027","startsOn":"2027-01-01","endsOn":"2027-12-31","nextStatus":"ACTIVE","expectedVersion":1,"reason":"Activate next year after closure"}')
+          test "$second_now_active" = "200"
+          teacher_year_read=$(curl -sS -o /tmp/ci-teacher-years.json -w '%{http_code}' \
+            -b /tmp/teacher-ci-cookies "http://localhost:4173/api/staff/academic-years")
+          test "$teacher_year_read" = "200"
+          teacher_year_write=$(curl -sS -o /tmp/ci-teacher-year-denied.json -w '%{http_code}' \
+            -b /tmp/teacher-ci-cookies -X POST "http://localhost:4173/api/staff/academic-years" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"code":"DENIED","title":"Teacher cannot create a year"}')
+          test "$teacher_year_write" = "403"
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
+            --sql "SELECT (SELECT COUNT(*) FROM academic_years WHERE status='ACTIVE'),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type='academic_year')" > /tmp/ci-academic-audit.json
+          node -e 'const n=require("/tmp/ci-academic-audit.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==5)process.exit(1);'
+
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
+            --sql "SELECT (SELECT COUNT(*) FROM staff_access_requests WHERE status='ACTIVE'),(SELECT COUNT(*) FROM staff_memberships WHERE role='TEACHER' AND active=1),(SELECT COUNT(*) FROM \"user\")" > /tmp/ci-activated-count.json
+          node -e 'const n=require("/tmp/ci-activated-count.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==1||n?.[2]!==2)process.exit(1);'
+
+
+
+          # Server-rendered staff pages also require the valid owner session.
+          for route in /app /app/prospects; do
+            code=$(curl -sS -o /tmp/sohojac-staff-page.html -w '%{http_code}' \
+              -b /tmp/staff-ci-cookies "http://localhost:4173$route")
+            echo "authorized $route HTTP: $code"
+            test "$code" = "200"
+          done
+
+          # Only the role-authorized owner can update the synthetic enquiry.
+          enquiry_id=$(node -e 'const fs=require("fs"); const d=JSON.parse(fs.readFileSync("/tmp/staff-prospects.json","utf8"));if(!d.items?.length)process.exit(1);process.stdout.write(d.items[0].id)')
+          staff_update_status=$(curl -sS -o /tmp/staff-update.json -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/prospects/$enquiry_id" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"status":"CONTACTED","note":"CI follow-up test"}')
+          echo "authorized staff update HTTP status: $staff_update_status"
+          test "$staff_update_status" = "200"
+          history_status=$(curl -sS -o /tmp/staff-history.json -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies "http://localhost:4173/api/staff/prospects/$enquiry_id")
+          test "$history_status" = "200"
+          grep -q 'CI follow-up test' /tmp/staff-history.json
+
+
+          echo 'CI entering batch lifecycle checks'
+          # Batch register: authentication, role denial, capacity, concurrency, lifecycle and audit.
+          anonymous_batch=$(curl -sS -o /tmp/ci-anon-batch.json -w '%{http_code}' "http://localhost:4173/api/staff/batches")
+          test "$anonymous_batch" = "401"
+          teacher_batch=$(curl -sS -o /tmp/ci-teacher-batch.json -w '%{http_code}' -b /tmp/teacher-ci-cookies -X POST "http://localhost:4173/api/staff/batches" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{}')
+          test "$teacher_batch" = "403"
+          oversized_batch=$(curl -sS -o /tmp/ci-oversized-batch.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/batches" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"code":"INVALID","name":"Over capacity","offeringId":"sa-ssc-science","yearId":"","capacity":13,"beginsOn":"","endsOn":"","reason":"Capacity boundary test"}')
+          test "$oversized_batch" = "400"
+          batch_create=$(curl -sS -o /tmp/ci-created-batch.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/batches" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"code":"CI-SSC-A","name":"SSC Science CI Batch","offeringId":"sa-ssc-science","yearId":"","capacity":12,"beginsOn":"2027-01-01","endsOn":"2027-06-01","reason":"CI verifies planned batch creation"}')
+          test "$batch_create" = "201"
+          batch_id=$(node -e 'process.stdout.write(require("/tmp/ci-created-batch.json").id)')
+          batch_active=$(curl -sS -o /tmp/ci-active-batch.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/batches/$batch_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"name":"SSC Science CI Batch","capacity":12,"beginsOn":"2027-01-01","endsOn":"2027-06-01","nextStatus":"ACTIVE","expectedVersion":1,"reason":"Activate test batch after approval"}')
+          test "$batch_active" = "200"
+          batch_stale=$(curl -sS -o /tmp/ci-stale-batch.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/batches/$batch_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"name":"SSC Science CI Batch","capacity":12,"beginsOn":"","endsOn":"","nextStatus":"ACTIVE","expectedVersion":1,"reason":"Stale version must never win"}')
+          test "$batch_stale" = "409"
+          batch_close=$(curl -sS -o /tmp/ci-close-batch.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/batches/$batch_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"name":"SSC Science CI Batch","capacity":12,"beginsOn":"2027-01-01","endsOn":"2027-06-01","nextStatus":"COMPLETED","expectedVersion":2,"reason":"Complete batch in CI lifecycle test"}')
+          test "$batch_close" = "200"
+          batch_reopen=$(curl -sS -o /tmp/ci-reopen-batch.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/batches/$batch_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"name":"SSC Science CI Batch","capacity":12,"beginsOn":"","endsOn":"","nextStatus":"ACTIVE","expectedVersion":3,"reason":"Closed batch must not reopen"}')
+          test "$batch_reopen" = "409"
+          batch_page=$(curl -sS -o /tmp/ci-batch-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/batches")
+          test "$batch_page" = "200"
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM academy_batches WHERE status='COMPLETED' AND capacity=12),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type='academy_batch')" > /tmp/ci-batches-checked.json
+          node -e 'const n=require("/tmp/ci-batches-checked.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==3)process.exit(1);'
+
+
+          echo 'CI entering fee plan checks'
+          # Fee plans: integer paisa, owner/teacher role checks, audit and concurrency.
+          unauth_fee=$(curl -sS -o /tmp/ci-unauth-fees.json -w '%{http_code}' "http://localhost:4173/api/staff/fee-plans")
+          test "$unauth_fee" = "401"
+          teacher_fee=$(curl -sS -o /tmp/ci-teacher-fees.json -w '%{http_code}' -b /tmp/teacher-ci-cookies -X POST "http://localhost:4173/api/staff/fee-plans" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{}')
+          test "$teacher_fee" = "403"
+          invalid_fee=$(curl -sS -o /tmp/ci-invalid-fees.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/fee-plans" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"offeringId":"sa-ssc-science","title":"Invalid negative","monthlyAmountPaisa":-100,"admissionAmountPaisa":0,"reason":"Reject negative money amounts"}')
+          test "$invalid_fee" = "400"
+          created_fee=$(curl -sS -o /tmp/ci-created-fee.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/fee-plans" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"offeringId":"sa-ssc-science","title":"CI monthly science","monthlyAmountPaisa":250000,"admissionAmountPaisa":300000,"reason":"Create controlled test fee plan"}')
+          test "$created_fee" = "201"
+          fee_id=$(node -e 'process.stdout.write(require("/tmp/ci-created-fee.json").id)')
+          updated_fee=$(curl -sS -o /tmp/ci-updated-fee.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/fee-plans/$fee_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"title":"CI monthly science","monthlyAmountPaisa":260000,"admissionAmountPaisa":300000,"active":false,"expectedVersion":1,"reason":"Archive and update test fee plan"}')
+          test "$updated_fee" = "200"
+          stale_fee=$(curl -sS -o /tmp/ci-stale-fee.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/fee-plans/$fee_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"title":"Stale CI monthly","monthlyAmountPaisa":999999,"admissionAmountPaisa":0,"active":true,"expectedVersion":1,"reason":"A stale fee update must fail"}')
+          test "$stale_fee" = "409"
+          fee_page=$(curl -sS -o /tmp/ci-fee-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/fee-plans")
+          test "$fee_page" = "200"
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM academy_fee_plans WHERE monthly_amount_paisa=260000 AND active=0),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type='academy_fee_plan')" > /tmp/ci-fees-checked.json
+          node -e 'const n=require("/tmp/ci-fees-checked.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==2)process.exit(1);'
+
+
+          echo 'CI entering admission approval checks'
+          # Admission preparation and human approval must never create students or invoices.
+          anonymous_admission=$(curl -sS -o /tmp/ci-anon-admissions.json -w '%{http_code}' "http://localhost:4173/api/staff/admissions")
+          test "$anonymous_admission" = "401"
+          teacher_admission=$(curl -sS -o /tmp/ci-teacher-admissions.json -w '%{http_code}' -b /tmp/teacher-ci-cookies "http://localhost:4173/api/staff/admissions")
+          test "$teacher_admission" = "403"
+          admission_fee=$(curl -sS -o /tmp/ci-admission-fee.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/fee-plans" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"offeringId":"sa-ssc-science","title":"CI admissions standard","monthlyAmountPaisa":250000,"admissionAmountPaisa":150000,"reason":"Admission approval test rate"}')
+          test "$admission_fee" = "201"
+          admission_fee_id=$(node -e 'process.stdout.write(require("/tmp/ci-admission-fee.json").id)')
+          admission_batch=$(curl -sS -o /tmp/ci-admission-batch.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/batches" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"code":"CI-ADM-A","name":"CI Admissions Active","offeringId":"sa-ssc-science","yearId":"","capacity":12,"beginsOn":"","endsOn":"","reason":"Create active batch for admission test"}')
+          test "$admission_batch" = "201"
+          admission_batch_id=$(node -e 'process.stdout.write(require("/tmp/ci-admission-batch.json").id)')
+          activated_batch=$(curl -sS -o /tmp/ci-activated-batch.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/batches/$admission_batch_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"name":"CI Admissions Active","capacity":12,"beginsOn":"","endsOn":"","nextStatus":"ACTIVE","expectedVersion":1,"reason":"Activate CI admission batch"}')
+          test "$activated_batch" = "200"
+          invalid_admission=$(curl -sS -o /tmp/ci-invalid-admission.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/admissions" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"offeringId":"sa-ssc-science","studentName":"A","classGrade":10,"guardianName":"Guardian CI","guardianMobile":"1","schoolName":"","reason":"Invalid application input"}')
+          test "$invalid_admission" = "400"
+          app_create=$(curl -sS -o /tmp/ci-created-admission.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/admissions" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"offeringId":"sa-ssc-science","enquiryId":"","studentName":"Synthetic Admission Student","classGrade":10,"guardianName":"Synthetic Guardian","guardianMobile":"01700000003","schoolName":"CI School","reason":"Prepare application after identity check"}')
+          test "$app_create" = "201"
+          admission_id=$(node -e 'process.stdout.write(require("/tmp/ci-created-admission.json").id)')
+          app_review=$(curl -sS -o /tmp/ci-review-admission.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/admissions/$admission_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"action":"REVIEW","expectedVersion":1,"reason":"Send verified application for review"}')
+          test "$app_review" = "200"
+          premature_accept=$(curl -sS -o /tmp/ci-bad-accept.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/admissions/$admission_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"action":"ACCEPT","expectedVersion":2,"batchId":"not-a-real-batch","feePlanId":"invalid-fee","consentVerified":true,"reason":"Reject nonexistent fee and batch"}')
+          test "$premature_accept" = "409"
+          approved=$(curl -sS -o /tmp/ci-approved-admission.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/admissions/$admission_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"action\":\"ACCEPT\",\"expectedVersion\":2,\"batchId\":\"$admission_batch_id\",\"feePlanId\":\"$admission_fee_id\",\"consentVerified\":true,\"reason\":\"Physical forms verified by authorised owner\"}")
+          test "$approved" = "200"
+          duplicate_approval=$(curl -sS -o /tmp/ci-duplicate-approval.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/admissions/$admission_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"action\":\"ACCEPT\",\"expectedVersion\":2,\"batchId\":\"$admission_batch_id\",\"feePlanId\":\"$admission_fee_id\",\"consentVerified\":true,\"reason\":\"A second approval should always fail\"}")
+          test "$duplicate_approval" = "409"
+          admission_page=$(curl -sS -o /tmp/ci-admission-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/admissions")
+          test "$admission_page" = "200"
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM academy_admissions WHERE status='ACCEPTED' AND consent_verified=1),(SELECT COUNT(*) FROM academy_students),(SELECT COUNT(*) FROM finance_invoices),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type='admission')" > /tmp/ci-admission-approval.json
+          node -e 'const n=require("/tmp/ci-admission-approval.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==0||n?.[2]!==0||n?.[3]!==3)process.exit(1);'
+
+
+          echo 'CI entering initial billing checks'
+          # Initial bill snapshots exact approved fees without creating students.
+          anonymous_bill=$(curl -sS -o /tmp/ci-anon-bill.json -w '%{http_code}' -X POST "http://localhost:4173/api/staff/admissions/$admission_id/bill" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{}')
+          test "$anonymous_bill" = "401"
+          teacher_bill=$(curl -sS -o /tmp/ci-teacher-bill.json -w '%{http_code}' -b /tmp/teacher-ci-cookies -X POST "http://localhost:4173/api/staff/admissions/$admission_id/bill" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{}')
+          test "$teacher_bill" = "403"
+          initial_bill=$(curl -sS -o /tmp/ci-initial-bill.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/admissions/$admission_id/bill" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"expectedVersion":3,"reason":"Issue official initial fee statement"}')
+          test "$initial_bill" = "200"
+          duplicate_bill=$(curl -sS -o /tmp/ci-dupe-bill.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/admissions/$admission_id/bill" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"expectedVersion":3,"reason":"Duplicate bill must be rejected"}')
+          test "$duplicate_bill" = "409"
+          bill_page=$(curl -sS -o /tmp/ci-bill-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/admissions/$admission_id/bill")
+          test "$bill_page" = "200"
+          grep -q "Initial admission bill" /tmp/ci-bill-page.html
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM academy_admissions WHERE status='BILLED'),(SELECT COUNT(*) FROM academy_admission_bills WHERE monthly_amount_paisa=250000 AND admission_amount_paisa=150000 AND amount_paisa=400000),(SELECT COUNT(*) FROM academy_students),(SELECT COUNT(*) FROM finance_invoices),(SELECT COUNT(*) FROM erp_audit_events WHERE action='INITIAL_BILL_ISSUED')" > /tmp/ci-initial-bill-check.json
+          node -e 'const n=require("/tmp/ci-initial-bill-check.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==1||n?.[2]!==0||n?.[3]!==0||n?.[4]!==1)process.exit(1);'
+
+
+          echo 'CI entering atomic enrollment checks'
+          # Enroll exactly once after initial bill. The first invoice and seat
+          # assignment must be in the same transaction; no payment is invented.
+          unauthorized_enroll=$(curl -sS -o /tmp/ci-unauth-enroll.json -w '%{http_code}' -X POST "http://localhost:4173/api/staff/admissions/$admission_id/enroll" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{}')
+          test "$unauthorized_enroll" = "401"
+          teacher_enroll=$(curl -sS -o /tmp/ci-teacher-enroll.json -w '%{http_code}' -b /tmp/teacher-ci-cookies -X POST "http://localhost:4173/api/staff/admissions/$admission_id/enroll" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{}')
+          test "$teacher_enroll" = "403"
+          stale_enroll=$(curl -sS -o /tmp/ci-stale-enroll.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/admissions/$admission_id/enroll" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"expectedVersion":3,"reason":"Old version must never enroll"}')
+          test "$stale_enroll" = "409"
+          enrolled=$(curl -sS -o /tmp/ci-enrolled.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/admissions/$admission_id/enroll" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"expectedVersion":4,"reason":"Complete verified synthetic enrollment"}')
+          echo "Atomic enrollment HTTP: $enrolled"
+          if [ "$enrolled" != "201" ]; then cat /tmp/ci-enrolled.json; fi
+          test "$enrolled" = "201"
+          reused_enrollment=$(curl -sS -o /tmp/ci-reused-enroll.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/admissions/$admission_id/enroll" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"expectedVersion":4,"reason":"Duplicate enrollment is forbidden"}')
+          test "$reused_enrollment" = "409"
+          students_api=$(curl -sS -o /tmp/ci-students-api.json -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/api/staff/students")
+          test "$students_api" = "200"
+          teacher_students=$(curl -sS -o /tmp/ci-teacher-students.json -w '%{http_code}' -b /tmp/teacher-ci-cookies "http://localhost:4173/api/staff/students")
+          test "$teacher_students" = "403"
+          student_page=$(curl -sS -o /tmp/ci-student-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/students")
+          test "$student_page" = "200"
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM academy_admissions WHERE status='ENROLLED' AND student_id IS NOT NULL),(SELECT COUNT(*) FROM academy_students),(SELECT COUNT(*) FROM academy_enrollments WHERE status='ACTIVE'),(SELECT COUNT(*) FROM finance_invoices WHERE amount_paisa=400000 AND paid_paisa=0 AND status='ISSUED'),(SELECT COUNT(*) FROM finance_payments),(SELECT COUNT(*) FROM erp_audit_events WHERE action='ENROLLED')" > /tmp/ci-enrollment-verified.json
+          node -e 'const n=require("/tmp/ci-enrollment-verified.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==1||n?.[2]!==1||n?.[3]!==1||n?.[4]!==0||n?.[5]!==1)process.exit(1);'
+
+
+          echo 'CI entering printable form checks'
+          # A4 signature form must be available to an authenticated operator.
+          consent_form=$(curl -sS -o /tmp/ci-admission-form.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/admissions/$admission_id/print")
+          test "$consent_form" = "200"
+          grep -q "Student signature" /tmp/ci-admission-form.html
+          grep -q "Guardian signature" /tmp/ci-admission-form.html
+          grep -q "Prepared by" /tmp/ci-admission-form.html
+          grep -q "Approved by" /tmp/ci-admission-form.html
+
+
+          echo 'CI entering tuition collection and GL checks'
+          # Tuition collections: only actual payments, no over-allocation, balanced GL.
+          anonymous_collection=$(curl -sS -o /tmp/ci-anon-collection.json -w '%{http_code}' "http://localhost:4173/api/staff/collections")
+          test "$anonymous_collection" = "401"
+          teacher_collection=$(curl -sS -o /tmp/ci-teacher-collection.json -w '%{http_code}' -b /tmp/teacher-ci-cookies "http://localhost:4173/api/staff/collections")
+          test "$teacher_collection" = "403"
+          invoice_id=$(node -e 'const fs=require("fs");const d=JSON.parse(fs.readFileSync("/tmp/ci-students-api.json","utf8"));const row=d.items?.[0];if(!row?.invoice_no)process.exit(1);process.stdout.write(row.invoice_no)')
+          # Invoice ID comes from the authenticated collections list; invoice_no is display-only.
+          curl -fsS -b /tmp/staff-ci-cookies "http://localhost:4173/api/staff/collections" > /tmp/ci-collection-list.json
+          invoice_id=$(node -e 'const d=require("/tmp/ci-collection-list.json");if(!d.invoices?.length)process.exit(1);process.stdout.write(d.invoices[0].id)')
+          invalid_collection=$(curl -sS -o /tmp/ci-invalid-collection.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/collections" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"invoiceId\":\"$invoice_id\",\"amountPaisa\":0,\"method\":\"CASH\",\"reference\":\"\",\"reason\":\"Zero money is not a payment\"}")
+          test "$invalid_collection" = "400"
+          collection_one=$(curl -sS -o /tmp/ci-collection-one.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/collections" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"invoiceId\":\"$invoice_id\",\"amountPaisa\":200000,\"method\":\"CASH\",\"reference\":\"\",\"reason\":\"Received cash in synthetic CI test\"}")
+          echo "First collection HTTP: $collection_one"
+          if [ "$collection_one" != "201" ]; then cat /tmp/ci-collection-one.json; fi
+          test "$collection_one" = "201"
+          over_collection=$(curl -sS -o /tmp/ci-over-collection.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/collections" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"invoiceId\":\"$invoice_id\",\"amountPaisa\":300000,\"method\":\"BANK\",\"reference\":\"\",\"reason\":\"Overpayment must be refused\"}")
+          test "$over_collection" = "409"
+          collection_two=$(curl -sS -o /tmp/ci-collection-two.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/collections" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"invoiceId\":\"$invoice_id\",\"amountPaisa\":200000,\"method\":\"MFS\",\"reference\":\"MFS-CI-1\",\"reason\":\"Second verified payment closes invoice\"}")
+          echo "Second collection HTTP: $collection_two"
+          if [ "$collection_two" != "201" ]; then cat /tmp/ci-collection-two.json; fi
+          test "$collection_two" = "201"
+          settled_collection=$(curl -sS -o /tmp/ci-settled-collection.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/collections" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"invoiceId\":\"$invoice_id\",\"amountPaisa\":1,\"method\":\"CASH\",\"reference\":\"\",\"reason\":\"Settled invoices reject new money\"}")
+          test "$settled_collection" = "409"
+          collections_page=$(curl -sS -o /tmp/ci-collections-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/collections")
+          test "$collections_page" = "200"
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM finance_invoices WHERE paid_paisa=400000 AND amount_paisa=400000 AND status='PAID'),(SELECT COUNT(*) FROM finance_payments),(SELECT COUNT(*) FROM finance_allocations),(SELECT COUNT(*) FROM finance_journals WHERE status='POSTED'),(SELECT SUM(debit_paisa) FROM finance_journal_lines),(SELECT SUM(credit_paisa) FROM finance_journal_lines)" > /tmp/ci-gl-check.json
+          cat /tmp/ci-gl-check.json
+          node -e 'const n=require("/tmp/ci-gl-check.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==2||n?.[2]!==2||n?.[3]!==3||n?.[4]!==800000||n?.[5]!==800000)process.exit(1);'
+
+          echo 'CI entering student attendance checks'
+
+          # Student attendance: real active enrollment, audited correction and stale version.
+          unauth_attend=$(curl -sS -o /tmp/ci-unauth-attend.json -w '%{http_code}' "http://localhost:4173/api/staff/attendance")
+          test "$unauth_attend" = "401"
+          teacher_attend=$(curl -sS -o /tmp/ci-teacher-attend.json -w '%{http_code}' -b /tmp/teacher-ci-cookies "http://localhost:4173/api/staff/attendance")
+          test "$teacher_attend" = "403"
+          class_day=$(date -u +%F)
+          curl -fsS -b /tmp/staff-ci-cookies "http://localhost:4173/api/staff/attendance?batchId=$admission_batch_id&date=$class_day" > /tmp/ci-attendance-list.json
+          attendance_enrollment_id=$(node -e 'const r=require("/tmp/ci-attendance-list.json");if(r.items?.length!==1)process.exit(1);process.stdout.write(r.items[0].enrollment_id)')
+          attend_first=$(curl -sS -o /tmp/ci-attend-first.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/attendance" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"enrollmentId\":\"$attendance_enrollment_id\",\"classOn\":\"$class_day\",\"state\":\"PRESENT\",\"expectedVersion\":0,\"reason\":\"CI verifies initial attendance entry\"}")
+          echo "Attendance first entry HTTP: $attend_first"
+          if [ "$attend_first" != "200" ]; then cat /tmp/ci-attend-first.json; fi
+          test "$attend_first" = "200"
+          attend_stale=$(curl -sS -o /tmp/ci-attend-stale.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/attendance" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"enrollmentId\":\"$attendance_enrollment_id\",\"classOn\":\"$class_day\",\"state\":\"ABSENT\",\"expectedVersion\":0,\"reason\":\"Stale change must not be saved\"}")
+          test "$attend_stale" = "409"
+          attend_correct=$(curl -sS -o /tmp/ci-attend-correct.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/attendance" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"enrollmentId\":\"$attendance_enrollment_id\",\"classOn\":\"$class_day\",\"state\":\"LATE\",\"expectedVersion\":1,\"reason\":\"Correction after teacher confirmation\"}")
+          echo "Attendance correction HTTP: $attend_correct"
+          if [ "$attend_correct" != "200" ]; then cat /tmp/ci-attend-correct.json; fi
+          test "$attend_correct" = "200"
+          attendance_page=$(curl -sS -o /tmp/ci-attendance-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/attendance")
+          test "$attendance_page" = "200"
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM academy_attendance WHERE state='LATE' AND version=2),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type='academy_attendance')" > /tmp/ci-attendance-verified.json
+          node -e 'const n=require("/tmp/ci-attendance-verified.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==2)process.exit(1);'
+
+          echo 'CI entering audit viewer checks'
+
+          # Governance: only admins may read audit actor/reason (no raw PII JSON).
+          unauth_audit=$(curl -sS -o /tmp/ci-unauth-audit.json -w '%{http_code}' "http://localhost:4173/api/staff/audit")
+          test "$unauth_audit" = "401"
+          teacher_audit=$(curl -sS -o /tmp/ci-teacher-audit.json -w '%{http_code}' -b /tmp/teacher-ci-cookies "http://localhost:4173/api/staff/audit")
+          test "$teacher_audit" = "403"
+          owner_audit=$(curl -sS -o /tmp/ci-owner-audit.json -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/api/staff/audit?type=academy_attendance&page=1")
+          test "$owner_audit" = "200"
+          node -e 'const x=require("/tmp/ci-owner-audit.json");if(x.items?.length!==2||x.items.some(e=>Object.hasOwn(e,"before_json")||Object.hasOwn(e,"after_json")))process.exit(1);'
+          audit_page=$(curl -sS -o /tmp/ci-audit-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/audit")
+          test "$audit_page" = "200"
+
+          echo 'CI entering operating expense checks'
+
+          # Operating expenses: owner approval, immutable balanced GL and date guard.
+          anon_expense=$(curl -sS -o /tmp/ci-anon-expense.json -w '%{http_code}' "http://localhost:4173/api/staff/expenses")
+          test "$anon_expense" = "401"
+          teacher_expense=$(curl -sS -o /tmp/ci-teacher-expense.json -w '%{http_code}' -b /tmp/teacher-ci-cookies "http://localhost:4173/api/staff/expenses")
+          test "$teacher_expense" = "403"
+          invalid_expense=$(curl -sS -o /tmp/ci-invalid-expense.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/expenses" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"category":"RENT","payee":"Synthetic landlord","description":"CI rent payment","spentOn":"2026-01-01","amountPaisa":-500,"method":"CASH","reason":"Reject invalid negative expense"}')
+          test "$invalid_expense" = "400"
+          future_expense=$(curl -sS -o /tmp/ci-future-expense.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/expenses" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"category":"RENT","payee":"Synthetic landlord","description":"Future CI rent payment","spentOn":"2099-01-01","amountPaisa":50000,"method":"CASH","reason":"Reject any future expense posting"}')
+          test "$future_expense" = "409"
+          expense_spent_on=$(date -u +%F)
+          posted_expense=$(curl -sS -o /tmp/ci-posted-expense.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/expenses" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"category\":\"RENT\",\"payee\":\"Synthetic landlord\",\"description\":\"Recorded CI rent payment\",\"spentOn\":\"$expense_spent_on\",\"amountPaisa\":50000,\"method\":\"CASH\",\"reason\":\"Verify cash rent expense accounting entry\"}")
+          echo "Expense posting HTTP: $posted_expense"
+          if [ "$posted_expense" != "201" ]; then cat /tmp/ci-posted-expense.json; fi
+          test "$posted_expense" = "201"
+          expense_page=$(curl -sS -o /tmp/ci-expense-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/expenses")
+          test "$expense_page" = "200"
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM finance_operating_expenses WHERE amount_paisa=50000 AND category='RENT'),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type='finance_expense'),(SELECT COUNT(*) FROM finance_journals WHERE reference LIKE 'EXP:%' AND status='POSTED'),(SELECT SUM(debit_paisa) FROM finance_journal_lines),(SELECT SUM(credit_paisa) FROM finance_journal_lines)" > /tmp/ci-expense-gl.json
+          node -e 'const r=require("/tmp/ci-expense-gl.json")[0]?.results?.rows?.[0];if(r?.[0]!==1||r?.[1]!==1||r?.[2]!==1||r?.[3]!==850000||r?.[4]!==850000)process.exit(1);'
+
+          echo 'CI entering management reporting checks'
+
+          # Financial management reporting separates cash from accrued income.
+          anon_report=$(curl -sS -o /tmp/ci-anon-report.json -w '%{http_code}' "http://localhost:4173/api/staff/reports")
+          test "$anon_report" = "401"
+          teacher_report=$(curl -sS -o /tmp/ci-teacher-report.json -w '%{http_code}' -b /tmp/teacher-ci-cookies "http://localhost:4173/api/staff/reports")
+          test "$teacher_report" = "403"
+          invalid_month=$(curl -sS -o /tmp/ci-invalid-report.json -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/api/staff/reports?month=2026-99")
+          test "$invalid_month" = "400"
+          report_month=$(date -u +%Y-%m)
+          report_api=$(curl -sS -o /tmp/ci-report.json -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/api/staff/reports?month=$report_month")
+          echo "Management report HTTP: $report_api"
+          test "$report_api" = "200"
+          node -e 'const r=require("/tmp/ci-report.json");if(r.billedPaisa!==400000||r.collectedPaisa!==400000||r.operatingExpensePaisa!==50000||r.cashMovementPaisa!==350000||r.outstandingPaisa!==0||r.activeStudents!==1||r.ledgerBalanced!==true||r.ledgerDebitsPaisa!==850000||r.ledgerCreditsPaisa!==850000)process.exit(1);'
+          report_page=$(curl -sS -o /tmp/ci-report-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/reports")
+          test "$report_page" = "200"
+
+          echo 'CI entering class routine checks'
+
+          # Dated routine: valid session, overlap rejection, atomic audit and terminal state.
+          anon_routine=$(curl -sS -o /tmp/ci-anon-routine.json -w '%{http_code}' "http://localhost:4173/api/staff/routine")
+          test "$anon_routine" = "401"
+          teacher_routine=$(curl -sS -o /tmp/ci-teacher-routine.json -w '%{http_code}' -b /tmp/teacher-ci-cookies "http://localhost:4173/api/staff/routine")
+          test "$teacher_routine" = "403"
+          routine_day=$(date -u +%F)
+          scheduled=$(curl -sS -o /tmp/ci-scheduled.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/routine" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"batchId\":\"$admission_batch_id\",\"classOn\":\"$routine_day\",\"startsAt\":\"16:00\",\"endsAt\":\"17:00\",\"title\":\"Synthetic science lesson\",\"topic\":\"Chapter 1\",\"reason\":\"Plan a synthetic classroom session\"}")
+          echo "Routine schedule HTTP: $scheduled"
+          if [ "$scheduled" != "201" ]; then cat /tmp/ci-scheduled.json; fi
+          test "$scheduled" = "201"
+          session_id=$(node -e 'process.stdout.write(require("/tmp/ci-scheduled.json").id)')
+          overlap=$(curl -sS -o /tmp/ci-overlap.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/routine" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"batchId\":\"$admission_batch_id\",\"classOn\":\"$routine_day\",\"startsAt\":\"16:30\",\"endsAt\":\"17:30\",\"title\":\"Overlapping science lesson\",\"topic\":\"Chapter 2\",\"reason\":\"Overlap must be rejected by D1\"}")
+          test "$overlap" = "409"
+          routine_held=$(curl -sS -o /tmp/ci-routine-held.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/routine/$session_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"expectedVersion":1,"nextStatus":"HELD","reason":"Classroom session took place in CI"}')
+          test "$routine_held" = "200"
+          routine_stale=$(curl -sS -o /tmp/ci-routine-stale.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/routine/$session_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"expectedVersion":1,"nextStatus":"CANCELLED","reason":"Cannot cancel a completed class"}')
+          test "$routine_stale" = "409"
+          routine_page=$(curl -sS -o /tmp/ci-routine-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/routine")
+          test "$routine_page" = "200"
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM academy_class_sessions WHERE status='HELD' AND version=2),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type='class_session')" > /tmp/ci-routine-count.json
+          node -e 'const x=require("/tmp/ci-routine-count.json")[0]?.results?.rows?.[0];if(x?.[0]!==1||x?.[1]!==2)process.exit(1);'
+
+          echo 'CI entering assessment and grading checks'
+
+          # Assessments: scores belong to active enrolments and lock on publish.
+          anon_assess=$(curl -sS -o /tmp/ci-anon-assess.json -w '%{http_code}' "http://localhost:4173/api/staff/assessments")
+          test "$anon_assess" = "401"
+          teacher_assess=$(curl -sS -o /tmp/ci-teacher-assess.json -w '%{http_code}' -b /tmp/teacher-ci-cookies "http://localhost:4173/api/staff/assessments")
+          test "$teacher_assess" = "403"
+          assessment_day=$(date -u +%F)
+          exam_create=$(curl -sS -o /tmp/ci-exam-create.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/assessments" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"batchId\":\"$admission_batch_id\",\"title\":\"Synthetic monthly mathematics exam\",\"subject\":\"Mathematics\",\"heldOn\":\"$assessment_day\",\"maxMarks\":100,\"reason\":\"Create classroom performance test\"}")
+          echo "Assessment creation HTTP: $exam_create"
+          if [ "$exam_create" != "201" ]; then cat /tmp/ci-exam-create.json; fi
+          test "$exam_create" = "201"
+          exam_id=$(node -e 'process.stdout.write(require("/tmp/ci-exam-create.json").id)')
+          premature_publish=$(curl -sS -o /tmp/ci-premature-publish.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/assessments/$exam_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"expectedVersion":1,"reason":"Should reject an ungraded exam"}')
+          test "$premature_publish" = "409"
+          invalid_mark=$(curl -sS -o /tmp/ci-invalid-mark.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/assessments/$exam_id/results" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"enrollmentId\":\"$attendance_enrollment_id\",\"marks\":120,\"expectedVersion\":0,\"reason\":\"Out of range marks are forbidden\"}")
+          test "$invalid_mark" = "409"
+          first_mark=$(curl -sS -o /tmp/ci-first-mark.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/assessments/$exam_id/results" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"enrollmentId\":\"$attendance_enrollment_id\",\"marks\":82,\"expectedVersion\":0,\"reason\":\"Recorded verified examination marks\"}")
+          echo "Grade record HTTP: $first_mark"
+          if [ "$first_mark" != "200" ]; then cat /tmp/ci-first-mark.json; fi
+          test "$first_mark" = "200"
+          stale_mark=$(curl -sS -o /tmp/ci-stale-mark.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/assessments/$exam_id/results" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"enrollmentId\":\"$attendance_enrollment_id\",\"marks\":60,\"expectedVersion\":0,\"reason\":\"Stale grade edit must fail\"}")
+          test "$stale_mark" = "409"
+          corrected_mark=$(curl -sS -o /tmp/ci-corrected-mark.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/assessments/$exam_id/results" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"enrollmentId\":\"$attendance_enrollment_id\",\"marks\":86,\"expectedVersion\":1,\"reason\":\"Grade correction after answer review\"}")
+          test "$corrected_mark" = "200"
+          exam_publish=$(curl -sS -o /tmp/ci-exam-publish.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/assessments/$exam_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"expectedVersion":1,"reason":"All student marks checked and approved"}')
+          echo "Assessment publication HTTP: $exam_publish"
+          if [ "$exam_publish" != "200" ]; then cat /tmp/ci-exam-publish.json; fi
+          test "$exam_publish" = "200"
+          locked_mark=$(curl -sS -o /tmp/ci-locked-mark.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/assessments/$exam_id/results" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"enrollmentId\":\"$attendance_enrollment_id\",\"marks\":90,\"expectedVersion\":2,\"reason\":\"Published results cannot be edited\"}")
+          test "$locked_mark" = "409"
+          exam_page=$(curl -sS -o /tmp/ci-exam-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/assessments")
+          test "$exam_page" = "200"
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM academy_assessments WHERE status='PUBLISHED' AND version=2),(SELECT COUNT(*) FROM academy_assessment_results WHERE obtained_marks=86 AND version=2),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type IN ('academy_assessment','academy_assessment_result'))" > /tmp/ci-assessments-verified.json
+          node -e 'const r=require("/tmp/ci-assessments-verified.json")[0]?.results?.rows?.[0];if(r?.[0]!==1||r?.[1]!==1||r?.[2]!==4)process.exit(1);'
+
+          echo 'CI entering dynamic subject catalogue checks'
+
+          # Dynamic subject mapping keeps public programme subject JSON in D1.
+          anon_subject=$(curl -sS -o /tmp/ci-anon-subject.json -w '%{http_code}' "http://localhost:4173/api/staff/subjects")
+          test "$anon_subject" = "401"
+          teacher_subject=$(curl -sS -o /tmp/ci-teacher-subject.json -w '%{http_code}' -b /tmp/teacher-ci-cookies -X POST "http://localhost:4173/api/staff/subjects" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{}')
+          test "$teacher_subject" = "403"
+          curl -fsS -b /tmp/staff-ci-cookies "http://localhost:4173/api/staff/subjects" > /tmp/ci-subject-baseline.json
+          node -e 'const d=require("/tmp/ci-subject-baseline.json");if(d.items.filter(x=>x.class_grade===10).length!==4||d.links.filter(x=>x.offering_id==="sa-ssc-science").length!==4)process.exit(1);'
+          create_subject=$(curl -sS -o /tmp/ci-created-subject.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/subjects" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"code":"ENG","name":"English","classGrade":10,"group":"GENERAL","reason":"Add common subject to academy catalogue"}')
+          echo "Subject creation HTTP: $create_subject"
+          if [ "$create_subject" != "201" ]; then cat /tmp/ci-created-subject.json; fi
+          test "$create_subject" = "201"
+          subject_id=$(node -e 'process.stdout.write(require("/tmp/ci-created-subject.json").id)')
+          ssc_offering_version=$(node -e 'const d=require("/tmp/ci-subject-baseline.json");process.stdout.write(String(d.offerings.find(o=>o.id==="sa-ssc-science").version))')
+          subject_link=$(curl -sS -o /tmp/ci-subject-link.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/subjects/assignment" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"offeringId\":\"sa-ssc-science\",\"subjectId\":\"$subject_id\",\"expectedOfferingVersion\":$ssc_offering_version,\"action\":\"ADD\",\"reason\":\"Offer the added English subject\"}")
+          echo "Subject assignment HTTP: $subject_link"
+          if [ "$subject_link" != "200" ]; then cat /tmp/ci-subject-link.json; fi
+          test "$subject_link" = "200"
+          stale_assignment=$(curl -sS -o /tmp/ci-stale-subject.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/subjects/assignment" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"offeringId\":\"sa-ssc-science\",\"subjectId\":\"$subject_id\",\"expectedOfferingVersion\":$ssc_offering_version,\"action\":\"REMOVE\",\"reason\":\"A stale offering cannot be modified\"}")
+          test "$stale_assignment" = "409"
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT json_array_length(subjects_json) FROM public_programme_offerings WHERE id='sa-ssc-science'" > /tmp/ci-subject-five.json
+          node -e 'const n=require("/tmp/ci-subject-five.json")[0]?.results?.rows?.[0]?.[0];if(n!==5)process.exit(1);'
+          curl -fsS -b /tmp/staff-ci-cookies "http://localhost:4173/api/staff/subjects" > /tmp/ci-subject-after.json
+          updated_offering_version=$(node -e 'const d=require("/tmp/ci-subject-after.json");process.stdout.write(String(d.offerings.find(o=>o.id==="sa-ssc-science").version))')
+          subject_unlink=$(curl -sS -o /tmp/ci-subject-unlink.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/subjects/assignment" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"offeringId\":\"sa-ssc-science\",\"subjectId\":\"$subject_id\",\"expectedOfferingVersion\":$updated_offering_version,\"action\":\"REMOVE\",\"reason\":\"Test reversible subject assignment\"}")
+          test "$subject_unlink" = "200"
+          subject_page=$(curl -sS -o /tmp/ci-subject-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/subjects")
+          test "$subject_page" = "200"
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT json_array_length(subjects_json) FROM public_programme_offerings WHERE id='sa-ssc-science'),(SELECT COUNT(*) FROM academy_subjects),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type IN ('academy_subject','offering_subject'))" > /tmp/ci-subject-final.json
+          node -e 'const x=require("/tmp/ci-subject-final.json")[0]?.results?.rows?.[0];if(x?.[0]!==4||x?.[1]!==5||x?.[2]!==3)process.exit(1);'
+
+          echo 'CI entering teacher class scoping checks'
+
+          # Teacher assignments: no classroom data without a matching active batch.
+          anonymous_teacher_classes=$(curl -sS -o /tmp/ci-anon-teacher-classes.json -w '%{http_code}' "http://localhost:4173/api/teacher/classes")
+          test "$anonymous_teacher_classes" = "401"
+          owner_as_teacher=$(curl -sS -o /tmp/ci-owner-as-teacher.json -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/api/teacher/classes")
+          test "$owner_as_teacher" = "403"
+          teacher_before=$(curl -sS -o /tmp/ci-teacher-before.json -w '%{http_code}' -b /tmp/teacher-ci-cookies "http://localhost:4173/api/teacher/classes")
+          test "$teacher_before" = "200"
+          node -e 'const d=require("/tmp/ci-teacher-before.json");if(d.batches?.length!==0||d.students?.length!==0)process.exit(1);'
+          teacher_assignment_list=$(curl -sS -o /tmp/ci-teacher-assignment-list.json -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/api/staff/teacher-assignments")
+          test "$teacher_assignment_list" = "200"
+          teacher_user_id=$(node -e 'const d=require("/tmp/ci-teacher-assignment-list.json");if(d.teachers?.length!==1)process.exit(1);process.stdout.write(d.teachers[0].user_id)')
+          teacher_cannot_assign=$(curl -sS -o /tmp/ci-teacher-cannot-assign.json -w '%{http_code}' -b /tmp/teacher-ci-cookies -X POST "http://localhost:4173/api/staff/teacher-assignments" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{}')
+          test "$teacher_cannot_assign" = "403"
+          teacher_assigned=$(curl -sS -o /tmp/ci-teacher-assigned.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/teacher-assignments" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"teacherUserId\":\"$teacher_user_id\",\"batchId\":\"$admission_batch_id\",\"reason\":\"Assign verified synthetic teacher to CI batch\"}")
+          echo "Teacher assignment HTTP: $teacher_assigned"
+          if [ "$teacher_assigned" != "201" ]; then cat /tmp/ci-teacher-assigned.json; fi
+          test "$teacher_assigned" = "201"
+          teacher_assignment_id=$(node -e 'process.stdout.write(require("/tmp/ci-teacher-assigned.json").id)')
+          teacher_after=$(curl -sS -o /tmp/ci-teacher-after.json -w '%{http_code}' -b /tmp/teacher-ci-cookies "http://localhost:4173/api/teacher/classes")
+          test "$teacher_after" = "200"
+          node -e 'const d=require("/tmp/ci-teacher-after.json");if(d.batches?.length!==1||d.students?.length!==1||d.sessions?.length!==1||d.exams?.length!==1||JSON.stringify(d).includes("guardian_mobile"))process.exit(1);'
+          teacher_page=$(curl -sS -o /tmp/ci-teacher-page.html -w '%{http_code}' -b /tmp/teacher-ci-cookies "http://localhost:4173/app/teacher")
+          test "$teacher_page" = "200"
+          teacher_revoke=$(curl -sS -o /tmp/ci-teacher-revoke.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/teacher-assignments/$teacher_assignment_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"active":false,"expectedVersion":1,"reason":"Revoke assigned classroom access in CI"}')
+          test "$teacher_revoke" = "200"
+          teacher_revoked=$(curl -sS -o /tmp/ci-teacher-revoked.json -w '%{http_code}' -b /tmp/teacher-ci-cookies "http://localhost:4173/api/teacher/classes")
+          test "$teacher_revoked" = "200"
+          node -e 'const d=require("/tmp/ci-teacher-revoked.json");if(d.batches?.length!==0||d.students?.length!==0)process.exit(1);'
+          teacher_stale_revoke=$(curl -sS -o /tmp/ci-teacher-stale-revoke.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/teacher-assignments/$teacher_assignment_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"active":false,"expectedVersion":1,"reason":"Stale assignment version must fail"}')
+          test "$teacher_stale_revoke" = "409"
+          teacher_assignment_page=$(curl -sS -o /tmp/ci-teacher-assignment-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/staff-teachers")
+          test "$teacher_assignment_page" = "200"
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM academy_batch_teachers WHERE active=0 AND version=2),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type='teacher_assignment')" > /tmp/ci-teacher-verified.json
+          node -e 'const n=require("/tmp/ci-teacher-verified.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==2)process.exit(1);'
+
+          # Revoking a staff membership removes access even with a live
+          # Better Auth session cookie; do not rely on client-side role state.
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
+            --sql "UPDATE staff_memberships SET active=0 WHERE role='OWNER'" > /tmp/revoked.json
+          revoked_code=$(curl -sS -o /tmp/revoked-access.json -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies "http://localhost:4173/api/staff/prospects")
+          echo "revoked staff access HTTP: $revoked_code"
+          test "$revoked_code" = "401"
           grep -q "SA-ENQ-" /tmp/sohojac-enquiry.json
 
           # A valid request creates exactly one prospect in the local D1 database.
@@ -83,6 +690,26 @@ jobs:
           echo "admission_status: $admission_status"
           test "$admission_status" = "409"
 
+          # Regression: status notices come from the selected programme, not
+          # a stale server-side alert. All changes here are LOCAL test D1 only.
+          curl -fsS "http://localhost:4173/interest" > /tmp/interest-general.html
+          if grep -q "Applications are closed for the programme you selected" /tmp/interest-general.html; then
+            echo "Unexpected closed-offering warning on general interest"; exit 1
+          fi
+          curl -fsS "http://localhost:4173/interest?intent=interest&offering=sa-ssc-science" > /tmp/interest-closed.html
+          grep -q "Applications are closed for this programme" /tmp/interest-closed.html
+          curl -fsS "http://localhost:4173/interest?intent=admission&offering=sa-ssc-science" > /tmp/admission-closed.html
+          grep -q "Applications are closed for the programme you selected" /tmp/admission-closed.html
+
+          # Simulate reopening one offering and verify the same deep link now
+          # reflects D1's current application status without a code change.
+          pnpm exec cf d1 raw "$DB" --sql "UPDATE public_programme_offerings SET is_accepting_applications=1, application_state='OPEN' WHERE id='sa-ssc-science'" --local --persist-to .cloudflare/state > /tmp/reopened-offering.json
+          curl -fsS "http://localhost:4173/interest?intent=interest&offering=sa-ssc-science" > /tmp/interest-open.html
+          grep -q "Applications are currently open for this programme" /tmp/interest-open.html
+          if grep -q "Applications are closed for this programme" /tmp/interest-open.html; then
+            echo "Open programme still displays closed status"; exit 1
+          fi
+
           # Invalid contact information and untrusted request origins must be rejected.
           invalid_status=$(curl -sS -o /tmp/enquiry-invalid.json -w '%{http_code}' -X POST "http://localhost:4173/api/enquiries" \
             -H "Content-Type: application/json" \
@@ -93,3 +720,124 @@ jobs:
             -H "Origin: https://other.invalid" -H "Content-Type: application/json" --data '{}')
           echo "origin_status: $origin_status"
           test "$origin_status" = "403"
+
+  release:
+    name: Auto-release to Cloudflare (when configured)
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    concurrency:
+      group: sohojac-production-deploy
+      cancel-in-progress: false
+    env:
+      CF_SEND_TELEMETRY: "false"
+      TURNSTILE_SITE_KEY: ${{ vars.TURNSTILE_SITE_KEY }}
+      BETTER_AUTH_URL: ${{ vars.BETTER_AUTH_URL || 'https://sohojac.com' }}
+
+    steps:
+      - name: Check out exact tested commit
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Check prerequisites and latest commit
+        id: ready
+        env:
+          CF_DEPLOY_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_DB_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          WIDGET_SECRET: ${{ secrets.TURNSTILE_SECRET_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CF_DEPLOY_TOKEN:-}" ] ||
+             [ -z "${CF_DB_TOKEN:-}" ] ||
+             [ -z "${CF_ACCOUNT:-}" ] ||
+             [ -z "${TURNSTILE_SITE_KEY:-}" ] ||
+             [ -z "${WIDGET_SECRET:-}" ] ||
+             [ -z "${AUTH_SECRET:-}" ] ||
+             [ "${#AUTH_SECRET}" -lt 32 ]; then
+            echo "::notice::Release paused: configure the existing Cloudflare token (Workers Edit and D1 Edit) and Better Auth/Turnstile secrets."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          latest=$(git ls-remote https://github.com/AbdusSattar-70/sohojac.git refs/heads/master | cut -f1)
+          if [ "$latest" != "$GITHUB_SHA" ]; then
+            echo "::notice::Newer code exists. Skipping stale deployment."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+
+      - name: Install Node.js 24
+        if: steps.ready.outputs.ready == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Install pnpm
+        if: steps.ready.outputs.ready == 'true'
+        uses: pnpm/action-setup@v4
+        with:
+          version: "12.15.0"
+          run_install: false
+      - name: Install dependencies
+        if: steps.ready.outputs.ready == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Build and inspect migrations
+        if: steps.ready.outputs.ready == 'true'
+        run: |
+          set -euo pipefail
+          node scripts/check-d1-migrations.mjs
+          pnpm run cf-typegen
+          pnpm exec tsc --noEmit
+          pnpm run build
+          pnpm exec cf deploy --prebuilt --mode production --dry-run
+
+      - name: Apply only pending remote D1 migrations
+        if: steps.ready.outputs.ready == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          DB=d6f3e4e9-2190-43bf-bc90-969687f6db78
+          pnpm exec cf d1 migrations list "$DB"
+          printf 'y\n' | pnpm exec cf d1 migrations apply "$DB"
+
+      - name: Deploy Worker with stable Better Auth and Turnstile secrets
+        if: steps.ready.outputs.ready == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+        run: |
+          set -euo pipefail
+          node -e 'const fs=require("node:fs"); const p=require("node:path"); fs.writeFileSync(p.join(process.env.RUNNER_TEMP,"sohojac-deploy-secrets.json"),JSON.stringify({ TURNSTILE_SECRET_KEY:process.env.TURNSTILE_SECRET_KEY, BETTER_AUTH_SECRET:process.env.BETTER_AUTH_SECRET }),{ mode:0o600 });'
+          trap 'rm -f "$RUNNER_TEMP/sohojac-deploy-secrets.json"' EXIT
+          pnpm exec cf deploy --prebuilt --mode production --secrets-file "$RUNNER_TEMP/sohojac-deploy-secrets.json"
+
+      - name: Check production public routes and private API denial
+        if: steps.ready.outputs.ready == 'true'
+        run: |
+          set -euo pipefail
+          for url in https://sohojac.com/ https://sohojac.com/interest https://sohojac.com/sign-in; do
+            curl --fail --silent --show-error --retry 3 --retry-delay 2 --max-time 20 "$url" >/dev/null
+          done
+          status=$(curl -sS --max-time 15 -o /dev/null -w '%{http_code}' https://sohojac.com/api/staff/prospects)
+          test "$status" = "401" || { echo "::error::Private prospect endpoint returned HTTP $status instead of 401"; exit 1; }
+          # Regression guard: every newly published ERP endpoint remains private.
+          for route in /api/staff/academic-years /api/staff/offerings /api/staff/batches /api/staff/fee-plans /api/staff/admissions /api/staff/students /api/staff/attendance /api/staff/routine /api/staff/assessments /api/staff/subjects /api/staff/teacher-assignments /api/staff/collections /api/staff/expenses /api/staff/reports /api/staff/audit /api/staff/access-requests /api/teacher/classes; do
+            code=$(curl -sS --max-time 15 -o /dev/null -w '%{http_code}' "https://sohojac.com$route")
+            if [ "$code" != "401" ]; then
+              echo "::error::Private ERP API $route returned HTTP $code instead of 401"
+              exit 1
+            fi
+          done
+          echo "All private ERP endpoints reject anonymous access."
+          echo "Site healthy; unauthenticated prospect access denied."
+
