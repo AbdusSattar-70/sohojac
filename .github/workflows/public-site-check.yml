@@ -73,7 +73,8 @@ jobs:
               exit 1
             fi
           done
-          grep -q "Request staff access" /tmp/staff-auth-page.html
+          curl -fsS "http://localhost:4173/request-access" > /tmp/access-request-page.html
+          grep -q "Request staff access" /tmp/access-request-page.html
 
           # Anonymous access requests only create review records, never a login.
           anonymous_queue=$(curl -sS -o /tmp/private-access-queue.json -w '%{http_code}' \
