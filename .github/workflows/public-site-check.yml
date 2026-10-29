@@ -62,6 +62,8 @@ jobs:
         run: node scripts/verify-original-admission-print.mjs
       - name: Verify source Admissions register, staff intake and prospect draft contracts
         run: node scripts/verify-original-admissions-workspace.mjs
+      - name: Verify source Programme Offerings and D1 mappings
+        run: node scripts/check-source-offerings-contract.mjs
       - name: Reject destructive migrations before any deployment
         run: node scripts/check-d1-migrations.mjs
       - name: Apply public D1 migrations locally
