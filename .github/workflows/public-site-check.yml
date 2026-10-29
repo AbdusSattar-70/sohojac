@@ -699,8 +699,12 @@ jobs:
             -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/admissions/$admission_id")
           echo "Source case detail bridge HTTP: $source_case"
           test "$source_case" = "200"
-          grep -q 'Verified application data' /tmp/ci-source-case.html
-          grep -q 'Permanent Student ID' /tmp/ci-source-case.html
+          grep -q 'Verify application and placement' /tmp/ci-source-case.html
+          grep -q 'Record Organic or referrer' /tmp/ci-source-case.html
+          grep -q 'Receive signed paper consent' /tmp/ci-source-case.html
+          grep -q 'Review fees and confirm admission' /tmp/ci-source-case.html
+          grep -q 'Payment and enrollment' /tmp/ci-source-case.html
+          grep -q 'Application record' /tmp/ci-source-case.html
           anonymous_case=$(curl -sS -o /dev/null -w '%{http_code}' \
             "http://localhost:4173/dashboard/admissions/$admission_id")
           test "$anonymous_case" != "200"
@@ -1025,6 +1029,83 @@ jobs:
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM academy_batch_teachers WHERE active=0 AND version=2),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type='teacher_assignment')" > /tmp/ci-teacher-verified.json
           node -e 'const n=require("/tmp/ci-teacher-verified.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==2)process.exit(1);'
 
+          # Exercise the original five-stage Admissions workflow against LOCAL D1.
+          # These are real authenticated API calls and accounting journal triggers,
+          # not snapshots or mocked server action responses.
+          echo 'CI testing five-stage original Admissions D1 workflow'
+          source_parity_id=$(node -e 'process.stdout.write(require("node:crypto").randomUUID())')
+          source_parity_key=$(node -e 'process.stdout.write(require("node:crypto").randomUUID())')
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql \
+            "INSERT INTO academy_admissions(id,application_no,enquiry_id,offering_id,status,prepared_by,student_full_name,class_grade,guardian_full_name,guardian_mobile,school_name,batch_id)
+             SELECT '$source_parity_id','CI-ADMISSION-'||substr('$source_parity_id',1,8),NULL,a.offering_id,'DRAFT',a.prepared_by,
+             'Source Parity Student',a.class_grade,'Source Parity Guardian',a.guardian_mobile,a.school_name,a.batch_id
+             FROM academy_admissions a WHERE a.id='$admission_id'" > /tmp/ci-source-new-admission.json
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql \
+            "INSERT INTO academy_admission_intake_details(admission_id,request_id,recorded_by,guardian_address)
+             SELECT a.id,'$source_parity_key',a.prepared_by,'Verified full guardian address for local integration'
+             FROM academy_admissions a WHERE a.id='$source_parity_id'" > /tmp/ci-source-new-details.json
+          workflow_endpoint="http://localhost:4173/api/staff/admissions/$source_parity_id/workflow"
+          anonymous_workflow=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "$workflow_endpoint" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"action":"READY","reason":"Unauthorized admission attempt"}')
+          test "$anonymous_workflow" = "401"
+          teacher_workflow=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "$workflow_endpoint" \
+            -b /tmp/teacher-ci-cookies -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"action":"READY","reason":"Unauthorized teaching staff attempt"}')
+          test "$teacher_workflow" = "403"
+          workflow_call(){
+            local label="$1"
+            local body="$2"
+            local status
+            status=$(curl -sS -o /tmp/ci-admissions-workflow-result.json -w '%{http_code}' \
+              -b /tmp/staff-ci-cookies -X POST "$workflow_endpoint" \
+              -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "$body")
+            echo "Source Admissions $label HTTP $status"
+            cat /tmp/ci-admissions-workflow-result.json
+            echo
+            test "$status" = "200"
+            node -e 'const r=require("/tmp/ci-admissions-workflow-result.json");if(r.ok!==true){console.error("D1 workflow failed",r);process.exit(1)}'
+          }
+          premature=$(curl -sS -o /tmp/ci-admission-premature.json -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies -X POST "$workflow_endpoint" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"action":"FINALIZE","reason":"Premature final review should be rejected"}')
+          test "$premature" = "409"
+          workflow_call verified '{"action":"READY","reason":"Verified student identity, address, class and batch"}'
+          workflow_call source '{"action":"REFERRAL","source":"ORGANIC","reason":"Verified no referring person with guardian"}'
+          workflow_call consent '{"action":"CONSENT","guardianSignedOn":"2026-10-29","studentSigned":true,"physicalCopyReference":"Local CI paper file","reason":"Received signed original from guardian"}'
+          workflow_call charge '{"action":"EXTRA_CHARGE","chargeType":"MATERIAL","name":"Additional learning materials","amount":10,"reason":"Guardian approved one-time materials cost"}'
+          workflow_call discount '{"action":"DISCOUNT","discountPercent":0,"discountReason":"","reason":"Confirmed no tuition discount for case"}'
+          workflow_call final '{"action":"FINALIZE","reason":"Confirmed identity, placement, referral, signed paper and fees"}'
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql \
+            "SELECT a.status,s.student_no,i.amount_paisa,i.paid_paisa,
+               (SELECT COUNT(*) FROM erp_audit_events e WHERE e.entity_id=a.id AND e.action='FINALIZED_AND_BILLED')
+             FROM academy_admissions a JOIN academy_students s ON s.id=a.student_id
+             JOIN finance_invoices i ON i.admission_id=a.id WHERE a.id='$source_parity_id'" \
+            > /tmp/ci-finalized-admission.json
+          node -e 'const r=require("/tmp/ci-finalized-admission.json")[0]?.results?.rows?.[0];
+            if(!r||r[0]!=="BILLED"||!/^SA-[0-9]{6,}$/.test(String(r[1]))||r[2]!==r[3]+r[2]||r[4]!==1){
+             console.error("Finalized D1 admission incorrect",r);process.exit(1);
+            }'
+          source_due=$(node -e 'const r=require("/tmp/ci-finalized-admission.json")[0].results.rows[0];process.stdout.write(String(r[2]/100))')
+          if [ "$source_due" != "0" ]; then
+            workflow_call payment "{\"action\":\"PAYMENT\",\"amount\":$source_due,\"method\":\"CASH\",\"reference\":\"Local CI payment\",\"reason\":\"Verified actual cash payment in synthetic local fixture\"}"
+          fi
+          workflow_call enroll '{"action":"ACTIVATE","reason":"Confirmed full invoice settlement and available cohort capacity"}'
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql \
+            "SELECT a.status,s.status,i.paid_paisa,i.amount_paisa,
+               (SELECT COUNT(*) FROM academy_enrollments e WHERE e.admission_id=a.id AND e.status='ACTIVE'),
+               (SELECT COUNT(*) FROM finance_journal_lines l JOIN finance_journals j ON j.id=l.journal_id
+                 WHERE j.reference LIKE 'INV:%' OR j.reference LIKE 'PAY:%')
+             FROM academy_admissions a JOIN academy_students s ON s.id=a.student_id
+             JOIN finance_invoices i ON i.admission_id=a.id WHERE a.id='$source_parity_id'" \
+            > /tmp/ci-enrolled-parity.json
+          node -e 'const r=require("/tmp/ci-enrolled-parity.json")[0]?.results?.rows?.[0];
+            if(!r||r[0]!=="ENROLLED"||r[1]!=="ACTIVE"||r[2]!==r[3]||r[4]!==1||r[5]<2){
+             console.error("Original admission enrollment or GL posting failed",r);process.exit(1);
+            }'
+          echo 'Original Admissions full D1 workflow verified with real ledger transactions.'
+
           # Revoking a staff membership removes access even with a live
           # Better Auth session cookie; do not rely on client-side role state.
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
@@ -1077,6 +1158,7 @@ jobs:
             -H "Origin: https://other.invalid" -H "Content-Type: application/json" --data '{}')
           echo "origin_status: $origin_status"
           test "$origin_status" = "403"
+
 
   release:
     name: Auto-release to Cloudflare (when configured)
