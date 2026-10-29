@@ -65,6 +65,9 @@ export async function POST(request: Request) {
     const consumedAt = new Date().toISOString();
     const timestamp = Date.now();
 
+    // D1 batch is transactional. A staff-directory trigger may add another
+    // affected row to membership write metadata; require each direct write
+    // to affect >=1 row, and verify active owner afterwards.
     // D1 batch is transactional: consume the one-time code and create the
     // Better Auth credential + active OWNER together, or not at all.
     const results = await env.DB.batch([
@@ -89,7 +92,7 @@ export async function POST(request: Request) {
         WHERE id='first-owner' AND claim_id=? AND consumed_at=?`)
         .bind(userId, claimId, consumedAt),
     ]);
-    if (results.length !== 4 || results.some(result => result.meta?.changes !== 1)) {
+    if (results.length !== 4 || results.some(result => (result.meta?.changes ?? 0) < 1)) {
       return respond("Owner setup was not completed. Contact the database administrator", 503);
     }
 

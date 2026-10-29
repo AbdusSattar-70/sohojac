@@ -88,7 +88,9 @@ export async function POST(request:Request) {
         WHERE t.claim_id=? AND t.consumed_at=?`)
         .bind(crypto.randomUUID(),candidate.request_id,userId,claimId,now),
     ]);
-    if(actions.length!==6 || actions.some(result=>result.meta.changes!==1)){
+    // A staff-directory trigger contributes an additional affected row to
+    // activation metadata; all six original writes must still succeed.
+    if(actions.length!==6 || actions.some(result=>(result.meta?.changes??0)<1)){
       return privateJson({error:"Invitation was already accepted. Sign in or contact the administrator."},409);
     }
     return privateJson({ok:true,message:"Account created. You can sign in."},201);

@@ -38,6 +38,8 @@ jobs:
         run: node scripts/check-erp-architecture-parity.mjs
       - name: Verify original ERP auth and D1 parity contracts
         run: node scripts/check-legacy-erp-d1-parity.mjs
+      - name: Verify immutable staff number contract
+        run: node scripts/check-staff-number-parity.mjs
       - name: Reject destructive migrations before any deployment
         run: node scripts/check-d1-migrations.mjs
       - name: Apply public D1 migrations locally
@@ -242,6 +244,36 @@ jobs:
             --data '{"token":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","password":"Employee123!"}')
           echo "staff invitation replay HTTP: $reused"
           test "$reused" = "403"
+          # A staff identity is created atomically with a verified login.
+          owner_staff_status=$(curl -sS -o /tmp/ci-owner-staff-directory.json -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies "http://localhost:4173/api/staff/directory")
+          echo "owner staff register HTTP: $owner_staff_status"
+          test "$owner_staff_status" = "200"
+          original_staff_status=$(curl -sS -o /tmp/ci-original-staff.html -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/staff")
+          echo "original ERP staff register HTTP: $original_staff_status"
+          test "$original_staff_status" = "200"
+          grep -q 'SA-STF-000001' /tmp/ci-original-staff.html
+          account_page=$(curl -sS -o /tmp/ci-staff-account.html -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/account")
+          test "$account_page" = "200"
+          grep -q 'SA-STF-000001' /tmp/ci-staff-account.html
+
+          node -e 'const r=require("/tmp/ci-owner-staff-directory.json").items;if(r.length!==2||r[0].staff_no!=="SA-STF-000002"||r[1].staff_no!=="SA-STF-000001"||r[0].staff_no===r[1].staff_no)process.exit(1)'
+          anonymous_staff=$(curl -sS -o /dev/null -w '%{http_code}' \
+            "http://localhost:4173/api/staff/directory")
+          test "$anonymous_staff" = "401"
+          no_login_created=$(curl -sS -o /tmp/ci-offline-staff.json -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/directory" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"fullName":"No Login Staff","reason":"Register offline employee"}')
+          echo "manual staff record HTTP: $no_login_created"
+          test "$no_login_created" = "201"
+          node -e 'const x=require("/tmp/ci-offline-staff.json").item;if(x.staff_no!=="SA-STF-000003")process.exit(1)'
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
+            --sql "SELECT (SELECT COUNT(*) FROM academy_staff),(SELECT COUNT(*) FROM \"user\"),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type='staff' AND action='CREATED')" > /tmp/ci-staff-counts.json
+          node -e 'const n=require("/tmp/ci-staff-counts.json")[0]?.results?.rows?.[0];if(n?.[0]!==3||n?.[1]!==2||n?.[2]!==1)process.exit(1)'
+
           teacher_login=$(curl -sS -o /tmp/ci-teacher.json -w '%{http_code}' \
             -c /tmp/teacher-ci-cookies -X POST "http://localhost:4173/api/auth/sign-in/email" \
             -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
@@ -252,6 +284,15 @@ jobs:
             -b /tmp/teacher-ci-cookies "http://localhost:4173/api/staff/prospects")
           echo "teacher forbidden prospects HTTP: $teacher_access"
           test "$teacher_access" = "403"
+          teacher_staff_register=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -b /tmp/teacher-ci-cookies "http://localhost:4173/api/staff/directory")
+          test "$teacher_staff_register" = "403"
+          teacher_staff_create=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -b /tmp/teacher-ci-cookies -X POST "http://localhost:4173/api/staff/directory" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"fullName":"Not Allowed","reason":"No permission granted"}')
+          test "$teacher_staff_create" = "403"
+
           teacher_settings=$(curl -sS -o /dev/null -w '%{http_code}' \
             -b /tmp/teacher-ci-cookies "http://localhost:4173/dashboard/academics/settings")
           echo "teacher unauthorized academic settings HTTP: $teacher_settings"

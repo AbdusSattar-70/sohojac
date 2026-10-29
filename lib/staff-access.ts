@@ -4,6 +4,7 @@ import { createAuth, isStaffOrigin } from "@/lib/auth";
 export type StaffRole = "OWNER" | "ADMIN" | "OPERATOR" | "TEACHER";
 export type StaffAccess = {
   userId: string; name: string; email: string; role: StaffRole;
+  staffId: string; staffNo: string;
 };
 
 /** Re-validate the session and membership in D1 for EVERY private request. */
@@ -13,10 +14,13 @@ export async function getStaffAccess(requestUrl: string, headers: Headers): Prom
     const session = await createAuth().api.getSession({ headers });
     if (!session?.user?.id || !session.user.emailVerified) return null;
     const member = await env.DB.prepare(
-      "SELECT role FROM staff_memberships WHERE user_id = ? AND active = 1"
-    ).bind(session.user.id).first<{ role: StaffRole }>();
+      "SELECT m.role,s.id AS staff_id,s.staff_no FROM staff_memberships m "+
+      "JOIN academy_staff s ON s.linked_user_id=m.user_id "+
+      "WHERE m.user_id=? AND m.active=1 AND s.status IN ('ACTIVE','ON_LEAVE')"
+    ).bind(session.user.id).first<{ role: StaffRole; staff_id: string; staff_no: string }>();
     if (!member || !["OWNER", "ADMIN", "OPERATOR", "TEACHER"].includes(member.role)) return null;
-    return { userId: session.user.id, name: session.user.name, email: session.user.email, role: member.role };
+    return { userId: session.user.id, name: session.user.name, email: session.user.email, role: member.role,
+      staffId: member.staff_id, staffNo: member.staff_no };
   } catch {
     // Database/configuration/auth errors must never turn into access grants.
     return null;
