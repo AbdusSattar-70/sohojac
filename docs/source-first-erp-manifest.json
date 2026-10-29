@@ -5,6 +5,10 @@
   "contract": "Original ERP identical; only infrastructure backend changes.",
   "dashboardPages": [
     {
+      "path": "app/dashboard/page.tsx",
+      "blob": "29775f515071f4d4d09911937787a857d4d27f38"
+    },
+    {
       "path": "app/dashboard/academics/assessments/page.tsx",
       "blob": "570dd2789680f96cee173adee54b30be7bfebebe"
     },
