@@ -736,6 +736,7 @@ jobs:
       CF_SEND_TELEMETRY: "false"
       TURNSTILE_SITE_KEY: ${{ vars.TURNSTILE_SITE_KEY }}
       BETTER_AUTH_URL: ${{ vars.BETTER_AUTH_URL || 'https://sohojac.com' }}
+      STAFF_EMAIL_FROM: ${{ vars.STAFF_EMAIL_FROM || '' }}
 
     steps:
       - name: Check out exact tested commit
@@ -751,6 +752,7 @@ jobs:
           CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
           WIDGET_SECRET: ${{ secrets.TURNSTILE_SECRET_KEY }}
+          STAFF_MAIL_SECRET: ${{ secrets.RESEND_API_KEY }}
         run: |
           set -euo pipefail
           if [ -z "${CF_DEPLOY_TOKEN:-}" ] ||
@@ -763,6 +765,10 @@ jobs:
             echo "::notice::Release paused: configure the existing Cloudflare token (Workers Edit and D1 Edit) and Better Auth/Turnstile secrets."
             echo "ready=false" >> "$GITHUB_OUTPUT"
             exit 0
+          fi
+          if [ -n "${STAFF_EMAIL_FROM:-}" ] && [ -z "${STAFF_MAIL_SECRET:-}" ]; then
+            echo "::error::Set RESEND_API_KEY as a GitHub Actions secret when configuring STAFF_EMAIL_FROM; staff invitations and recovery require working mail."
+            exit 1
           fi
           latest=$(git ls-remote https://github.com/AbdusSattar-70/sohojac.git refs/heads/master | cut -f1)
           if [ "$latest" != "$GITHUB_SHA" ]; then
@@ -815,9 +821,10 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
           BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
         run: |
           set -euo pipefail
-          node -e 'const fs=require("node:fs"); const p=require("node:path"); fs.writeFileSync(p.join(process.env.RUNNER_TEMP,"sohojac-deploy-secrets.json"),JSON.stringify({ TURNSTILE_SECRET_KEY:process.env.TURNSTILE_SECRET_KEY, BETTER_AUTH_SECRET:process.env.BETTER_AUTH_SECRET }),{ mode:0o600 });'
+          node -e 'const fs=require("node:fs"),p=require("node:path");const values={TURNSTILE_SECRET_KEY:process.env.TURNSTILE_SECRET_KEY,BETTER_AUTH_SECRET:process.env.BETTER_AUTH_SECRET};if(process.env.STAFF_EMAIL_FROM&&process.env.RESEND_API_KEY)values.RESEND_API_KEY=process.env.RESEND_API_KEY;fs.writeFileSync(p.join(process.env.RUNNER_TEMP,"sohojac-deploy-secrets.json"),JSON.stringify(values),{mode:0o600});'
           trap 'rm -f "$RUNNER_TEMP/sohojac-deploy-secrets.json"' EXIT
           pnpm exec cf deploy --prebuilt --mode production --secrets-file "$RUNNER_TEMP/sohojac-deploy-secrets.json"
 

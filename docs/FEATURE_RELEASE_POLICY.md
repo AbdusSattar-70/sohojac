@@ -24,3 +24,12 @@ production acceptance or a complete legacy ERP replacement.
 verified D1 backup and post-deployment role tests using a real authorized
 staff account; GitHub's anonymous health checks cannot prove every
 authenticated UI flow.
+
+## Optional staff email delivery
+
+The `RESEND_API_KEY` Cloudflare secret is required **only if** GitHub Actions
+variable `STAFF_EMAIL_FROM` is set to a verified sender address. Without
+both, the Worker deploys with staff mail deliberately disabled. Staff
+invitation/recovery APIs fail closed and do not claim an email was delivered.
+Configure both under repository Actions settings before enabling email.
+Never enter the provider key in the repository or a chat message.
