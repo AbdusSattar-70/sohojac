@@ -45,6 +45,7 @@ const groups: Group[] = [
       { label: "Programme offerings", href: "/app/offerings", icon: GraduationCap },
       { label: "Batches", href: "/app/batches", icon: CalendarDays },
       { label: "Routines", icon: CalendarDays },
+      { label: "Attendance", href: "/app/attendance", icon: CalendarDays, restricted: true },
     ],
   },
   {
@@ -90,6 +91,7 @@ export function StaffShell({ staff, children }: { staff: StaffAccess; children: 
   const pageTitle = pathname.startsWith("/app/prospects") ? "Enquiries"
     : pathname.startsWith("/app/staff-access") ? "Staff & access"
     : pathname.startsWith("/app/academic-years") ? "Academic years"
+    : pathname.startsWith("/app/attendance") ? "Attendance"
     : pathname.startsWith("/app/collections") ? "Collections"
     : pathname.startsWith("/app/students") ? "Students"
     : pathname.startsWith("/app/admissions") ? "Admissions"

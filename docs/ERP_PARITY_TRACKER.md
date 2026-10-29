@@ -28,7 +28,7 @@ in the live D1, no student/guardian login, staff UI English only.
 | CRM prospects, assignments, referral sources | CRM pipeline, staff follow-up | Prospect list/status/audit live; assignment/referral missing |
 | Admissions, reviews, consent, print form | Draft → review → accept → bill → enroll | Draft → review → accept → bill → enroll and A4 consent form implemented on isolated branch; production checks pending |
 | Students, enrollments, transfers, lifecycle | Verified records only after enrollment | Atomic enrollment and student register staged; transfers/lifecycle pending |
-| Attendance, timetable, homework, exams | Classroom operations and assessments | D1 foundation only |
+| Attendance, timetable, homework, exams | Classroom operations and assessments | Student attendance register staged with version/audit checks; timetable, homework and exams missing |
 | Staff/teacher/workforce attendance & tasks | Workforce dashboard and assigned work | Missing |
 | Payroll, compensation, referral rewards | Staff compensation controls | Missing |
 | Finance GL/journals/accounting | Double-entry, immutable posted journals and reports | Initial invoices and collections use balanced GL; revenue recognition and full statements pending |

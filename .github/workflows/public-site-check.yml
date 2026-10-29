@@ -457,6 +457,31 @@ jobs:
           cat /tmp/ci-gl-check.json
           node -e 'const n=require("/tmp/ci-gl-check.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==2||n?.[2]!==2||n?.[3]!==3||n?.[4]!==800000||n?.[5]!==800000)process.exit(1);'
 
+          echo 'CI entering student attendance checks'
+
+          # Student attendance: real active enrollment, audited correction and stale version.
+          unauth_attend=$(curl -sS -o /tmp/ci-unauth-attend.json -w '%{http_code}' "http://localhost:4173/api/staff/attendance")
+          test "$unauth_attend" = "401"
+          teacher_attend=$(curl -sS -o /tmp/ci-teacher-attend.json -w '%{http_code}' -b /tmp/teacher-ci-cookies "http://localhost:4173/api/staff/attendance")
+          test "$teacher_attend" = "403"
+          class_day=$(date -u +%F)
+          curl -fsS -b /tmp/staff-ci-cookies "http://localhost:4173/api/staff/attendance?batchId=$admission_batch_id&date=$class_day" > /tmp/ci-attendance-list.json
+          attendance_enrollment_id=$(node -e 'const r=require("/tmp/ci-attendance-list.json");if(r.items?.length!==1)process.exit(1);process.stdout.write(r.items[0].enrollment_id)')
+          attend_first=$(curl -sS -o /tmp/ci-attend-first.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/attendance" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"enrollmentId\":\"$attendance_enrollment_id\",\"classOn\":\"$class_day\",\"state\":\"PRESENT\",\"expectedVersion\":0,\"reason\":\"CI verifies initial attendance entry\"}")
+          echo "Attendance first entry HTTP: $attend_first"
+          if [ "$attend_first" != "200" ]; then cat /tmp/ci-attend-first.json; fi
+          test "$attend_first" = "200"
+          attend_stale=$(curl -sS -o /tmp/ci-attend-stale.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/attendance" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"enrollmentId\":\"$attendance_enrollment_id\",\"classOn\":\"$class_day\",\"state\":\"ABSENT\",\"expectedVersion\":0,\"reason\":\"Stale change must not be saved\"}")
+          test "$attend_stale" = "409"
+          attend_correct=$(curl -sS -o /tmp/ci-attend-correct.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/attendance" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"enrollmentId\":\"$attendance_enrollment_id\",\"classOn\":\"$class_day\",\"state\":\"LATE\",\"expectedVersion\":1,\"reason\":\"Correction after teacher confirmation\"}")
+          echo "Attendance correction HTTP: $attend_correct"
+          if [ "$attend_correct" != "200" ]; then cat /tmp/ci-attend-correct.json; fi
+          test "$attend_correct" = "200"
+          attendance_page=$(curl -sS -o /tmp/ci-attendance-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/attendance")
+          test "$attendance_page" = "200"
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM academy_attendance WHERE state='LATE' AND version=2),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type='academy_attendance')" > /tmp/ci-attendance-verified.json
+          node -e 'const n=require("/tmp/ci-attendance-verified.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==2)process.exit(1);'
+
           # Revoking a staff membership removes access even with a live
           # Better Auth session cookie; do not rely on client-side role state.
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
