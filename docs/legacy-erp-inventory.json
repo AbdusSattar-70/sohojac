@@ -1,0 +1,258 @@
+{
+  "source_repo": "AbdusSattar-70/sohoj-academy",
+  "source_branch": "feature/sohoj_final",
+  "source_commit": "f46b61611edce0a82f69e349bb89269329233b62",
+  "source_page_count": 66,
+  "source_navigation_count": 36,
+  "source_pages": [
+    "app/dashboard/academics/assessments/page.tsx",
+    "app/dashboard/academics/batches/page.tsx",
+    "app/dashboard/academics/curriculum/page.tsx",
+    "app/dashboard/academics/offerings/page.tsx",
+    "app/dashboard/academics/operations/page.tsx",
+    "app/dashboard/academics/planning/page.tsx",
+    "app/dashboard/academics/progress/[reportId]/print/page.tsx",
+    "app/dashboard/academics/progress/page.tsx",
+    "app/dashboard/academics/questions/page.tsx",
+    "app/dashboard/academics/routine/page.tsx",
+    "app/dashboard/academics/sessions/[sessionId]/page.tsx",
+    "app/dashboard/academics/settings/page.tsx",
+    "app/dashboard/account/page.tsx",
+    "app/dashboard/action-center/page.tsx",
+    "app/dashboard/admissions/[admissionId]/page.tsx",
+    "app/dashboard/admissions/[admissionId]/print/page.tsx",
+    "app/dashboard/admissions/application-form/page.tsx",
+    "app/dashboard/admissions/page.tsx",
+    "app/dashboard/attendance/page.tsx",
+    "app/dashboard/crm/manage/page.tsx",
+    "app/dashboard/crm/prospects/[prospectId]/page.tsx",
+    "app/dashboard/crm/prospects/page.tsx",
+    "app/dashboard/finance/accounting/page.tsx",
+    "app/dashboard/finance/assets/page.tsx",
+    "app/dashboard/finance/bank/page.tsx",
+    "app/dashboard/finance/billing/[invoiceId]/print/page.tsx",
+    "app/dashboard/finance/billing/page.tsx",
+    "app/dashboard/finance/capital/page.tsx",
+    "app/dashboard/finance/cash-flow/page.tsx",
+    "app/dashboard/finance/counters/page.tsx",
+    "app/dashboard/finance/daily-close/page.tsx",
+    "app/dashboard/finance/earnings/page.tsx",
+    "app/dashboard/finance/fee-plans/page.tsx",
+    "app/dashboard/finance/handovers/page.tsx",
+    "app/dashboard/finance/operations/page.tsx",
+    "app/dashboard/finance/page.tsx",
+    "app/dashboard/finance/payroll/[payrollId]/print/page.tsx",
+    "app/dashboard/finance/payroll/page.tsx",
+    "app/dashboard/finance/planning/page.tsx",
+    "app/dashboard/finance/procurement/page.tsx",
+    "app/dashboard/finance/purchases/page.tsx",
+    "app/dashboard/finance/receivables/[studentId]/print/page.tsx",
+    "app/dashboard/finance/receivables/page.tsx",
+    "app/dashboard/finance/recurring/page.tsx",
+    "app/dashboard/finance/reimbursements/page.tsx",
+    "app/dashboard/finance/reports/page.tsx",
+    "app/dashboard/finance/stock/page.tsx",
+    "app/dashboard/finance/suppliers/page.tsx",
+    "app/dashboard/finance/year-end/page.tsx",
+    "app/dashboard/governance/approvals/page.tsx",
+    "app/dashboard/governance/audit/page.tsx",
+    "app/dashboard/governance/rules/page.tsx",
+    "app/dashboard/help/academics/page.tsx",
+    "app/dashboard/help/finance/page.tsx",
+    "app/dashboard/help/page.tsx",
+    "app/dashboard/my-work/page.tsx",
+    "app/dashboard/page.tsx",
+    "app/dashboard/referrals/page.tsx",
+    "app/dashboard/settings/access-requests/page.tsx",
+    "app/dashboard/settings/page.tsx",
+    "app/dashboard/setup/page.tsx",
+    "app/dashboard/staff/operations/page.tsx",
+    "app/dashboard/staff/page.tsx",
+    "app/dashboard/students/[studentId]/page.tsx",
+    "app/dashboard/students/page.tsx",
+    "app/dashboard/teacher/page.tsx"
+  ],
+  "source_routes": [
+    {
+      "id": "help",
+      "href": "/dashboard/help",
+      "permission": "dashboard.view"
+    },
+    {
+      "id": "account",
+      "href": "/dashboard/account",
+      "permission": "dashboard.view"
+    },
+    {
+      "id": "student-progress",
+      "href": "/dashboard/academics/progress",
+      "permission": "academics.view"
+    },
+    {
+      "id": "teaching-plans",
+      "href": "/dashboard/academics/curriculum",
+      "permission": "academics.curriculum.manage"
+    },
+    {
+      "id": "academic-planning",
+      "href": "/dashboard/academics/planning",
+      "permission": "academics.sessions.manage"
+    },
+    {
+      "id": "weekly-routines",
+      "href": "/dashboard/academics/routine",
+      "permission": "academics.sessions.manage"
+    },
+    {
+      "id": "finance-overview",
+      "href": "/dashboard/finance",
+      "permission": "accounting.view"
+    },
+    {
+      "id": "operating-money",
+      "href": "/dashboard/finance/operations",
+      "permission": "accounting.view"
+    },
+    {
+      "id": "receivables",
+      "href": "/dashboard/finance/receivables",
+      "permission": "finance.view"
+    },
+    {
+      "id": "payroll",
+      "href": "/dashboard/finance/payroll",
+      "permission": "workforce.self.view"
+    },
+    {
+      "id": "teaching-pay",
+      "href": "/dashboard/finance/earnings",
+      "permission": "staff.compensation.manage"
+    },
+    {
+      "id": "reimbursements",
+      "href": "/dashboard/finance/reimbursements",
+      "permission": "workforce.self.view"
+    },
+    {
+      "id": "attendance-workspace",
+      "href": "/dashboard/attendance",
+      "permission": "workforce.self.view"
+    },
+    {
+      "id": "my-work",
+      "href": "/dashboard/my-work",
+      "permission": "workforce.self.view"
+    },
+    {
+      "id": "staff-operations",
+      "href": "/dashboard/staff/operations",
+      "permission": "workforce.manage"
+    },
+    {
+      "id": "referrals",
+      "href": "/dashboard/referrals",
+      "permission": "referrals.portal.view"
+    },
+    {
+      "id": "dashboard",
+      "href": "/dashboard",
+      "permission": "dashboard.view"
+    },
+    {
+      "id": "action-center",
+      "href": "/dashboard/action-center",
+      "permission": "action_center.view"
+    },
+    {
+      "id": "admissions",
+      "href": "/dashboard/admissions",
+      "permission": "admissions.view"
+    },
+    {
+      "id": "students",
+      "href": "/dashboard/students",
+      "permission": "students.view"
+    },
+    {
+      "id": "prospects",
+      "href": "/dashboard/crm/prospects",
+      "permission": "crm.prospects.view"
+    },
+    {
+      "id": "teacher-dashboard",
+      "href": "/dashboard/teacher",
+      "permission": "academics.view"
+    },
+    {
+      "id": "academic-operations",
+      "href": "/dashboard/academics/operations",
+      "permission": "academics.view"
+    },
+    {
+      "id": "assessments",
+      "href": "/dashboard/academics/assessments",
+      "permission": "academics.view"
+    },
+    {
+      "id": "question-bank",
+      "href": "/dashboard/academics/questions",
+      "permission": "academics.view"
+    },
+    {
+      "id": "batches",
+      "href": "/dashboard/academics/batches",
+      "permission": "academics.view"
+    },
+    {
+      "id": "student-accounts",
+      "href": "/dashboard/finance/billing",
+      "permission": "finance.view"
+    },
+    {
+      "id": "staff",
+      "href": "/dashboard/staff",
+      "permission": "staff.view"
+    },
+    {
+      "id": "website-management",
+      "href": "/dashboard/crm/manage",
+      "permission": "academics.manage"
+    },
+    {
+      "id": "academic-directory",
+      "href": "/dashboard/academics/settings",
+      "permission": "system.master_data.manage"
+    },
+    {
+      "id": "programme-offerings",
+      "href": "/dashboard/academics/offerings",
+      "permission": "academics.view"
+    },
+    {
+      "id": "fee-plans",
+      "href": "/dashboard/finance/fee-plans",
+      "permission": "finance.view"
+    },
+    {
+      "id": "operating-rules",
+      "href": "/dashboard/governance/rules",
+      "permission": "system.rules.view"
+    },
+    {
+      "id": "access-security",
+      "href": "/dashboard/settings",
+      "permission": "system.settings.view"
+    },
+    {
+      "id": "admin-review-queue",
+      "href": "/dashboard/governance/approvals",
+      "permission": "approvals.view"
+    },
+    {
+      "id": "audit",
+      "href": "/dashboard/governance/audit",
+      "permission": "audit.view"
+    }
+  ],
+  "status": "REFERENCE_ONLY_NOT_FUNCTIONAL_PARITY"
+}
