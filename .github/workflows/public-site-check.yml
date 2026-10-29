@@ -65,7 +65,7 @@ jobs:
             }
           done
           grep -q "Learning should be" /tmp/sohojac-home.html
-          for route in /sign-in /forgot-password /reset-password /request-access; do
+          for route in /sign-in /forgot-password /reset-password /request-access /accept-invitation; do
             code=$(curl -sS -o /tmp/staff-auth-page.html -w '%{http_code}' "http://localhost:4173$route")
             echo "Auth route $route returned $code"
             if [ "$code" != "200" ]; then
@@ -171,6 +171,51 @@ jobs:
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
             --sql "SELECT (SELECT COUNT(*) FROM staff_access_requests WHERE status='VERIFIED'), (SELECT COUNT(*) FROM erp_audit_events WHERE entity_type='staff_access_request'), (SELECT COUNT(*) FROM \"user\")" > /tmp/access-verified.json
           node -e 'const r=require("/tmp/access-verified.json");const n=r[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==1||n?.[2]!==1)process.exit(1);'
+
+          # No provider configured: sending an invitation must fail closed,
+          # not issue an unverified login or expose a token.
+          email_missing=$(curl -sS -o /tmp/unsent-invite.json -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/access-requests/$access_id/invite" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{}')
+          test "$email_missing" = "503"
+
+          # Simulate the VERIFIED -> INVITED mail-delivery step in isolated
+          # local D1 only, then validate activation, replay protection, and
+          # teacher's lack of access to guardian details.
+          invitation_token=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+          invitation_hash=$(node -e 'process.stdout.write(require("node:crypto").createHash("sha256").update(process.argv[1]).digest("hex"))' "$invitation_token")
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
+            --sql "UPDATE staff_access_requests SET status='INVITED' WHERE id='$access_id'" > /tmp/ci-invite-state.json
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
+            --sql "INSERT INTO staff_invitation_tokens (id,request_id,token_hash,expires_at,created_by) SELECT '11111111-1111-4111-8111-111111111111','$access_id','$invitation_hash',strftime('%Y-%m-%dT%H:%M:%fZ','now','+1 day'),id FROM \"user\" WHERE email='staff-ci@example.invalid'" > /tmp/ci-invite-token.json
+          invalid_invitation=$(curl -sS -o /tmp/ci-invalid-invite.json -w '%{http_code}' \
+            -X POST "http://localhost:4173/api/staff/accept-invitation" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"token":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc","password":"Employee123!"}')
+          test "$invalid_invitation" = "403"
+          accepted=$(curl -sS -o /tmp/ci-accepted-invite.json -w '%{http_code}' \
+            -X POST "http://localhost:4173/api/staff/accept-invitation" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"token":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","password":"Employee123!"}')
+          echo "staff activation HTTP: $accepted"
+          test "$accepted" = "201"
+          reused=$(curl -sS -o /tmp/ci-reused-invite.json -w '%{http_code}' \
+            -X POST "http://localhost:4173/api/staff/accept-invitation" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"token":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","password":"Employee123!"}')
+          test "$reused" = "403"
+          teacher_login=$(curl -sS -o /tmp/ci-teacher.json -w '%{http_code}' \
+            -c /tmp/teacher-ci-cookies -X POST "http://localhost:4173/api/auth/sign-in/email" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"email":"applicant-ci@example.invalid","password":"Employee123!"}')
+          test "$teacher_login" = "200"
+          teacher_access=$(curl -sS -o /tmp/teacher-forbidden.json -w '%{http_code}' \
+            -b /tmp/teacher-ci-cookies "http://localhost:4173/api/staff/prospects")
+          test "$teacher_access" = "403"
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
+            --sql "SELECT (SELECT COUNT(*) FROM staff_access_requests WHERE status='ACTIVE'),(SELECT COUNT(*) FROM staff_memberships WHERE role='TEACHER' AND active=1),(SELECT COUNT(*) FROM \"user\")" > /tmp/ci-activated-count.json
+          node -e 'const n=require("/tmp/ci-activated-count.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==1||n?.[2]!==2)process.exit(1);'
+
 
 
           # Server-rendered staff pages also require the valid owner session.
