@@ -311,3 +311,19 @@
 .erp-dark .localized-en {display:inline!important}
 .erp-dark .localized-bn {display:none!important}
 .erp-dark [data-slot="sidebar"] {color-scheme:dark}
+
+/* Sohoj Academy ERP sidebar theme: scoped, dark-only; does not change public pages. */
+.erp-dark {
+  --sidebar: #0f192b;
+  --sidebar-foreground: #e6edf9;
+  --sidebar-primary: #60a5fa;
+  --sidebar-primary-foreground: #081324;
+  --sidebar-accent: #24334d;
+  --sidebar-accent-foreground: #f8fafc;
+  --sidebar-border: #334158;
+  --sidebar-ring: #93c5fd;
+}
+.erp-dark [data-slot="sidebar"] { scrollbar-gutter: stable; }
+@media (prefers-reduced-motion: reduce) {
+ .erp-dark [data-slot="sidebar"] { transition: none !important; }
+}

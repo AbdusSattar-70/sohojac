@@ -25,9 +25,9 @@ export function ErpHeader({
   const { locale } = useLanguage();
 
   return (
-    <header className="sticky top-0 z-30 flex min-h-16 items-center gap-3 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/85 sm:px-6">
+    <header className="sticky top-0 z-30 flex min-h-16 items-center gap-3 border-b border-border/70 bg-background/90 px-4 shadow-sm backdrop-blur-xl supports-[backdrop-filter]:bg-background/80 sm:px-6">
       <SidebarTrigger className="-ml-1 md:hidden" />
-      <Separator orientation="vertical" className="h-6" />
+      <Separator orientation="vertical" className="hidden h-6 md:block" />
       <div className="min-w-0 flex-1">
         <p className="truncate text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
           {current
@@ -47,7 +47,7 @@ export function ErpHeader({
         </p>
       </div>
       <CentralSearch permissions={permissions} />
-      {false && canHelp && (
+      {canHelp && (
         <Link
           prefetch={false}
           href="/dashboard/help"

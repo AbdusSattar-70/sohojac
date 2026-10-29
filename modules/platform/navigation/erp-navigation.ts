@@ -1,5 +1,5 @@
 import type { ErpContext, ErpNavGroup } from "@/types/erp";
-import { erpRouteRegistry } from "./erp-route-registry";
+import { erpRouteRegistry, isAvailableErpRoute } from "./erp-route-registry";
 import {
   navigationGroups,
   navigationOrder,
@@ -21,7 +21,7 @@ export function getNavigation(context: ErpContext): ErpNavGroup[] {
         : navigationOrder.length),
   );
   for (const route of routes) {
-    if (!context.permissions.includes(route.permission) || seen.has(route.href))
+    if (!isAvailableErpRoute(route.href) || !context.permissions.includes(route.permission) || seen.has(route.href))
       continue;
     // These remain reachable as contextual workflows; they are not duplicate sidebar destinations.
     if (["admin-review-queue", "account"].includes(route.id)) continue;
