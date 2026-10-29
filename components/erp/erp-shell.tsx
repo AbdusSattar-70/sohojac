@@ -1,0 +1,65 @@
+import { PageWorkflowGuide } from "./page-workflow-guide";
+import { WorkspaceFormSafety } from "./workspace-form-safety";
+import { MutationFeedback } from "./mutation-feedback";
+import { Suspense } from "react";
+import { WorkflowReturn } from "./workflow-return";
+import type { ReactNode } from "react";
+import { ErpSidebar } from "@/components/erp/erp-sidebar";
+import { ErpHeader } from "@/components/erp/erp-header";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { getNavigation } from "@/modules/platform/navigation/erp-navigation";
+import type { ErpContext } from "@/types/erp";
+
+export function ErpShell({
+  context,
+  children,
+  setupPending = false,
+}: {
+  context: ErpContext;
+  children: ReactNode;
+  setupPending?: boolean;
+}) {
+  const navigation = getNavigation(context)
+    .map((group) => ({
+      ...group,
+      items: setupPending
+        ? group.items.filter((item) =>
+            [
+              "/dashboard/settings",
+              "/dashboard/academics/settings",
+              "/dashboard/academics/offerings",
+              "/dashboard/finance/fee-plans",
+              "/dashboard/academics/batches",
+              "/dashboard/governance/rules",
+              "/dashboard/help",
+            ].includes(item.href),
+          )
+        : group.items,
+    }))
+    .map(group => ({...group,items:group.items.filter(item => item.href === '/dashboard')}))
+    .filter((group) => group.items.length);
+
+  return (
+    <SidebarProvider>
+      <ErpSidebar context={context} navigation={navigation} />
+      <SidebarInset className="min-w-0 bg-muted/20">
+        <ErpHeader
+          permissions={context.permissions}
+          canHelp={context.permissions.includes("dashboard.view")}
+        />
+        <main
+          id="erp-main"
+          className="[&_button[data-slot=button]]:min-h-11 [&_a[data-slot=button]]:min-h-11 mx-auto w-full max-w-[1600px] flex-1 px-4 py-5 sm:px-6 lg:px-8 lg:py-7"
+        >
+          <Suspense>
+            <WorkflowReturn />
+          </Suspense>
+          <WorkspaceFormSafety />
+          <MutationFeedback />
+          <PageWorkflowGuide permissions={context.permissions} />
+          {children}
+        </main>
+      </SidebarInset>
+    </SidebarProvider>
+  );
+}
