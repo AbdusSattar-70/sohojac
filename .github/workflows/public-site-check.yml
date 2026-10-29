@@ -56,6 +56,8 @@ jobs:
         run: node scripts/verify-original-website-management.mjs
       - name: Verify original Student Register page and D1 query parity
         run: node scripts/verify-original-student-register.mjs
+      - name: Verify original Audit Trail route, English UI and D1 access
+        run: node scripts/verify-original-audit-trail.mjs
       - name: Reject destructive migrations before any deployment
         run: node scripts/check-d1-migrations.mjs
       - name: Apply public D1 migrations locally
@@ -768,6 +770,25 @@ jobs:
           node -e 'const x=require("/tmp/ci-owner-audit.json");if(x.items?.length!==2||x.items.some(e=>Object.hasOwn(e,"before_json")||Object.hasOwn(e,"after_json")))process.exit(1);'
           audit_page=$(curl -sS -o /tmp/ci-audit-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/audit")
           test "$audit_page" = "200"
+          # Source ERP audit page reads the same real D1 events with actor
+          # identity, rather than showing an empty placeholder.
+          original_audit=$(curl -sS -o /tmp/ci-source-audit.html -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/governance/audit?entity=academy_attendance")
+          echo "Original Audit Trail HTTP: $original_audit"
+          test "$original_audit" = "200"
+          grep -q 'Audit Trail' /tmp/ci-source-audit.html
+          grep -q 'academy_attendance' /tmp/ci-source-audit.html
+          grep -q 'Time' /tmp/ci-source-audit.html
+          anon_source_audit=$(curl -sS -o /dev/null -w '%{http_code}' \
+            "http://localhost:4173/dashboard/governance/audit")
+          test "$anon_source_audit" != "200"
+          teacher_source_audit=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -b /tmp/teacher-ci-cookies "http://localhost:4173/dashboard/governance/audit")
+          test "$teacher_source_audit" != "200"
+          no_matching_audit=$(curl -sS -o /tmp/ci-source-audit-empty.html -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/governance/audit?q=unknown-unique-never-matches")
+          test "$no_matching_audit" = "200"
+          grep -q 'No matching events' /tmp/ci-source-audit-empty.html
 
           echo 'CI entering operating expense checks'
 
