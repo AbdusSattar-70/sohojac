@@ -1,7 +1,7 @@
 name: Public Website Checks
 on:
   push:
-    branches: [feature/public_site_port, feature/staff_crm_better_auth]
+    branches: [feature/public_site_port, feature/staff_crm_better_auth, feature/erp_access_lifecycle]
   pull_request:
   workflow_dispatch:
 
