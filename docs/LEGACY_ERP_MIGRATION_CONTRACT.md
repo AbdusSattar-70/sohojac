@@ -63,3 +63,14 @@ is not proof that the ERP is migrated. The current `/app` shell and
 - **Not complete:** The original `ErpShell`, page components, each domain's
   queries/actions and authenticated end-to-end workflow parity still need
   implementation and verification before replacing the live `/app` routes.
+
+## Original dashboard preview on migration branch
+- Imported original `ErpShell`, sidebar, header, signed-in account
+  presentation, navigation and workflow-guide components from source.
+- Added `/dashboard` and `/dashboard/account` backed by D1 and verified
+  Better Auth identity; no separate account or database created.
+- Missing original modules are excluded from active preview navigation;
+  they are not silently represented as complete. Public website unchanged.
+- A compatibility sidebar UI primitive adapts source shell to existing
+  `@base-ui/react` UI stack without adding another component framework.
+- CI tests both authenticated dashboard and anonymous denial.

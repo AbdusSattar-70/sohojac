@@ -169,7 +169,18 @@ jobs:
             --data '{"email":"staff-ci@example.invalid","password":"Test123!"}')
           echo "staff sign-in HTTP status: $signin_status"
           test "$signin_status" = "200"
-          staff_list_status=$(curl -sS -o /tmp/staff-prospects.json -w '%{http_code}' \
+          # Source ERP shell must be active only for signed-in D1 staff;
+          # unauthenticated visits must not expose the new dashboard.
+          dashboard_status=$(curl -sS --max-time 20 -o /tmp/ci-legacy-dashboard.html -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard")
+          echo "original ERP dashboard HTTP: $dashboard_status"
+          test "$dashboard_status" = "200"
+          grep -q "Digital Campus" /tmp/ci-legacy-dashboard.html
+          anonymous_dashboard=$(curl -sS -o /dev/null -w '%{http_code}' \
+            "http://localhost:4173/dashboard")
+          echo "anonymous ERP dashboard HTTP: $anonymous_dashboard"
+          test "$anonymous_dashboard" != "200"
+                    staff_list_status=$(curl -sS -o /tmp/staff-prospects.json -w '%{http_code}' \
             -b /tmp/staff-ci-cookies "http://localhost:4173/api/staff/prospects")
           test "$staff_list_status" = "200"
 
@@ -224,14 +235,17 @@ jobs:
             -X POST "http://localhost:4173/api/staff/accept-invitation" \
             -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
             --data '{"token":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","password":"Employee123!"}')
+          echo "staff invitation replay HTTP: $reused"
           test "$reused" = "403"
           teacher_login=$(curl -sS -o /tmp/ci-teacher.json -w '%{http_code}' \
             -c /tmp/teacher-ci-cookies -X POST "http://localhost:4173/api/auth/sign-in/email" \
             -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
             --data '{"email":"applicant-ci@example.invalid","password":"Employee123!"}')
+          echo "teacher sign-in HTTP: $teacher_login"
           test "$teacher_login" = "200"
           teacher_access=$(curl -sS -o /tmp/teacher-forbidden.json -w '%{http_code}' \
             -b /tmp/teacher-ci-cookies "http://localhost:4173/api/staff/prospects")
+          echo "teacher forbidden prospects HTTP: $teacher_access"
           test "$teacher_access" = "403"
 
           # Academic-year workflow: owner creates drafts, overlapping active years,

@@ -306,3 +306,8 @@
 @media print {
   .erp-dark .erp-paper {background-color:#fff!important;color:#0f172a!important;}
 }
+
+/* The source ERP is English-only even when public pages use Bangla. */
+.erp-dark .localized-en {display:inline!important}
+.erp-dark .localized-bn {display:none!important}
+.erp-dark [data-slot="sidebar"] {color-scheme:dark}
