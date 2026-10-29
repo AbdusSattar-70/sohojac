@@ -36,7 +36,7 @@ export function ErpShell({
           )
         : group.items,
     }))
-    .map(group => ({...group,items:group.items.filter(item => ['/dashboard','/dashboard/academics/settings','/dashboard/staff'].includes(item.href))}))
+    .map(group => ({...group,items:group.items.filter(item => ['/dashboard','/dashboard/academics/settings','/dashboard/staff','/dashboard/help','/dashboard/crm/prospects','/dashboard/crm/manage'].includes(item.href))}))
     .filter((group) => group.items.length);
 
   return (

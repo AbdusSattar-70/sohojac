@@ -1,44 +1,47 @@
-import {env} from "cloudflare:workers";
 import Link from "next/link";
-import {PageHeader} from "@/components/erp/page-header";
-import {StatusBadge} from "@/components/erp/status-badge";
-import {requirePermission} from "@/modules/platform/auth/erp-context";
+import { LocalizedText } from "@/components/shared/localized-text";
+import { getStaffAccessRequestPage } from "@/modules/platform/access/queries";
+import { AccessRequestRegister } from "@/modules/platform/access/request-register";
 
-export const dynamic="force-dynamic";
-type StaffRow={
- id:string;staff_no:string;full_name:string;email:string|null;mobile:string|null;
- joined_on:string|null;status:string;role:string|null;linked_user_id:string|null;
-};
-export default async function StaffPage(){
- const context=await requirePermission("staff.view");
- const results=await env.DB.prepare(
-  "SELECT s.id,s.staff_no,s.full_name,s.email,s.mobile,s.joined_on,s.status,"+
-  "s.linked_user_id,m.role FROM academy_staff s "+
-  "LEFT JOIN staff_memberships m ON m.user_id=s.linked_user_id "+
-  "ORDER BY s.staff_seq DESC LIMIT 500"
- ).all<StaffRow>();
- const staff=results.results??[];
- return <div className="space-y-7">
-  <PageHeader eyebrow="People" title="Staff"
-   description="Permanent staff identities, responsibilities and verified account links. Staff numbers remain the same across employment changes."/>
-  {context.permissions.includes("staff.manage")&&<Link href="/app/staff-directory"
-   className="inline-flex min-h-11 items-center rounded-lg border border-border px-4 py-2 text-sm font-semibold hover:bg-muted">
-   Open staff record management
-  </Link>}
-  <section className="overflow-x-auto rounded-2xl border bg-card">
-   <table className="w-full min-w-[700px] text-sm">
-    <thead><tr className="border-b text-left">{["Staff ID / name","Primary responsibility","Contact","Joined","Status / actions"].map(h=>
-      <th key={h} scope="col" className="p-4">{h}</th>)}</tr></thead>
-    <tbody>{staff.map(row=><tr key={row.id} className="border-b">
-     <td className="p-4"><p className="font-semibold">{row.full_name}</p><span className="font-mono" data-testid="staff-number">{row.staff_no}</span></td>
-     <td className="p-4">{row.role??"Not assigned"}</td>
-     <td className="p-4">{row.mobile??"—"}<p className="text-xs text-muted-foreground">{row.email??"—"}</p></td>
-     <td className="p-4">{row.joined_on??"—"}</td>
-     <td className="p-4"><StatusBadge value={row.status}/><p className="mt-1 text-xs text-muted-foreground">{row.linked_user_id?"Linked account":"No login"}</p></td>
-    </tr>)}</tbody>
-   </table>
-   {!staff.length&&<p className="p-6 text-sm text-muted-foreground">No staff identity records yet.</p>}
-  </section>
-  <p className="text-xs text-muted-foreground">Full legacy staff lifecycle and branch-assignment editing will be restored in later migration work.</p>
- </div>;
+import { StaffRegister } from "@/modules/staff/components/staff-register";
+import { RecordStateButton } from "@/components/erp/record-state-button";
+import { StaffEditButton } from "@/components/erp/staff-edit-button";
+import { UsersRound } from "lucide-react";
+import { EmptyState } from "@/components/erp/empty-state";
+import { PageHeader } from "@/components/erp/page-header";
+import { StatusBadge } from "@/components/erp/status-badge";
+
+import { getStaffList } from "@/modules/staff/queries";
+import { can } from "@/types/erp";
+import { requirePermission } from "@/modules/platform/auth/erp-context";
+
+export default async function StaffPage({searchParams}:{searchParams:Promise<{requestsPage?:string;requestsView?:string}>}) {
+  const context = await requirePermission("staff.view");
+  const rows = await getStaffList();
+
+  const query=await searchParams;const page=Math.max(1,Math.min(10000,Number.parseInt(query.requestsPage??"1",10)||1));
+  const history=query.requestsView==="history";
+  const requests=can(context,"system.users.manage")?await getStaffAccessRequestPage({page,history}):null;
+  // The D1 query adapter throws on read failure rather than returning an error union.
+
+  return (
+    <div className="space-y-7">
+      <PageHeader
+        eyebrow={<LocalizedText en="People" bn="ব্যক্তিবর্গ"/>}
+        title={<LocalizedText en="Staff" bn="স্টাফ"/>}
+        description={<LocalizedText en="Manage staff identity, access requests and teaching assignments together. Roles describe responsibilities on the same person record." bn="একই জায়গায় স্টাফের পরিচয়, প্রবেশাধিকারের অনুরোধ ও পাঠদানের দায়িত্ব পরিচালনা করুন। একই ব্যক্তির রেকর্ডে ভূমিকা অনুযায়ী দায়িত্ব নির্ধারিত হয়।"/>}
+      />
+
+      {requests&&<section id="staff-access" className="space-y-4 rounded-xl border p-5"><h2 className="text-lg font-semibold"><LocalizedText en="Staff access requests" bn="স্টাফ প্রবেশাধিকারের অনুরোধ"/></h2><p className="text-sm text-muted-foreground"><LocalizedText en="Verify identity and responsibilities, choose the permitted role, then send secure account setup instructions. Requested roles never grant access automatically." bn="পরিচয় ও দায়িত্ব যাচাই করে অনুমোদিত ভূমিকা নির্বাচন করুন, তারপর নিরাপদ অ্যাকাউন্ট চালুর নির্দেশনা পাঠান। অনুরোধ করলেই প্রবেশাধিকার দেওয়া হয় না।"/></p><Link className="text-sm underline" href="https://github.com/AbdusSattar-70/sohoj-academy/blob/feature/redesign_refactor/docs/architecture/ACCOUNT_SETUP_CONFIGURATION.md" target="_blank" rel="noopener noreferrer"><LocalizedText en="Account setup and role assignment guide" bn="অ্যাকাউন্ট চালু ও ভূমিকা নির্ধারণের নির্দেশনা"/></Link><nav className="flex gap-4"><Link href="/dashboard/staff#staff-access">Pending setup</Link><Link href="/dashboard/staff?requestsView=history#staff-access">Completed / closed requests</Link></nav><AccessRequestRegister rows={requests.data??[]}/><nav className="flex gap-4 text-sm">{page>1&&<Link href={`/dashboard/staff?requestsView=${history?"history":"queue"}&requestsPage=${page-1}#staff-access`}><LocalizedText en="Previous" bn="পেছনে"/></Link>}{page*25<(requests.count??0)&&<Link href={`/dashboard/staff?requestsView=${history?"history":"queue"}&requestsPage=${page+1}#staff-access`}><LocalizedText en="Next" bn="পরবর্তী"/></Link>}<span>{requests.count??0} <LocalizedText en="requests" bn="অনুরোধ"/></span></nav></section>}
+      {rows.length ? (
+        <StaffRegister rows={rows} canManage={can(context,"staff.manage")} />
+      ) : (
+        <EmptyState
+          icon={UsersRound}
+          title="No Staff identities yet"
+          description="The first administrator bootstrap creates the initial Staff identity. Additional staff request access on the website; verify their identity here before granting access."
+        />
+      )}
+    </div>
+  );
 }

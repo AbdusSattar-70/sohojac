@@ -1,0 +1,1742 @@
+{
+  "sourceRepository": "AbdusSattar-70/sohoj-academy",
+  "sourceBranch": "feature/sohoj_final",
+  "sourceCommit": "f46b61611edce0a82f69e349bb89269329233b62",
+  "contract": "Original ERP identical; only infrastructure backend changes.",
+  "dashboardPages": [
+    {
+      "path": "app/dashboard/page.tsx",
+      "blob": "29775f515071f4d4d09911937787a857d4d27f38"
+    },
+    {
+      "path": "app/dashboard/academics/assessments/page.tsx",
+      "blob": "570dd2789680f96cee173adee54b30be7bfebebe"
+    },
+    {
+      "path": "app/dashboard/academics/batches/page.tsx",
+      "blob": "0e0e2539796f0377c57c1c26e50bedbdcd3e2052"
+    },
+    {
+      "path": "app/dashboard/academics/curriculum/page.tsx",
+      "blob": "475a86fbd62ea312549347a5e0fc90641d5cb1c9"
+    },
+    {
+      "path": "app/dashboard/academics/offerings/page.tsx",
+      "blob": "b247b3aa419f01061ff7deae3e81903d079cd48a"
+    },
+    {
+      "path": "app/dashboard/academics/operations/page.tsx",
+      "blob": "b06d908d21588b78ab30eb7852550fb83688564c"
+    },
+    {
+      "path": "app/dashboard/academics/planning/page.tsx",
+      "blob": "f5b6afb67b83c09491f6068f61baec511df68194"
+    },
+    {
+      "path": "app/dashboard/academics/progress/[reportId]/print/page.tsx",
+      "blob": "4ab5a398ae7b36912a44f64bec6497bd18615b20"
+    },
+    {
+      "path": "app/dashboard/academics/progress/page.tsx",
+      "blob": "bae1a645342300f56d3ddcdd2ac9d75bb3c58eae"
+    },
+    {
+      "path": "app/dashboard/academics/questions/page.tsx",
+      "blob": "83639a368bea14751f8ea9193d416995ec7e426c"
+    },
+    {
+      "path": "app/dashboard/academics/routine/page.tsx",
+      "blob": "2a08113400ed074596ce150c18e2d51578fa5590"
+    },
+    {
+      "path": "app/dashboard/academics/sessions/[sessionId]/page.tsx",
+      "blob": "43a34480b72d83ec4989f908087482392a3a2a73"
+    },
+    {
+      "path": "app/dashboard/academics/settings/page.tsx",
+      "blob": "fd42c0de1c463de2a69975735725f26fd65e26ec"
+    },
+    {
+      "path": "app/dashboard/account/page.tsx",
+      "blob": "d43b057b91bcad7c4e6b10a8fc4116747b0e2a99"
+    },
+    {
+      "path": "app/dashboard/action-center/page.tsx",
+      "blob": "03c904c17f35db432bdc02bca30db5dd4df378b4"
+    },
+    {
+      "path": "app/dashboard/admissions/[admissionId]/page.tsx",
+      "blob": "78daf32fe8c0570f194f1a64cf08a231c53e592f"
+    },
+    {
+      "path": "app/dashboard/admissions/[admissionId]/print/page.tsx",
+      "blob": "6eb2a984b526f384fa64dd14536051de5ce00337"
+    },
+    {
+      "path": "app/dashboard/admissions/application-form/page.tsx",
+      "blob": "e74926fb534f2b1b3002ce7f9d961aa395cc9ddd"
+    },
+    {
+      "path": "app/dashboard/admissions/page.tsx",
+      "blob": "6b44a46a490bdca35ec43f8591223929dcb608bc"
+    },
+    {
+      "path": "app/dashboard/attendance/page.tsx",
+      "blob": "c4168937416942913d7eaec0a9137d5e515e413b"
+    },
+    {
+      "path": "app/dashboard/crm/manage/page.tsx",
+      "blob": "a096df5faab178aa9d1edd56761ce7e744919480"
+    },
+    {
+      "path": "app/dashboard/crm/prospects/[prospectId]/page.tsx",
+      "blob": "19e2e4bc1aaa9effa8d2b7321307a6ba3daa5740"
+    },
+    {
+      "path": "app/dashboard/crm/prospects/page.tsx",
+      "blob": "d5dc2796e07d8992287dbb1bc198dc53e166c153"
+    },
+    {
+      "path": "app/dashboard/finance/accounting/page.tsx",
+      "blob": "5dd30301f8605517f78dfaf0ff4dc326887f5546"
+    },
+    {
+      "path": "app/dashboard/finance/assets/page.tsx",
+      "blob": "85b16b7d3a11c0bd531d32428eb31076b9703dc7"
+    },
+    {
+      "path": "app/dashboard/finance/bank/page.tsx",
+      "blob": "85b16b7d3a11c0bd531d32428eb31076b9703dc7"
+    },
+    {
+      "path": "app/dashboard/finance/billing/[invoiceId]/print/page.tsx",
+      "blob": "6ce66dd986c5f4332dbadc1c142548e01ce74045"
+    },
+    {
+      "path": "app/dashboard/finance/billing/page.tsx",
+      "blob": "108d2c95ce3801b05c1c3ab66d05852cc7318db1"
+    },
+    {
+      "path": "app/dashboard/finance/capital/page.tsx",
+      "blob": "85b16b7d3a11c0bd531d32428eb31076b9703dc7"
+    },
+    {
+      "path": "app/dashboard/finance/cash-flow/page.tsx",
+      "blob": "85b16b7d3a11c0bd531d32428eb31076b9703dc7"
+    },
+    {
+      "path": "app/dashboard/finance/counters/page.tsx",
+      "blob": "85b16b7d3a11c0bd531d32428eb31076b9703dc7"
+    },
+    {
+      "path": "app/dashboard/finance/daily-close/page.tsx",
+      "blob": "85b16b7d3a11c0bd531d32428eb31076b9703dc7"
+    },
+    {
+      "path": "app/dashboard/finance/earnings/page.tsx",
+      "blob": "c0ca839428a1ee9007ca99e0154847e6548d233a"
+    },
+    {
+      "path": "app/dashboard/finance/fee-plans/page.tsx",
+      "blob": "3ed51cff844afef9794fdfccb31b52f0a40d6532"
+    },
+    {
+      "path": "app/dashboard/finance/handovers/page.tsx",
+      "blob": "85b16b7d3a11c0bd531d32428eb31076b9703dc7"
+    },
+    {
+      "path": "app/dashboard/finance/operations/page.tsx",
+      "blob": "b65d013bcbf1d4b2bde327f1da7e694005999d83"
+    },
+    {
+      "path": "app/dashboard/finance/page.tsx",
+      "blob": "1fb80c48b7baf21677fed19b8164815f7b30e5a4"
+    },
+    {
+      "path": "app/dashboard/finance/payroll/[payrollId]/print/page.tsx",
+      "blob": "6703535624a9d64258b31f74b1de978aafa7d873"
+    },
+    {
+      "path": "app/dashboard/finance/payroll/page.tsx",
+      "blob": "abfacd3d83d693fdb6c93721c98517ba71cce3f7"
+    },
+    {
+      "path": "app/dashboard/finance/planning/page.tsx",
+      "blob": "85b16b7d3a11c0bd531d32428eb31076b9703dc7"
+    },
+    {
+      "path": "app/dashboard/finance/procurement/page.tsx",
+      "blob": "85b16b7d3a11c0bd531d32428eb31076b9703dc7"
+    },
+    {
+      "path": "app/dashboard/finance/purchases/page.tsx",
+      "blob": "5dd30301f8605517f78dfaf0ff4dc326887f5546"
+    },
+    {
+      "path": "app/dashboard/finance/receivables/[studentId]/print/page.tsx",
+      "blob": "d35c8122f521d932efd328d82607e29545c25479"
+    },
+    {
+      "path": "app/dashboard/finance/receivables/page.tsx",
+      "blob": "713748144976288ed47e2bd2a36bddbd5b4174af"
+    },
+    {
+      "path": "app/dashboard/finance/recurring/page.tsx",
+      "blob": "5dd30301f8605517f78dfaf0ff4dc326887f5546"
+    },
+    {
+      "path": "app/dashboard/finance/reimbursements/page.tsx",
+      "blob": "1d99c13eb1699c210826cb6d95c9ddc435d0d7f9"
+    },
+    {
+      "path": "app/dashboard/finance/reports/page.tsx",
+      "blob": "85b16b7d3a11c0bd531d32428eb31076b9703dc7"
+    },
+    {
+      "path": "app/dashboard/finance/stock/page.tsx",
+      "blob": "85b16b7d3a11c0bd531d32428eb31076b9703dc7"
+    },
+    {
+      "path": "app/dashboard/finance/suppliers/page.tsx",
+      "blob": "85b16b7d3a11c0bd531d32428eb31076b9703dc7"
+    },
+    {
+      "path": "app/dashboard/finance/year-end/page.tsx",
+      "blob": "85b16b7d3a11c0bd531d32428eb31076b9703dc7"
+    },
+    {
+      "path": "app/dashboard/governance/approvals/page.tsx",
+      "blob": "c14ff565c8210e57fd415de10b65d274d24f2e32"
+    },
+    {
+      "path": "app/dashboard/governance/audit/page.tsx",
+      "blob": "dd0a5ba8671790e6ab618e0a034b099e41399136"
+    },
+    {
+      "path": "app/dashboard/governance/rules/page.tsx",
+      "blob": "179bb2885f51fd46236b819a027eac1a8db1bb1f"
+    },
+    {
+      "path": "app/dashboard/help/academics/page.tsx",
+      "blob": "8c168653d0d11a9a622e1542c6342cc7c1a5ac99"
+    },
+    {
+      "path": "app/dashboard/help/finance/page.tsx",
+      "blob": "a33ab61ee9af58f1c02b2d8fad55d80a0566b1ac"
+    },
+    {
+      "path": "app/dashboard/help/page.tsx",
+      "blob": "efb690f30ffd8e9c9f5ce236d1e7102c5dc09b19"
+    },
+    {
+      "path": "app/dashboard/my-work/page.tsx",
+      "blob": "ce1536de96e55f03d3715bccb4206de8d3f66ed2"
+    },
+    {
+      "path": "app/dashboard/referrals/page.tsx",
+      "blob": "d595b5b991a09718c9cda6c4de0d77f33c120728"
+    },
+    {
+      "path": "app/dashboard/settings/access-requests/page.tsx",
+      "blob": "c65b259b7cd016450f5893d64522883a9e152ad5"
+    },
+    {
+      "path": "app/dashboard/settings/page.tsx",
+      "blob": "62a840080fc01054408b85dbef0e8905b2765700"
+    },
+    {
+      "path": "app/dashboard/setup/page.tsx",
+      "blob": "f15015373b6f8aa552b4ae7c4dfe786cec801901"
+    },
+    {
+      "path": "app/dashboard/staff/operations/page.tsx",
+      "blob": "5bf3ca4f1a8248a7e7df0a89cd4bccd1a12cfcfa"
+    },
+    {
+      "path": "app/dashboard/staff/page.tsx",
+      "blob": "ab41e148d0719c2ac0ac3e189a3bc12a8bc3144a"
+    },
+    {
+      "path": "app/dashboard/students/[studentId]/page.tsx",
+      "blob": "3b64914b876f0834bc3963962462aa069040457a"
+    },
+    {
+      "path": "app/dashboard/students/page.tsx",
+      "blob": "0b17fb382afb29a705cbec172a100b277017866c"
+    },
+    {
+      "path": "app/dashboard/teacher/page.tsx",
+      "blob": "2c964e4f14c62f7048de0200bfc9767b771122fb"
+    }
+  ],
+  "modules": [
+    {
+      "path": "modules/academics/assessments/actions.ts",
+      "blob": "ec45a56521cd7da231d1436d57591985dc3961da"
+    },
+    {
+      "path": "modules/academics/assessments/queries.ts",
+      "blob": "34add6658e441a53bae87a44ba581b1be944493e"
+    },
+    {
+      "path": "modules/academics/assessments/schema.ts",
+      "blob": "c1a641b847e6eafc084f8a2d8dc0c18e061e5e4a"
+    },
+    {
+      "path": "modules/academics/assessments/workspace.tsx",
+      "blob": "d2f0d7b3ba8502e77200b27a1347012d990fe259"
+    },
+    {
+      "path": "modules/academics/documents/actions.ts",
+      "blob": "f64e5ba2a45c5eb5094857c771fc00af39073b78"
+    },
+    {
+      "path": "modules/academics/documents/form.tsx",
+      "blob": "5663a72376b7800396523990e127a2d2a85827fd"
+    },
+    {
+      "path": "modules/academics/documents/print-controls.tsx",
+      "blob": "09b789d92dea672243e073ad56a7aa3fe2f033d4"
+    },
+    {
+      "path": "modules/academics/documents/progress.tsx",
+      "blob": "6ca5c912355a70de2da1caebdd9abf5c8ccfcd93"
+    },
+    {
+      "path": "modules/academics/documents/queries.ts",
+      "blob": "530733fe9b907bed2602e6b9580cdafd1b519aed"
+    },
+    {
+      "path": "modules/academics/documents/questions.tsx",
+      "blob": "c48b071e4ed34f5815da575227b44a866af5b1e2"
+    },
+    {
+      "path": "modules/academics/documents/schema.ts",
+      "blob": "e3ca63754629ce37a22c356cecd0a777a8afb7e5"
+    },
+    {
+      "path": "modules/academics/homework/actions.ts",
+      "blob": "82b4535203e671b049eaea6d92ff13f2262d28b0"
+    },
+    {
+      "path": "modules/academics/homework/queries.ts",
+      "blob": "3f5d5504451a83209ef490991087d60fe9f96a22"
+    },
+    {
+      "path": "modules/academics/homework/schema.ts",
+      "blob": "94b380dcb37909fa5e45cba8974525601dd218d5"
+    },
+    {
+      "path": "modules/academics/homework/workspace.tsx",
+      "blob": "c41929ccb63d5acf498f3a77fb4a0c0b5d15377a"
+    },
+    {
+      "path": "modules/academics/operations/actions.ts",
+      "blob": "115d6cf9f664fb96815a4668a4a7c4fcae4578e0"
+    },
+    {
+      "path": "modules/academics/operations/class-log-form.tsx",
+      "blob": "0f11f9dbdc5e237c0efcb1686b00ae6cbb55d8e1"
+    },
+    {
+      "path": "modules/academics/operations/class-log-review.tsx",
+      "blob": "bf98fe05ee5c5588c232dd1849050b39bfbfa10f"
+    },
+    {
+      "path": "modules/academics/operations/command-form.tsx",
+      "blob": "c810ef65c39195aa18870508f6b7b21eaa7ed827"
+    },
+    {
+      "path": "modules/academics/operations/queries.ts",
+      "blob": "ccce96ccdf6f7518806f79627ec3936929e81f8a"
+    },
+    {
+      "path": "modules/academics/operations/schema.ts",
+      "blob": "bed11f77bbc02609f37642b85eab70fadcae256c"
+    },
+    {
+      "path": "modules/academics/operations/workspace.tsx",
+      "blob": "f1801ec7e4de1ea05f938160dcf0f45f278c8ff0"
+    },
+    {
+      "path": "modules/academics/planning/actions.ts",
+      "blob": "cecf65b10d7b0baa2bda5b44e3c77ba19c68987c"
+    },
+    {
+      "path": "modules/academics/planning/calendar.tsx",
+      "blob": "f2cc2cb6d29be1b885748cdc80635202c24ac482"
+    },
+    {
+      "path": "modules/academics/planning/curriculum.tsx",
+      "blob": "50da3aa250de7914cafb044c07edf41d9798fa7f"
+    },
+    {
+      "path": "modules/academics/planning/form.tsx",
+      "blob": "d575dcf77f2ee872c17ceaf775230cd60e91f7a2"
+    },
+    {
+      "path": "modules/academics/planning/queries.ts",
+      "blob": "739187edbfd4fbc3cc5afd0e75a755b7440d3c86"
+    },
+    {
+      "path": "modules/academics/planning/schema.ts",
+      "blob": "66da49cbb29b51f10c3b93371453d05b1fdca8a2"
+    },
+    {
+      "path": "modules/academics/planning/workspace.tsx",
+      "blob": "f48c5380724a31cd0fe926729c0d4162033230f3"
+    },
+    {
+      "path": "modules/academics/timetable/actions.ts",
+      "blob": "d43797b8a2ba7c8bf5bd7d96dce0745b9f317865"
+    },
+    {
+      "path": "modules/academics/timetable/dates.ts",
+      "blob": "dd701090b14c18d15ca2dbb497b5d8bab5c6d90f"
+    },
+    {
+      "path": "modules/academics/timetable/editor.tsx",
+      "blob": "0b907ddc1a9323bc243f8d62f9c863d094a19ad9"
+    },
+    {
+      "path": "modules/academics/timetable/groups.ts",
+      "blob": "5f204d7431126ff089fd71be0316e7eeeeb82492"
+    },
+    {
+      "path": "modules/academics/timetable/preview.tsx",
+      "blob": "01d7da90b5f473b39354d2214ab84bd0cebab288"
+    },
+    {
+      "path": "modules/academics/timetable/rows.tsx",
+      "blob": "aabb8d492fe75fa4fbf3b4e2b5a59a4762f79064"
+    },
+    {
+      "path": "modules/academics/timetable/schema.ts",
+      "blob": "1a360b5ff79a46ef152fe602f327b39f6e75ebbd"
+    },
+    {
+      "path": "modules/academics/timetable/teaching-plan.tsx",
+      "blob": "da9451b69c06c6ffb549f107091208f4b9b3f24e"
+    },
+    {
+      "path": "modules/academics/timetable/workspace.tsx",
+      "blob": "9891fb902e018c52c0de05cba8d6a4d3de7d7a94"
+    },
+    {
+      "path": "modules/action-center/queries.ts",
+      "blob": "a67ee5fc8ff79f4c0b4b791468f37e4887810821"
+    },
+    {
+      "path": "modules/admissions/actions.ts",
+      "blob": "27f19b624786f81b10b7e7342eb72e64df8a5ac0"
+    },
+    {
+      "path": "modules/admissions/components/admission-paper.tsx",
+      "blob": "0a9c35f30ce957f2c6c010434769cc04665be23b"
+    },
+    {
+      "path": "modules/admissions/components/batch-register.tsx",
+      "blob": "ffc11d167f0cb327f8daedff3c9849b64d28a8ae"
+    },
+    {
+      "path": "modules/admissions/components/case-step-navigation.tsx",
+      "blob": "eae9e9e3e118292cbf2a955335c8cfa239111207"
+    },
+    {
+      "path": "modules/admissions/components/command-form.tsx",
+      "blob": "6533fb3f1f1188bfb4365dd9c9c2f0d3782f225e"
+    },
+    {
+      "path": "modules/admissions/components/directory-choice.tsx",
+      "blob": "f9c0d649656f4b773f921f16b687b6df38f8e35a"
+    },
+    {
+      "path": "modules/admissions/components/discount-form.tsx",
+      "blob": "b9a5ae981956c98555114e5b75596d9d21c96f62"
+    },
+    {
+      "path": "modules/admissions/components/document-styles.ts",
+      "blob": "4af9cb09732793a620d6ed0ceaabb60ff686368f"
+    },
+    {
+      "path": "modules/admissions/components/extra-charge-form.tsx",
+      "blob": "66d6d8b17e3961ccf539c3db1dc6103ecf5dcac7"
+    },
+    {
+      "path": "modules/admissions/components/final-submission-review.tsx",
+      "blob": "77fa1b140163a461a017f1c38d3210df7b62df2f"
+    },
+    {
+      "path": "modules/admissions/components/identity-editor.tsx",
+      "blob": "46333becbf87aedc1221b2a633fc2828a61679fd"
+    },
+    {
+      "path": "modules/admissions/components/physical-consent-form.tsx",
+      "blob": "5fcd8abcd3aac598f2769cd4b776eabeefcd0017"
+    },
+    {
+      "path": "modules/admissions/components/placement-editor.tsx",
+      "blob": "ee93084496ea8f89c1c646bef14b74fe091d9e76"
+    },
+    {
+      "path": "modules/admissions/components/print-button.tsx",
+      "blob": "4e576a8729497676233b07303d97001616925fc1"
+    },
+    {
+      "path": "modules/admissions/components/referral-form.tsx",
+      "blob": "97b765d839abd2d85a9eb5ece06a6042e3133b50"
+    },
+    {
+      "path": "modules/admissions/components/staff-intake-form.tsx",
+      "blob": "7d3f6c7b010239a805fee8b22f188c659c271e23"
+    },
+    {
+      "path": "modules/admissions/consent-actions.ts",
+      "blob": "10a58c364712b829b115d5e8ece02b34cc338a0d"
+    },
+    {
+      "path": "modules/admissions/consent.ts",
+      "blob": "0af0286421cb68335d49c8eaf7b4d103599106a4"
+    },
+    {
+      "path": "modules/admissions/directory-actions.ts",
+      "blob": "d1cfa12c44ee93b22ec77158378988405da9ae37"
+    },
+    {
+      "path": "modules/admissions/extra-charge-actions.ts",
+      "blob": "7b2b2fb07ff742300fe57bcac25dc1ddab93374d"
+    },
+    {
+      "path": "modules/admissions/intake-actions.ts",
+      "blob": "2209321638551e8daf2dd284e445fb92fdf08928"
+    },
+    {
+      "path": "modules/admissions/intake-schema.ts",
+      "blob": "ffad3ab83c2c18bf9bf2c2e7858d35e33c4d6e9d"
+    },
+    {
+      "path": "modules/admissions/print-catalogue.ts",
+      "blob": "6ae3c0fa359d503c5f9cfd074f421749e10e0e6f"
+    },
+    {
+      "path": "modules/admissions/queries.ts",
+      "blob": "cc5ae59f1c256f95ae779d5c70f597cc60ac8962"
+    },
+    {
+      "path": "modules/admissions/referral-actions.ts",
+      "blob": "7036b196ffa46817ee69e89362f183b0706e2819"
+    },
+    {
+      "path": "modules/admissions/referrals.ts",
+      "blob": "c3cbab7c98685cc66a425c47736c88289ff833aa"
+    },
+    {
+      "path": "modules/admissions/review-actions.ts",
+      "blob": "ee2d69807dcf2461f3fbd7cc6e24f23932ba0274"
+    },
+    {
+      "path": "modules/admissions/schema.ts",
+      "blob": "8c19691a8b73fca4a47169ceab99901896f37bfb"
+    },
+    {
+      "path": "modules/crm/actions.ts",
+      "blob": "f0ff8109feacc819e3b04705663bf23dd09430db"
+    },
+    {
+      "path": "modules/crm/assignment-actions.ts",
+      "blob": "3ab92686b72750538adc1a4515412a38d71b20c9"
+    },
+    {
+      "path": "modules/crm/components/prospect-assignment-form.tsx",
+      "blob": "caf4284dbb0872a3d87207a3dda184ca7bf57e9f"
+    },
+    {
+      "path": "modules/crm/components/prospect-followup-form.tsx",
+      "blob": "ea4db3227a3b87ddab6db702cd0378b002fe9267"
+    },
+    {
+      "path": "modules/crm/components/prospect-table.tsx",
+      "blob": "0bd530a656d0461f8eaab01f07ab02e5a40dcb92"
+    },
+    {
+      "path": "modules/crm/manage/actions.ts",
+      "blob": "1bbf2c75a821a7e7949097e3b88d1afcae9a7426"
+    },
+    {
+      "path": "modules/crm/manage/components/master-data-workspace.tsx",
+      "blob": "76227724155f57ad30085660c0bcf0261464ab42"
+    },
+    {
+      "path": "modules/crm/manage/queries.ts",
+      "blob": "1166ac586b5c1a6d4e2574f91bc41623a5b8a3ce"
+    },
+    {
+      "path": "modules/crm/manage/schema.ts",
+      "blob": "4e3317ecddaee3d40541197e65fecf20dfb77885"
+    },
+    {
+      "path": "modules/crm/prospect-status.ts",
+      "blob": "427d74015983762a614cb1d50bad1838c138d2d8"
+    },
+    {
+      "path": "modules/crm/queries.ts",
+      "blob": "961f9507dd9758d7793bcb34befe74128a5220e4"
+    },
+    {
+      "path": "modules/crm/schema.ts",
+      "blob": "b93fdd8bc42729ef8539b1fe92e53072c42772b6"
+    },
+    {
+      "path": "modules/crm/website/workspace.tsx",
+      "blob": "c605fe224c0d2abd4a834f4cbb59437d107a84e1"
+    },
+    {
+      "path": "modules/dashboard/queries.ts",
+      "blob": "86fc4df383a2c1838c6a24f44d183cec012c9388"
+    },
+    {
+      "path": "modules/finance/accounting/actions.ts",
+      "blob": "8f8f90897a3b24b02ab63c38878e8428ff20a5e7"
+    },
+    {
+      "path": "modules/finance/accounting/queries.ts",
+      "blob": "88dbca772b776b88feebd816da3c81e70ffaeb72"
+    },
+    {
+      "path": "modules/finance/accounting/workspace.tsx",
+      "blob": "5e636b7169ecded0b1e00c8e2ba238eff81a052c"
+    },
+    {
+      "path": "modules/finance/assets/actions.ts",
+      "blob": "e0b2a5fa172794028ed2e509ea1f3130ab4cd359"
+    },
+    {
+      "path": "modules/finance/assets/queries.ts",
+      "blob": "da51f4e91b685f20851ee5523bc22042c6b073af"
+    },
+    {
+      "path": "modules/finance/assets/register.tsx",
+      "blob": "332ae2ab268674093356e7b437b17409c91c6828"
+    },
+    {
+      "path": "modules/finance/bank/actions.ts",
+      "blob": "40c083b67b698be5c2912cf2b83a09d3f8db1e0c"
+    },
+    {
+      "path": "modules/finance/bank/csv.ts",
+      "blob": "b38a07994b05c5b1af0363176ba69baabdc1eeb8"
+    },
+    {
+      "path": "modules/finance/bank/queries.ts",
+      "blob": "d8152c400c3409d725bb98d809d753faaa4f4047"
+    },
+    {
+      "path": "modules/finance/bank/register.tsx",
+      "blob": "02e0ee7973fb025c04fc2a7b4e5eaba6801b9901"
+    },
+    {
+      "path": "modules/finance/capital/actions.ts",
+      "blob": "ff32babc9aa28ffb609274f9532c12ba669cfd83"
+    },
+    {
+      "path": "modules/finance/capital/queries.ts",
+      "blob": "3ef6feb349f121ac59aab7ca7487314c76d23e39"
+    },
+    {
+      "path": "modules/finance/capital/register.tsx",
+      "blob": "4098820c5405f4af214f42dcefe97fc74c2ba05f"
+    },
+    {
+      "path": "modules/finance/cash-flow/actions.ts",
+      "blob": "c972e84138a6a92ed992b5d2da12697122c1cba5"
+    },
+    {
+      "path": "modules/finance/cash-flow/queries.ts",
+      "blob": "f2a8436c977835df175afbb4937af7f85c22c278"
+    },
+    {
+      "path": "modules/finance/cash-flow/register.tsx",
+      "blob": "3116ba26eabc41d2102b7a9cf779d4f9ca1f64cd"
+    },
+    {
+      "path": "modules/finance/counters/actions.ts",
+      "blob": "ff1ef6a892591b863bdef5989b93628e8e03bc8e"
+    },
+    {
+      "path": "modules/finance/counters/history-actions.ts",
+      "blob": "d28a70be6350f30d3dab6423ae4a287db5e31392"
+    },
+    {
+      "path": "modules/finance/counters/history-panel.tsx",
+      "blob": "323d43351906090709bbb441e577bd7043e4e8c9"
+    },
+    {
+      "path": "modules/finance/counters/history-schema.ts",
+      "blob": "dacee0983adafd31d4c286b9c86737b1ec8c163f"
+    },
+    {
+      "path": "modules/finance/counters/queries.ts",
+      "blob": "3bc9a6cd0ce0792149caa76be2e8feefae1c7f9b"
+    },
+    {
+      "path": "modules/finance/counters/register.tsx",
+      "blob": "f7ee3ce97de52ccef349e95c70997a88f7d293af"
+    },
+    {
+      "path": "modules/finance/counters/transfer-actions.ts",
+      "blob": "5cdfcf6ad72e8d30c3b132e7c295416a4a2f764f"
+    },
+    {
+      "path": "modules/finance/counters/transfer-queries.ts",
+      "blob": "1074326a3f090065747e40f974162677117e8def"
+    },
+    {
+      "path": "modules/finance/counters/workspace.tsx",
+      "blob": "2abf3e47c1a96672da3d929b2e2ab83b09f060a9"
+    },
+    {
+      "path": "modules/finance/daily-close/actions.ts",
+      "blob": "7a04095da791ff4947145966ca48f14653451d5e"
+    },
+    {
+      "path": "modules/finance/daily-close/queries.ts",
+      "blob": "192fcc497187b71940b04786b8ca7f005611bded"
+    },
+    {
+      "path": "modules/finance/daily-close/register.tsx",
+      "blob": "15477d8b0c99f2cc598538687362f6f3321a0ba3"
+    },
+    {
+      "path": "modules/finance/documents/panel.tsx",
+      "blob": "ad9ad79f751c617214ef57db2826c2a140cb345b"
+    },
+    {
+      "path": "modules/finance/handovers/actions.ts",
+      "blob": "22496e51df11f457201047a86d98649d8a8054c4"
+    },
+    {
+      "path": "modules/finance/handovers/queries.ts",
+      "blob": "8823c3cd63e9cbdd0c87254b5f4972ce5c638ee4"
+    },
+    {
+      "path": "modules/finance/handovers/register.tsx",
+      "blob": "68f3d8839b4f82f8a70d2561a9bcb9fc42d576ac"
+    },
+    {
+      "path": "modules/finance/inline-operation.tsx",
+      "blob": "771271b067bbbfa59dc54f72347988f4fddb35bf"
+    },
+    {
+      "path": "modules/finance/operations/actions.ts",
+      "blob": "b912de4fb9c3547db7261a665052e2b1ac2cdcf3"
+    },
+    {
+      "path": "modules/finance/operations/collection-actions.ts",
+      "blob": "3a66ad9a7835daa42602d2aadaadf6fb277406dd"
+    },
+    {
+      "path": "modules/finance/operations/collection-form.tsx",
+      "blob": "475500bf9a5698eaf3a216b97f197c5ba63d6f4c"
+    },
+    {
+      "path": "modules/finance/operations/command-form.tsx",
+      "blob": "90dcfa592cd48e97f5c487a7c2fc8209bff7e615"
+    },
+    {
+      "path": "modules/finance/operations/queries.ts",
+      "blob": "d3416fde9e86b6a6a8cbfd4386e814869129cefa"
+    },
+    {
+      "path": "modules/finance/operations/recurring-billing.tsx",
+      "blob": "2f7f796a9b525831f0d7aac061efe7f5f1824795"
+    },
+    {
+      "path": "modules/finance/operations/schema.ts",
+      "blob": "788b7706fc2add541acc8b5bb17174097416b7fd"
+    },
+    {
+      "path": "modules/finance/operations/workspace.tsx",
+      "blob": "e020341d20ca5300470604cf86b01e3b8aac7b96"
+    },
+    {
+      "path": "modules/finance/payroll/actions.ts",
+      "blob": "30f0f27a2096990b600999403a73f2e1183b283b"
+    },
+    {
+      "path": "modules/finance/payroll/personal-summary.tsx",
+      "blob": "38fa92f74174b7af56fa90cfe7df0f5af165e346"
+    },
+    {
+      "path": "modules/finance/payroll/queries.ts",
+      "blob": "f3d3504614dd89b9b673302e6758dff5459ce0d5"
+    },
+    {
+      "path": "modules/finance/payroll/recovery-actions.ts",
+      "blob": "c01a774e113c42ed3aeaf96f9895dbd483cea92d"
+    },
+    {
+      "path": "modules/finance/payroll/recovery-panel.tsx",
+      "blob": "70c2f2dabbbe56967ea05202e3f08dec7f931b30"
+    },
+    {
+      "path": "modules/finance/payroll/register.tsx",
+      "blob": "ed0f7de5be28ca4720c238973c6284c05eb5b72d"
+    },
+    {
+      "path": "modules/finance/planning/actions.ts",
+      "blob": "5d01ddc5939016022741a19719c5f909c2e15851"
+    },
+    {
+      "path": "modules/finance/planning/queries.ts",
+      "blob": "c3f5ce9318460133952a3cd4a596977971dfde08"
+    },
+    {
+      "path": "modules/finance/planning/register.tsx",
+      "blob": "9e634892544b9442582a9fda6d112dc63cdc037b"
+    },
+    {
+      "path": "modules/finance/procurement/actions.ts",
+      "blob": "9ab8ff0367975316038cc679208a9ed04788237e"
+    },
+    {
+      "path": "modules/finance/procurement/queries.ts",
+      "blob": "47312ff04c4857ea0636f6c9d45b5bcfea59a755"
+    },
+    {
+      "path": "modules/finance/procurement/register.tsx",
+      "blob": "97fc70fa8bc6b071af9c0d602d53dee8e2df77e8"
+    },
+    {
+      "path": "modules/finance/purchases/actions.ts",
+      "blob": "16559bfd166523a55e788f0ce069b22c9b78c67f"
+    },
+    {
+      "path": "modules/finance/purchases/adjustment-actions.ts",
+      "blob": "97640c84cb66177e3df56e53f60ff3d591b585ef"
+    },
+    {
+      "path": "modules/finance/purchases/adjustments.tsx",
+      "blob": "5cb6f135fd9a8fea373843b8e2efb955893eecbd"
+    },
+    {
+      "path": "modules/finance/purchases/directory-actions.ts",
+      "blob": "83cae62c632690b62dabafb4d069a53527181a43"
+    },
+    {
+      "path": "modules/finance/purchases/directory-queries.ts",
+      "blob": "17ba7488e8458076f16ccb0e862da37c2e476112"
+    },
+    {
+      "path": "modules/finance/purchases/directory.tsx",
+      "blob": "fe44f388e886d78fe68ec0e3dd5b26760b393704"
+    },
+    {
+      "path": "modules/finance/purchases/queries.ts",
+      "blob": "c2aaffd8c7f8b8db74e26169105ac80bf4f93bbf"
+    },
+    {
+      "path": "modules/finance/purchases/register.tsx",
+      "blob": "bf13cef472c491cd797fd2f063de26f05b069c08"
+    },
+    {
+      "path": "modules/finance/receivables/actions.ts",
+      "blob": "d92ba3eb854000b09b5696119ad51774ff65b99d"
+    },
+    {
+      "path": "modules/finance/receivables/queries.ts",
+      "blob": "59cd5662030e06920744792170ba3c50a97afdae"
+    },
+    {
+      "path": "modules/finance/receivables/register.tsx",
+      "blob": "e2240fa0790fa41152973471ba60647b148b00ad"
+    },
+    {
+      "path": "modules/finance/recurring/actions.ts",
+      "blob": "f3df425ef03bfa6e1cd867685c462f9988a1864a"
+    },
+    {
+      "path": "modules/finance/recurring/queries.ts",
+      "blob": "36cd26c11aeac53f94dfdb47c01ae974c10734de"
+    },
+    {
+      "path": "modules/finance/recurring/register.tsx",
+      "blob": "ed4e48fdb4431f675b27842c48184413a0fcfd9c"
+    },
+    {
+      "path": "modules/finance/reimbursements/actions.ts",
+      "blob": "8be4cbcc47bb2ca453769192edb307baf8d43b81"
+    },
+    {
+      "path": "modules/finance/reimbursements/queries.ts",
+      "blob": "590471ff98a4443db09e0533b19281a0dc5013a5"
+    },
+    {
+      "path": "modules/finance/reimbursements/register.tsx",
+      "blob": "30d7894581e73f25b96d4937fd19973251546370"
+    },
+    {
+      "path": "modules/finance/reports/actions.ts",
+      "blob": "bd5661ce343b7da2d90177390ae59dc6b4a69005"
+    },
+    {
+      "path": "modules/finance/reports/queries.ts",
+      "blob": "e038a0ebae11956ffd687de8f820eeae405902f8"
+    },
+    {
+      "path": "modules/finance/reports/workspace.tsx",
+      "blob": "da302a720de97b4e5549d1169d8304c5a6ad717f"
+    },
+    {
+      "path": "modules/finance/simple/actions.ts",
+      "blob": "ed082b7f6220b383ce6f59c0c1c47cdc3c5bf02e"
+    },
+    {
+      "path": "modules/finance/simple/queries.ts",
+      "blob": "aa58b34deb4bad61c0abaf3062ffae6ec326138b"
+    },
+    {
+      "path": "modules/finance/simple/teaching-queries.ts",
+      "blob": "6edd3be5e5d633a913fdbfd03c0163e1b40f5e49"
+    },
+    {
+      "path": "modules/finance/simple/teaching-workspace.tsx",
+      "blob": "0c06e308376001d39a1ea8d3d1a3d47d088890d5"
+    },
+    {
+      "path": "modules/finance/simple/workspace.tsx",
+      "blob": "ee9ea4c360c268f72763d411b1951dc009b5ba28"
+    },
+    {
+      "path": "modules/finance/stock/actions.ts",
+      "blob": "f1a61141caadbeaee9b837b146bf7f2c70bb3e49"
+    },
+    {
+      "path": "modules/finance/stock/queries.ts",
+      "blob": "21f524d5b6ef58e3b70c6681df53a98db8e44d13"
+    },
+    {
+      "path": "modules/finance/stock/register.tsx",
+      "blob": "ad7c05b1227bb89317d8b4c54137c831ee4b5a9e"
+    },
+    {
+      "path": "modules/finance/suppliers/queries.ts",
+      "blob": "69ef02c2a7cef89dc53718a1e5540132025a4c4a"
+    },
+    {
+      "path": "modules/finance/suppliers/register.tsx",
+      "blob": "867966a50302cc1b4b2f8521a7ee85e11534ac46"
+    },
+    {
+      "path": "modules/finance/year-end/actions.ts",
+      "blob": "08f0eb60d60b8f59545e391fb635c265d370353e"
+    },
+    {
+      "path": "modules/finance/year-end/queries.ts",
+      "blob": "424f519c593f4715f2fc6a55fb5774001eb1c603"
+    },
+    {
+      "path": "modules/finance/year-end/register.tsx",
+      "blob": "0d4c94201fcdc2621bac0ca2632808268a329798"
+    },
+    {
+      "path": "modules/governance/audit-view.tsx",
+      "blob": "aa9e348070ef0f986c741fb976562c40ac5c4e72"
+    },
+    {
+      "path": "modules/governance/queries.ts",
+      "blob": "9b0d179142f0fd95ca8abc5aed69ad8e959867bf"
+    },
+    {
+      "path": "modules/help/admission-steps.ts",
+      "blob": "6cc4a5ed5be6200474d2dad2ae2e0a80f8695873"
+    },
+    {
+      "path": "modules/help/daily-steps.ts",
+      "blob": "7383237c7992725be32a7bbadd070c26b133a772"
+    },
+    {
+      "path": "modules/help/finance-guide.bn.json",
+      "blob": "c6a9594903fcc70e06ca0ca4dfa55bbef6f60ed8"
+    },
+    {
+      "path": "modules/help/setup-steps.ts",
+      "blob": "61d62b9ca2fa2ae67fe35ba7135bb886f820865e"
+    },
+    {
+      "path": "modules/help/workflow-guide.tsx",
+      "blob": "511f1680494e1d4eebf28ae849c8741cb07ee455"
+    },
+    {
+      "path": "modules/home/page-content.tsx",
+      "blob": "2e560e12bd32caa106e3b3e01d45bde133c053d0"
+    },
+    {
+      "path": "modules/home/program-section.tsx",
+      "blob": "aadb3f6c4e6bb99d70f610ce87820bcf45281e5a"
+    },
+    {
+      "path": "modules/home/public-page-shell.tsx",
+      "blob": "4d61914c116a09e58417d375c481be798b81e17e"
+    },
+    {
+      "path": "modules/offerings/actions.ts",
+      "blob": "362ad37e4734feafddb6d03a9c707d2df808de7d"
+    },
+    {
+      "path": "modules/offerings/components/discount-policy-form.tsx",
+      "blob": "0fa438767a0e02a82fd6ba0bd28a05f87699d64e"
+    },
+    {
+      "path": "modules/offerings/components/fee-plan-form.tsx",
+      "blob": "4f42accccfb3153fa0e84a3ce55efb90f86b3786"
+    },
+    {
+      "path": "modules/offerings/components/offering-form.tsx",
+      "blob": "6a77784d5bdf4dc29ad478a5db8aefcfdcb6a45c"
+    },
+    {
+      "path": "modules/offerings/components/offering-register.tsx",
+      "blob": "cbd770884a4136a48a98110d6c8f1ce4bde268ba"
+    },
+    {
+      "path": "modules/offerings/components/public-controls-form.tsx",
+      "blob": "d5d06a75ef2212e13e28defe451bee686b65937e"
+    },
+    {
+      "path": "modules/offerings/components/showcase-form.tsx",
+      "blob": "bf87b2f35383ca4172e4b0c2fb93e275a417a9f4"
+    },
+    {
+      "path": "modules/offerings/database-contract.ts",
+      "blob": "c089ed9b271f6e2159b69868d2efcb32091a788a"
+    },
+    {
+      "path": "modules/offerings/discount-actions.ts",
+      "blob": "4d2f27924ccdc9a5f8d700b1a9dc261554732aac"
+    },
+    {
+      "path": "modules/offerings/queries.ts",
+      "blob": "af061bea8422c1b25f9723a19dd76081ae6d5f1d"
+    },
+    {
+      "path": "modules/offerings/schema.ts",
+      "blob": "da68ef71bc0b0a9574710b824c591ba2bcc04375"
+    },
+    {
+      "path": "modules/platform/access/actions.ts",
+      "blob": "3f759fbf4b2cc3273dba57c63bec6019d8c4a654"
+    },
+    {
+      "path": "modules/platform/access/request-form.tsx",
+      "blob": "464c1209af4bb199890de76daa579dbabe290968"
+    },
+    {
+      "path": "modules/platform/access/request-register.tsx",
+      "blob": "00616264a8e1a579f6b5ce90d729d675fa7d8018"
+    },
+    {
+      "path": "modules/platform/auth/erp-context.ts",
+      "blob": "9ec206b75c88a57d11246468ec144997a3f9a067"
+    },
+    {
+      "path": "modules/platform/command-action.ts",
+      "blob": "fc116e72c4e17901f87e361d8ee363244e355af9"
+    },
+    {
+      "path": "modules/platform/lifecycle-actions.ts",
+      "blob": "ca9b7785ca764af235fa0477ece351fda2ab8418"
+    },
+    {
+      "path": "modules/platform/navigation/erp-navigation.ts",
+      "blob": "d9ba0ce4e545e809d917b2dabac73df50fa62e83"
+    },
+    {
+      "path": "modules/platform/navigation/erp-route-registry.ts",
+      "blob": "b980aff0edc6405350277aefe21f302a1c4a6f24"
+    },
+    {
+      "path": "modules/platform/navigation/feedback-message.ts",
+      "blob": "fce57f8e80d9a0bfb5cc87cb43fe38e96df88372"
+    },
+    {
+      "path": "modules/platform/navigation/field-guides.ts",
+      "blob": "34b277cb9fc2c9c7138706d189063e072693c0a5"
+    },
+    {
+      "path": "modules/platform/navigation/field-labels.ts",
+      "blob": "fdb34bee3525be128df58600c4f9663c9ed7446f"
+    },
+    {
+      "path": "modules/platform/navigation/navigation-guard.ts",
+      "blob": "bb5c1dda05621baa1972a2d83ee70bae937ea08a"
+    },
+    {
+      "path": "modules/platform/navigation/workflow-guides.ts",
+      "blob": "5b46eab472514cfcbd446db31da53810b2f6978d"
+    },
+    {
+      "path": "modules/platform/navigation/workflow-return.ts",
+      "blob": "28a2c0122efefebd98ce964167ccb48de674f439"
+    },
+    {
+      "path": "modules/platform/navigation/workspace-navigation.ts",
+      "blob": "65e425d19a2521cab9c781d0632bb6221c3f7267"
+    },
+    {
+      "path": "modules/platform/read-availability.ts",
+      "blob": "383911fdd05e51a656414025aed7a80f54fcf7cb"
+    },
+    {
+      "path": "modules/platform/rpc-client.ts",
+      "blob": "a0e969a5fa4eb6bd5b0cc58a2a3b7ad23f070049"
+    },
+    {
+      "path": "modules/platform/search/actions.ts",
+      "blob": "66be100df240d4e1f117c3438dc919e99fd95734"
+    },
+    {
+      "path": "modules/platform/setup/actions.ts",
+      "blob": "a4eb0a4ab42cb7c163b78caadbab295f89c86c4a"
+    },
+    {
+      "path": "modules/platform/setup/complete-button.tsx",
+      "blob": "59388df98f3de4a255d2f932dddc654a9c4d557d"
+    },
+    {
+      "path": "modules/platform/setup/identity-actions.ts",
+      "blob": "a72115b126ca4c254ae75487ae365f56f1e6155e"
+    },
+    {
+      "path": "modules/platform/setup/identity-form.tsx",
+      "blob": "4bdcc0b66d602f0980e9db1643f504709a71e98a"
+    },
+    {
+      "path": "modules/platform/setup/queries.ts",
+      "blob": "0e00e507e598a6411888c553398514801275d3e3"
+    },
+    {
+      "path": "modules/referrals/actions.ts",
+      "blob": "93614d63e18fa710b3406d70f61c79f6a564cbad"
+    },
+    {
+      "path": "modules/referrals/queries.ts",
+      "blob": "5eae92b877299ce9d8911630721f3a19960b80b9"
+    },
+    {
+      "path": "modules/referrals/register.tsx",
+      "blob": "e00864bc1d2a80c5bf2d2daf26709585b386380c"
+    },
+    {
+      "path": "modules/settings/actions.ts",
+      "blob": "7b7d711ce1a8b2f4ed3b8083962db2b684438239"
+    },
+    {
+      "path": "modules/settings/components/policy-control-center.tsx",
+      "blob": "bcc6a99237feebe376addbce7f8ceeefc601037d"
+    },
+    {
+      "path": "modules/settings/components/referral-policy-editor.tsx",
+      "blob": "98038e603e9c49b21503179e2140a038f9ec6d57"
+    },
+    {
+      "path": "modules/settings/components/role-permission-editor.tsx",
+      "blob": "ae0ce8ea2b54a5a7ae121e968605a4331b70fc0a"
+    },
+    {
+      "path": "modules/settings/components/user-access-editor.tsx",
+      "blob": "2c1ad3d5d457a9d9222ec4a8d324ee8da635e545"
+    },
+    {
+      "path": "modules/settings/queries.ts",
+      "blob": "3d48384d30c7461b09926224f10c9c3339606665"
+    },
+    {
+      "path": "modules/settings/referral-policy-actions.ts",
+      "blob": "73509e9783512ff6c1c4d23af452309e0344ff52"
+    },
+    {
+      "path": "modules/settings/schema.ts",
+      "blob": "f137516cf67740ab924562ab4d605b6ac7c1c3dc"
+    },
+    {
+      "path": "modules/staff/components/staff-register.tsx",
+      "blob": "b9e8177f81fb09db31fcc71058ce616a632033de"
+    },
+    {
+      "path": "modules/staff/edit-actions.ts",
+      "blob": "3ce53d0c3137e50b9e1ed12a5ea898c0e45a57f4"
+    },
+    {
+      "path": "modules/staff/queries.ts",
+      "blob": "aa6ba577f408a5cafb9ef5d8f59fdb50f01fd341"
+    },
+    {
+      "path": "modules/students/lifecycle/actions.ts",
+      "blob": "add60d5289baba44aacd5913abcb74468882637e"
+    },
+    {
+      "path": "modules/students/lifecycle/close-actions.ts",
+      "blob": "d20e73fe18768705d4ad4232c54fb5c4d70c5e4d"
+    },
+    {
+      "path": "modules/students/lifecycle/close-enrollment-form.tsx",
+      "blob": "2c9efe7539179d159357f6a79b711dca8e580843"
+    },
+    {
+      "path": "modules/students/lifecycle/command-form.tsx",
+      "blob": "ea4fb8e9a056e0845406cdf137fa21da0e24efec"
+    },
+    {
+      "path": "modules/students/lifecycle/queries.ts",
+      "blob": "701f92acd736cc4c9ac3bde0bba1b9858b09a0ac"
+    },
+    {
+      "path": "modules/students/lifecycle/schema.ts",
+      "blob": "1fa75952b0f51052a738fc46db7a835559320d6c"
+    },
+    {
+      "path": "modules/students/queries.ts",
+      "blob": "63a3399c1311b502586c85967e0613057c61cdd3"
+    },
+    {
+      "path": "modules/teacher/classroom/actions.ts",
+      "blob": "f917d498c1ced8435872621f97b7ed2768cb32f2"
+    },
+    {
+      "path": "modules/teacher/classroom/clock-correction.tsx",
+      "blob": "209b6360025dddc037285de66865b1ccbe96ceb8"
+    },
+    {
+      "path": "modules/teacher/classroom/preparation.tsx",
+      "blob": "3b926163ee90dcdfc39fe6edc1cef04ba5d87fd4"
+    },
+    {
+      "path": "modules/teacher/classroom/queries.ts",
+      "blob": "49af0563999021a7e62a66edef3a87fd3b40acc0"
+    },
+    {
+      "path": "modules/teacher/classroom/schema.ts",
+      "blob": "8061429a64fdbf44b5ae3cf14f0f0d215407f31c"
+    },
+    {
+      "path": "modules/teacher/classroom/student-attendance.tsx",
+      "blob": "03792626039ebffaaf14d5aa292a0cd2396a7962"
+    },
+    {
+      "path": "modules/teacher/classroom/teaching-report.tsx",
+      "blob": "4c700664e6a74b0866c741167942d8a3bacc2e05"
+    },
+    {
+      "path": "modules/teacher/classroom/workspace.tsx",
+      "blob": "27d1d918755d147f4c41b7120fb0de38ee68639b"
+    },
+    {
+      "path": "modules/teacher/workspace.tsx",
+      "blob": "043500a78aed1624187005cd083afc2a20ad27cf"
+    },
+    {
+      "path": "modules/workforce/actions.ts",
+      "blob": "6ebeb9ef89b5c869f12968e8c1f0c4804da104a9"
+    },
+    {
+      "path": "modules/workforce/attendance-register-query.ts",
+      "blob": "8e4d537a10f38f048382b09b11b5473bcd228517"
+    },
+    {
+      "path": "modules/workforce/attendance-register.tsx",
+      "blob": "c86b28ce0190279e6d571da3b52daeeee93bcac4"
+    },
+    {
+      "path": "modules/workforce/daily-attendance-actions.ts",
+      "blob": "726f28dd7d42cfd60ba4aee441903e3351963c37"
+    },
+    {
+      "path": "modules/workforce/daily-attendance-form.tsx",
+      "blob": "9e1695620863daca4585e700f7d55c8e55d972e6"
+    },
+    {
+      "path": "modules/workforce/daily-attendance.ts",
+      "blob": "3604904f7f067d75c050ec6930c41e0b3fc9da1e"
+    },
+    {
+      "path": "modules/workforce/personal-finance.tsx",
+      "blob": "a6283bc7b6f1afaeee6fb887a1d40320c63da539"
+    },
+    {
+      "path": "modules/workforce/queries.ts",
+      "blob": "1059257f64e975c9c39e3bd096c83955385d3243"
+    },
+    {
+      "path": "modules/workforce/route-query.ts",
+      "blob": "45bd2616278a432b30d30152e543923c70589c57"
+    },
+    {
+      "path": "modules/workforce/task-actions.ts",
+      "blob": "1e193c61c4f98a5de049df88afcd9e005e354ac7"
+    },
+    {
+      "path": "modules/workforce/task-register.tsx",
+      "blob": "2e5b29993ba1dbb1c853b7d87e33d574a2aab0fb"
+    },
+    {
+      "path": "modules/workforce/tasks.ts",
+      "blob": "d979e97e2b8d3819bb79c741d8710fadd22e3197"
+    },
+    {
+      "path": "modules/workforce/work-tabs.tsx",
+      "blob": "40d93ea1d0709785887d7bd2d343aa69ec41917e"
+    },
+    {
+      "path": "modules/workforce/workspace.tsx",
+      "blob": "2238a00521b0f116a3756b13fd61242d350ef647"
+    }
+  ],
+  "erpComponents": [
+    {
+      "path": "components/erp/action-panel.tsx",
+      "blob": "5ebceeb0a1e7f632b245907241d6eafdecf7046f"
+    },
+    {
+      "path": "components/erp/central-search.tsx",
+      "blob": "671d036714984ee1af83614e4c89eea1c85492ad"
+    },
+    {
+      "path": "components/erp/empty-state.tsx",
+      "blob": "51406a5d276964cb0f160a839e1f3636e08e2640"
+    },
+    {
+      "path": "components/erp/erp-account.tsx",
+      "blob": "ac4f27e25bc364a00ef5a28f56f2b267076a01af"
+    },
+    {
+      "path": "components/erp/erp-header.tsx",
+      "blob": "bc7b3fb8c0243dc826393d297fc1f33563ec973e"
+    },
+    {
+      "path": "components/erp/erp-shell.tsx",
+      "blob": "7e8acecbe56992b12b852dec341fabc87e232b68"
+    },
+    {
+      "path": "components/erp/erp-sidebar.tsx",
+      "blob": "bcca3858d0ae99a395ac7b5be3f8718edf465267"
+    },
+    {
+      "path": "components/erp/form-field.tsx",
+      "blob": "ed1a9f36f4a6939b3907ea604cd3d5f7f01c7a8a"
+    },
+    {
+      "path": "components/erp/help-disclosure.tsx",
+      "blob": "228e40fa3163aeca3f8c2f677e8645dd9895e450"
+    },
+    {
+      "path": "components/erp/inline-work-panel.tsx",
+      "blob": "77fa26ca58946e3e1b04c7ffac8eb3cec848e382"
+    },
+    {
+      "path": "components/erp/mutation-feedback.tsx",
+      "blob": "91290fba85f7dcf570ce9893c59f3ec0496d44a7"
+    },
+    {
+      "path": "components/erp/overview-return-link.tsx",
+      "blob": "213986b4813179d4e641436fd9a855dae943c422"
+    },
+    {
+      "path": "components/erp/page-header.tsx",
+      "blob": "da0a216195c5127609b77370ff494632249fa159"
+    },
+    {
+      "path": "components/erp/page-workflow-guide.tsx",
+      "blob": "666fa6fb00336fef3c35f1a81ddd42f2bd9cf5ac"
+    },
+    {
+      "path": "components/erp/record-state-button.tsx",
+      "blob": "f5c81918c822504a4ab76c4af72424986211e536"
+    },
+    {
+      "path": "components/erp/retry-read.tsx",
+      "blob": "922ce75a7402433c2c9a33e90fb65941a760f666"
+    },
+    {
+      "path": "components/erp/staff-edit-button.tsx",
+      "blob": "8d15c4bc05af9e48414eb31300d75479972ca95c"
+    },
+    {
+      "path": "components/erp/stat-card.tsx",
+      "blob": "efe89723c7b764528ac516748a2b5f186d201248"
+    },
+    {
+      "path": "components/erp/status-badge.tsx",
+      "blob": "072f4949831edd52fec7f45dd4c4fc0e7e28b334"
+    },
+    {
+      "path": "components/erp/workflow-guide.tsx",
+      "blob": "0e1159b72cbe0583c895a0b69481b2b2c35b159d"
+    },
+    {
+      "path": "components/erp/workflow-return.tsx",
+      "blob": "bdcacfdb9c5d4f4426e66b6fce8ff15490364a52"
+    },
+    {
+      "path": "components/erp/workspace-form-safety.tsx",
+      "blob": "e4b2305af910db5d07de2137d28c1c8c185d1972"
+    }
+  ],
+  "uiComponents": [
+    {
+      "path": "components/ui/alert-dialog.tsx",
+      "blob": "4d88edfc70fe4459f26417d4137df5512240399b"
+    },
+    {
+      "path": "components/ui/avatar.tsx",
+      "blob": "47ff2e2f444ae5dd3288e213e77f7b55bdf7281c"
+    },
+    {
+      "path": "components/ui/badge.tsx",
+      "blob": "6bc28c30ee309a4a5d53fe3e10e7394dd2034d1d"
+    },
+    {
+      "path": "components/ui/breadcrumb.tsx",
+      "blob": "db9afc0c0fe2766fb722a5dc985bbb8d182e9502"
+    },
+    {
+      "path": "components/ui/button.tsx",
+      "blob": "10b1403f73887307862053fb634fa05c64165059"
+    },
+    {
+      "path": "components/ui/card.tsx",
+      "blob": "4458dae19f243f9fd6f8ccd60c52033d241a5f60"
+    },
+    {
+      "path": "components/ui/checkbox.tsx",
+      "blob": "e1a35742dbbbc15a4926fa62ac6f927e3553c5ba"
+    },
+    {
+      "path": "components/ui/collapsible.tsx",
+      "blob": "2f7a4e7fc64a8874373c1584646a63f28cd63c47"
+    },
+    {
+      "path": "components/ui/dialog.tsx",
+      "blob": "d9aecca5035ec8c564ac14d8d475d888efda93e6"
+    },
+    {
+      "path": "components/ui/dropdown-menu.tsx",
+      "blob": "c263ad57ea58d9c9949891fc869993cf6928a3fd"
+    },
+    {
+      "path": "components/ui/input.tsx",
+      "blob": "d763cd9ab0e151d4bd8e32b337fbf6278bcdf3fb"
+    },
+    {
+      "path": "components/ui/label.tsx",
+      "blob": "1ac80f701ebfe9dc02d632c08cafade732e46625"
+    },
+    {
+      "path": "components/ui/navigation-menu.tsx",
+      "blob": "09596b1f3932f6077c1dd0860c0805b249aac84e"
+    },
+    {
+      "path": "components/ui/select.tsx",
+      "blob": "ca1ee68da113d55b7e3f0f47efe50e1ae2943312"
+    },
+    {
+      "path": "components/ui/separator.tsx",
+      "blob": "d4570908d42d3da4e15111a776f52c88bd0e6911"
+    },
+    {
+      "path": "components/ui/sheet.tsx",
+      "blob": "8d0e1d3ecd4b0743045480d81d27cf114bd06b2f"
+    },
+    {
+      "path": "components/ui/sidebar.tsx",
+      "blob": "ea78b5000244115ef64b10b571d311a4f0600202"
+    },
+    {
+      "path": "components/ui/skeleton.tsx",
+      "blob": "0118624f6e6a64b90c24502a4e2b8c5513098072"
+    },
+    {
+      "path": "components/ui/table.tsx",
+      "blob": "3303320d4c27d30446bfd6a441d6d7d518b03fa7"
+    },
+    {
+      "path": "components/ui/tabs.tsx",
+      "blob": "74e476616c9ca0b7fdbfaf076e45cdfd9300ab86"
+    },
+    {
+      "path": "components/ui/textarea.tsx",
+      "blob": "5141de794cdc57aa317c8beba328a7284475d767"
+    },
+    {
+      "path": "components/ui/toast.tsx",
+      "blob": "fa08ea925efbf7a8f6426493a567bb5dbf826819"
+    },
+    {
+      "path": "components/ui/tooltip.tsx",
+      "blob": "a1e3e89a71190f0265b0764affe46815bdab8d7c"
+    }
+  ],
+  "supabaseMigrations": [
+    {
+      "path": "supabase/migrations/01_platform_identity_access.sql",
+      "blob": "786ba819a39ffed26b59b7f47298fa7197d153be"
+    },
+    {
+      "path": "supabase/migrations/02_academic_directory_offerings_fees.sql",
+      "blob": "4e3d189c966151b1818f84872d0166d3355322a5"
+    },
+    {
+      "path": "supabase/migrations/03_crm_admissions_student_lifecycle.sql",
+      "blob": "68137f7b3412b5cfe7753e7195b9159775a8c7dc"
+    },
+    {
+      "path": "supabase/migrations/04_billing_payments_adjustments.sql",
+      "blob": "d9892baec655287cffd4faa22257fee8dc9d7529"
+    },
+    {
+      "path": "supabase/migrations/05_accounting_referrals_compensation.sql",
+      "blob": "f716097b03e5b146cf8852dead12b449b3e22816"
+    },
+    {
+      "path": "supabase/migrations/06_teacher_academic_records.sql",
+      "blob": "a634583c82727dee09234471b7e5a8a6587e5d21"
+    },
+    {
+      "path": "supabase/migrations/07_constraints_indexes.sql",
+      "blob": "348cd496795d73efb2c312a9423829ebae5a1fdd"
+    },
+    {
+      "path": "supabase/migrations/08_platform_crm_setup_workflows.sql",
+      "blob": "7b67329ae7bfd5c6a70d5f3d78976592f5efb3af"
+    },
+    {
+      "path": "supabase/migrations/09_admission_billing_workflows.sql",
+      "blob": "7ed98ae322fb91fb024d2a21986b1d4082ade5a7"
+    },
+    {
+      "path": "supabase/migrations/10_accounting_workflows.sql",
+      "blob": "defb66d441fa4329162fa9999c55a9cab87456b0"
+    },
+    {
+      "path": "supabase/migrations/11_teacher_workflows.sql",
+      "blob": "62e260b1ab1f3c5977beb40c38a6642d2e5de88d"
+    },
+    {
+      "path": "supabase/migrations/12_security_audit_triggers.sql",
+      "blob": "aa152335ff7611a47e7ee43be554047b451e887d"
+    },
+    {
+      "path": "supabase/migrations/13_essential_system_seed.sql",
+      "blob": "96e6066fa66cb8b8550623f6ceae320f8f097791"
+    },
+    {
+      "path": "supabase/migrations/14_referrer_portal_collection_discounts.sql",
+      "blob": "b0d8bbb43f099ad7f0835abb28bb0922cecc76f1"
+    },
+    {
+      "path": "supabase/migrations/15_audit_search_and_daily_activity.sql",
+      "blob": "9403c0afedcf4bb94bc4ca4ec2481f1b16b8d501"
+    },
+    {
+      "path": "supabase/migrations/16_request_onboarding_and_own_compensation.sql",
+      "blob": "aa68d55f7a208cd07a124284f978df3cde6d6ce9"
+    },
+    {
+      "path": "supabase/migrations/17_staff_attendance_and_personal_work.sql",
+      "blob": "e83e605228d92427a5859178d6ccc7b12300f7f4"
+    },
+    {
+      "path": "supabase/migrations/18_staff_tasks_and_completion_review.sql",
+      "blob": "eecf4abb570eaace277fcd7b932c496d7d1e2e70"
+    },
+    {
+      "path": "supabase/migrations/19_monthly_staff_payroll_and_payslips.sql",
+      "blob": "bebe68068d41395f7cc35504ee4fde8872688f9a"
+    },
+    {
+      "path": "supabase/migrations/20_daily_cash_count_statement_close.sql",
+      "blob": "0d3890f4447aedddddc71969dcd25a3b806d0e46"
+    },
+    {
+      "path": "supabase/migrations/21_monthly_accounts_and_period_lock.sql",
+      "blob": "1784087bf71b60f4b20c39433186db194a42295d"
+    },
+    {
+      "path": "supabase/migrations/22_purchase_drafts_receipt_and_expense_posting.sql",
+      "blob": "27fa76166435efcd6fb928b73df6c76d6bb2f797"
+    },
+    {
+      "path": "supabase/migrations/23_supplier_and_expense_category_maintenance.sql",
+      "blob": "db6fafcadb470364f538a439e6c8f9dd8a49ab2f"
+    },
+    {
+      "path": "supabase/migrations/24_private_finance_document_evidence.sql",
+      "blob": "f140f0f6b2b22660ef51b7c0e0dcd5803cfa0a60"
+    },
+    {
+      "path": "supabase/migrations/25_purchase_credit_notes_and_refunds.sql",
+      "blob": "ce092bf24193de99500085678b4481b596f0957b"
+    },
+    {
+      "path": "supabase/migrations/26_staff_reimbursement_claims.sql",
+      "blob": "72410231516a91e880e1347cd65c44fc230b05eb"
+    },
+    {
+      "path": "supabase/migrations/27_unassigned_campus_staff_claims.sql",
+      "blob": "6b95816def3f7660d50c3fd4e26efbbd6ae76240"
+    },
+    {
+      "path": "supabase/migrations/28_assets_capitalization_custody_depreciation.sql",
+      "blob": "a6d11570a86e8eaf306d114aa8c0d5bbaba7867c"
+    },
+    {
+      "path": "supabase/migrations/29_finite_financial_amount_guards.sql",
+      "blob": "006e5816c21a6cbdb12401ba8b05019b45c2000d"
+    },
+    {
+      "path": "supabase/migrations/30_cash_handover_recipient_confirmation.sql",
+      "blob": "56a2b5bebc228846d3807768ab5e9d9010cca0ff"
+    },
+    {
+      "path": "supabase/migrations/31_cash_counter_ownership_and_opening_float.sql",
+      "blob": "ebfe97907b0731bdbec66a0c3b38fcb501211ebf"
+    },
+    {
+      "path": "supabase/migrations/32_counter_topups_and_cash_returns.sql",
+      "blob": "e5a02ac92231a91c74d2bb2e19f7a55b6f7dc28c"
+    },
+    {
+      "path": "supabase/migrations/33_historical_payroll_terms_and_corrections.sql",
+      "blob": "b81e4d1b22f9d3abca32b090772b4fb11c1fa50d"
+    },
+    {
+      "path": "supabase/migrations/34_recurring_expense_obligations.sql",
+      "blob": "77540543af8b9d6bdc770eb1fa3e070a36f75efa"
+    },
+    {
+      "path": "supabase/migrations/35_receivables_aging_and_collection_promises.sql",
+      "blob": "ab0ddc9df93a6036781ace8285d3a23a07247cae"
+    },
+    {
+      "path": "supabase/migrations/36_owner_capital_and_cash_funding.sql",
+      "blob": "ed59f8dd130b0f23982eed2083a7f8ed626c65da"
+    },
+    {
+      "path": "supabase/migrations/37_cost_centres_budgets_and_contribution.sql",
+      "blob": "85f937458914550643be8bde31d70936520bcdac"
+    },
+    {
+      "path": "supabase/migrations/38_bank_statement_import_and_matching.sql",
+      "blob": "752a7c8969290ababae9da8342bba3aaa7c9ee9f"
+    },
+    {
+      "path": "supabase/migrations/39_classified_cash_flow_statements.sql",
+      "blob": "d673aa86ab0817cc1e858d64c9ffefc56c5ff379"
+    },
+    {
+      "path": "supabase/migrations/40_fiscal_year_close_and_reversal.sql",
+      "blob": "4d9bd21de726af6f1c9d88f2f5c7d4d096dec7ef"
+    },
+    {
+      "path": "supabase/migrations/41_supplier_account_statements.sql",
+      "blob": "1bec8246c3847d09efc4282b3a3d7b7ef8ae9af6"
+    },
+    {
+      "path": "supabase/migrations/42_consumable_stock_register.sql",
+      "blob": "99feaadd624fc822dc4db75271bd064f605109ef"
+    },
+    {
+      "path": "supabase/migrations/43_partial_procurement_receipts_and_invoice_matching.sql",
+      "blob": "1b95a082dcb8e9415fb44de3e5051268a5f4af98"
+    },
+    {
+      "path": "supabase/migrations/44_paginated_counter_duty_and_receipt_history.sql",
+      "blob": "442a2eb0860eea9b20df8f9987125b814146a2ea"
+    },
+    {
+      "path": "supabase/migrations/45_reusable_academy_reference_data.sql",
+      "blob": "8ecfe1b16b28cdeafe6f74224d8797559e9c3e69"
+    },
+    {
+      "path": "supabase/migrations/46_simple_academy_finance.sql",
+      "blob": "e64248281b2b5e7cb2b8c508c419f946e997c981"
+    },
+    {
+      "path": "supabase/migrations/47_academic_planning_availability.sql",
+      "blob": "f7bde61289596dfbcc5aed2150b733e71bb84926"
+    },
+    {
+      "path": "supabase/migrations/48_class_calendar_and_changes.sql",
+      "blob": "be5c31e82fc5b41721325c6672123248eda95ee5"
+    },
+    {
+      "path": "supabase/migrations/49_verified_actual_teaching_hours.sql",
+      "blob": "abf7e20a051feffff82376586f2ed934330ba03e"
+    },
+    {
+      "path": "supabase/migrations/50_curriculum_planning_workspace.sql",
+      "blob": "9fe784100f83109e454734c752cc00e8ff733b59"
+    },
+    {
+      "path": "supabase/migrations/51_training_course_learning_context.sql",
+      "blob": "36059a4db8a4fb323775579487a3922e13fcd52b"
+    },
+    {
+      "path": "supabase/migrations/52_academic_choice_context_and_calendar_priority.sql",
+      "blob": "d30479d07298f8a1754386797fd2501a180fe6f2"
+    },
+    {
+      "path": "supabase/migrations/53_teacher_subject_setup.sql",
+      "blob": "118b075a02ef97904d38f9a50c39da5c34776c61"
+    },
+    {
+      "path": "supabase/migrations/54_routine_google_docs_questions.sql",
+      "blob": "299ec1acde4c2e8b9c46306b50098c3088594a14"
+    },
+    {
+      "path": "supabase/migrations/55_student_progress_reports.sql",
+      "blob": "6e7e1d87fb08f93de7a595656f2d01bae654aae3"
+    },
+    {
+      "path": "supabase/migrations/56_guided_teacher_class_workspace.sql",
+      "blob": "ab8c973025d64009886d4fedcd1a1deae89a50ec"
+    },
+    {
+      "path": "supabase/migrations/57_missed_class_clock_recovery.sql",
+      "blob": "f633ab55491c24256992c85b8ab305b1ba9ce228"
+    },
+    {
+      "path": "supabase/migrations/58_advisory_teacher_qualification.sql",
+      "blob": "5044d50e1594d447e083f6a9235d8f3c97d2dd3e"
+    },
+    {
+      "path": "supabase/migrations/59_optional_availability_and_routine_defaults.sql",
+      "blob": "863e6bdd89c0c70f4ea11a286740022200c7c4f9"
+    },
+    {
+      "path": "supabase/migrations/60_weekly_timetable_preview_and_save.sql",
+      "blob": "4fa74f618b9f2182e41ca5d0e704ab2c4d9155a1"
+    },
+    {
+      "path": "supabase/migrations/61_simple_academic_routine_operation.sql",
+      "blob": "dc65ed99d9dba1b540a951ecc67e778c920ad7f2"
+    }
+  ],
+  "sourceTypes": [
+    {
+      "path": "types/database.ts",
+      "blob": "f65476a4fbfbe07a0df5a4f7a55fbe67dcedf71e"
+    },
+    {
+      "path": "types/erp.ts",
+      "blob": "034018ea0cac875d4dac28671648813e48f08cad"
+    },
+    {
+      "path": "types/index.ts",
+      "blob": "18d4904e3215f0b631a4219b13b1b5b4836abc6f"
+    },
+    {
+      "path": "types/user.ts",
+      "blob": "2e6b3450878b88256d75e2a72aae995c71d332df"
+    }
+  ]
+}

@@ -1,8 +1,19 @@
 import { bindings, defineConfig, defineWorker } from "cf/config";
 
-export default defineConfig({
+export default defineConfig(({mode}) => {
+  const staging = mode === "staging";
+  const devDb = process.env.SOHOJAC_DEV_D1_ID;
+  if (staging && (!devDb || !/^[0-9a-f-]{36}$/i.test(devDb) ||
+      devDb === "d6f3e4e9-2190-43bf-bc90-969687f6db78")) {
+    throw new Error("Staging requires an independent SOHOJAC_DEV_D1_ID; refusing the production D1 binding.");
+  }
+  if (staging && (!process.env.BETTER_AUTH_URL ||
+      !process.env.BETTER_AUTH_URL.startsWith("https://sohojac-dev."))) {
+    throw new Error("Staging requires its own HTTPS BETTER_AUTH_URL, never production.");
+  }
+  return {
   worker: defineWorker({
-    name: "sohojac",
+    name: staging ? "sohojac-dev" : "sohojac",
     entrypoint: "vinext/server/fetch-handler",
     compatibilityDate: "2026-10-26",
     compatibilityFlags: ["nodejs_compat"],
@@ -14,7 +25,10 @@ export default defineConfig({
     env: {
       ASSETS: bindings.assets(),
       IMAGES: bindings.images(),
-      DB: bindings.d1({ name: "sohojac", id: "d6f3e4e9-2190-43bf-bc90-969687f6db78" }),
+      DB: bindings.d1({
+        name: staging ? "sohojac-dev" : "sohojac",
+        id: staging ? devDb! : "d6f3e4e9-2190-43bf-bc90-969687f6db78"
+      }),
       // Require this secret; the manual deployment workflow uploads it on
       // every release to avoid losing secrets with the beta cf deploy API.
       TURNSTILE_SECRET_KEY: bindings.secret(),
@@ -24,10 +38,10 @@ export default defineConfig({
       // Staff transactional email is an optional integration.
       // It stays unavailable until a verified sender and secret are configured.
       // Never declare a mandatory secret when mail delivery is not activated.
-      ...(process.env.STAFF_EMAIL_FROM
+      ...(!staging && process.env.STAFF_EMAIL_FROM
         ? { RESEND_API_KEY: bindings.secret() }
         : {}),
-      STAFF_EMAIL_FROM: bindings.text(process.env.STAFF_EMAIL_FROM || ""),
+      STAFF_EMAIL_FROM: bindings.text(staging ? "" : (process.env.STAFF_EMAIL_FROM || "")),
       BETTER_AUTH_URL: bindings.text(process.env.BETTER_AUTH_URL || "https://sohojac.com"),
       // The public site key comes from a GitHub Actions variable in production.
       // Locally, Cloudflare loads the gitignored .env when this binding is omitted.
@@ -36,4 +50,5 @@ export default defineConfig({
         : {}),
     },
   }),
+};
 });

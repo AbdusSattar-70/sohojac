@@ -56,14 +56,22 @@ export async function PATCH(request: Request, ctx: Context) {
       "SELECT status FROM public_enquiries WHERE id = ?"
     ).bind(id).first<{status: string}>();
     if (!current) return privateJson({ error: "Prospect not found" }, 404);
+    const canonical=await env.DB.prepare(
+      "SELECT status FROM academy_prospects WHERE id=?"
+    ).bind(id).first<{status:string}>();
+    if(!canonical || !["NEW","CONTACTED"].includes(canonical.status)){
+      return privateJson({error:"Use the original CRM workspace for this advanced prospect status."},409);
+    }
     if (current.status === parsed.data.status && !parsed.data.note) {
       return privateJson({ error: "Nothing to update" }, 400);
     }
     // D1 batch executes atomically. changes() in the next statement ensures
     // a stale/concurrent status update cannot create a false audit event.
     const outcome = await env.DB.batch([
-      env.DB.prepare("UPDATE public_enquiries SET status = ? WHERE id = ? AND status = ?")
-        .bind(parsed.data.status, id, current.status),
+      env.DB.prepare("UPDATE public_enquiries SET status = ? WHERE id = ? AND status = ? " +
+        "AND EXISTS (SELECT 1 FROM academy_prospects p WHERE p.id=? " +
+        "AND p.status IN ('NEW','CONTACTED'))")
+        .bind(parsed.data.status, id, current.status, id),
       env.DB.prepare(
         `INSERT INTO staff_prospect_events
         (id, enquiry_id, actor_user_id, from_status, to_status, note)
@@ -71,7 +79,7 @@ export async function PATCH(request: Request, ctx: Context) {
       ).bind(crypto.randomUUID(), id, staff.userId, current.status,
         parsed.data.status, parsed.data.note),
     ]);
-    if (outcome[0].meta.changes !== 1 || outcome[1].meta.changes !== 1) {
+    if ((outcome[0].meta.changes??0) < 1 || outcome[1].meta.changes !== 1) {
       return privateJson({ error: "This prospect changed. Refresh and retry." }, 409);
     }
     return privateJson({ ok: true, status: parsed.data.status });
