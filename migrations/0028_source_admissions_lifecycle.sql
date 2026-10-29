@@ -59,3 +59,16 @@ CREATE TABLE IF NOT EXISTS academy_admission_collection_keys (
  admission_id TEXT NOT NULL REFERENCES academy_admissions(id) ON DELETE RESTRICT,
  actor_id TEXT NOT NULL REFERENCES "user"(id) ON DELETE RESTRICT
 );
+
+-- Original Supabase generate_student_no(): SA-000001, SA-000002, ...
+-- D1 AUTOINCREMENT serializes allocation; never derive from MAX(student_no).
+CREATE TABLE IF NOT EXISTS academy_student_number_sequence (
+ seq INTEGER PRIMARY KEY AUTOINCREMENT,
+ admission_id TEXT NOT NULL UNIQUE
+);
+-- Preserve sequence slots already used by any explicitly imported original student.
+INSERT OR IGNORE INTO academy_student_number_sequence(seq,admission_id)
+SELECT CAST(substr(student_no,4) AS INTEGER),'legacy:'||id
+FROM academy_students
+WHERE length(student_no)=9
+ AND student_no GLOB 'SA-[0-9][0-9][0-9][0-9][0-9][0-9]';

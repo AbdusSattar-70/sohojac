@@ -241,14 +241,20 @@ export async function finalizeAdmission(input:unknown):Promise<Outcome>{
  const registration=admission+extra,total=monthly+registration;
  if(!Number.isSafeInteger(total)||total<0)return {ok:false,message:"Invalid fee amount."};
  const studentId=crypto.randomUUID(),invoiceId=crypto.randomUUID(),billId=crypto.randomUUID();
- const studentNo="SA-STD-"+crypto.randomUUID().replaceAll("-","").slice(0,12).toUpperCase();
+ // Assign the original sequential SA-000001 identifier inside the D1 transaction.
  const reference="SA-BILL-"+crypto.randomUUID().replaceAll("-","").slice(0,12).toUpperCase();
  try{
   const tx=await env.DB.batch([
    env.DB.prepare([
+    "INSERT INTO academy_student_number_sequence(admission_id)",
+    "SELECT id FROM academy_admissions WHERE id=? AND status='REVIEW' AND version=?",
+    "AND student_id IS NULL RETURNING seq"
+   ].join(" ")).bind(v.admissionId,old.version),
+   env.DB.prepare([
     "INSERT INTO academy_students(id,student_no,full_name,class_grade,guardian_name,guardian_mobile,school_name,status)",
-    "SELECT ?,?,a.student_full_name,a.class_grade,a.guardian_full_name,a.guardian_mobile,a.school_name,'INACTIVE'",
-    "FROM academy_admissions a JOIN academy_batches b ON b.id=a.batch_id",
+    "SELECT ?,'SA-'||printf('%06d',n.seq),a.student_full_name,a.class_grade,a.guardian_full_name,a.guardian_mobile,a.school_name,'INACTIVE'",
+    "FROM academy_admissions a JOIN academy_student_number_sequence n ON n.admission_id=a.id",
+    "JOIN academy_batches b ON b.id=a.batch_id",
     "JOIN academy_admission_consents c ON c.admission_id=a.id AND c.identity_revision=a.version",
     "JOIN academy_admission_referrals r ON r.admission_id=a.id",
     "WHERE a.id=? AND a.status='REVIEW' AND a.version=? AND a.student_id IS NULL AND a.consent_verified=1",
@@ -257,7 +263,7 @@ export async function finalizeAdmission(input:unknown):Promise<Outcome>{
     "AND EXISTS(SELECT 1 FROM academy_fee_plans f WHERE f.id=? AND f.offering_id=a.offering_id AND f.active=1",
     "AND f.monthly_amount_paisa=? AND f.admission_amount_paisa=?)",
     "RETURNING id"
-   ].join(" ")).bind(studentId,studentNo,v.admissionId,old.version,data.plan.id,tuition,admission),
+   ].join(" ")).bind(studentId,v.admissionId,old.version,data.plan.id,tuition,admission),
    env.DB.prepare([
     "UPDATE academy_admissions SET student_id=?,fee_plan_id=?,status='BILLED',",
     "approved_by=?,verified_by=COALESCE(verified_by,?),version=version+1,",
@@ -279,7 +285,7 @@ export async function finalizeAdmission(input:unknown):Promise<Outcome>{
     "VALUES(?,'admission',(SELECT admission_id FROM finance_invoices WHERE id=? AND student_id=?),",
     "'FINALIZED_AND_BILLED',?,?,?) RETURNING id"
    ].join(" ")).bind(crypto.randomUUID(),invoiceId,studentId,user,v.reason,
-    JSON.stringify({studentNo,studentId,invoiceId,reference,monthlyPaisa:monthly,admissionAndExtrasPaisa:registration,discountPercent:data.discount.selected}))
+    JSON.stringify({studentId,invoiceId,reference,studentNo:"SA- sequence allocated atomically",monthlyPaisa:monthly,admissionAndExtrasPaisa:registration,discountPercent:data.discount.selected}))
   ]);
   if(tx.some(r=>(r.results?.length??0)!==1))return {ok:false,message:"Finalization not confirmed. Check the case and invoice before retrying."};
   refresh(v.admissionId);return {ok:true,message:"Admission confirmed. Student ID and initial invoice issued together; payment remains unpaid until recorded."};
