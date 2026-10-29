@@ -8,6 +8,7 @@ export default async function AccountPage(){
    description="Authenticated Sohoj Academy staff identity and permission scope."/>
   <section className="rounded-xl border bg-card p-5">
    <dl className="grid gap-4 text-sm sm:grid-cols-2">
+    <div><dt className="text-muted-foreground">Permanent Staff ID</dt><dd className="font-mono font-bold" data-testid="staff-number">{context.staffNo}</dd></div>
     <div><dt className="text-muted-foreground">Name</dt><dd className="font-semibold">{context.displayName}</dd></div>
     <div><dt className="text-muted-foreground">Email</dt><dd className="font-semibold">{context.email}</dd></div>
     <div><dt className="text-muted-foreground">Role</dt><dd>{context.roles.join(", ")}</dd></div>

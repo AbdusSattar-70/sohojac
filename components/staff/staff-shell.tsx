@@ -65,6 +65,7 @@ const groups: Group[] = [
   {
     title: "Administration",
     items: [
+      { label: "Staff register", href: "/app/staff-directory", icon: UsersRound, ownerAdminOnly: true },
       { label: "Staff & access", href: "/app/staff-access", icon: ShieldCheck, ownerAdminOnly: true },
       { label: "Teacher assignments", href: "/app/staff-teachers", icon: UsersRound, ownerAdminOnly: true },
       { label: "Settings", icon: Settings2 },
@@ -96,6 +97,7 @@ export function StaffShell({ staff, children }: { staff: StaffAccess; children: 
   }, [mobileOpen]);
 
   const pageTitle = pathname.startsWith("/app/prospects") ? "Enquiries"
+    : pathname.startsWith("/app/staff-directory") ? "Staff register"
     : pathname.startsWith("/app/staff-access") ? "Staff & access"
     : pathname.startsWith("/app/academic-years") ? "Academic years"
     : pathname.startsWith("/app/staff-teachers") ? "Teacher assignments"
@@ -194,6 +196,7 @@ export function StaffShell({ staff, children }: { staff: StaffAccess; children: 
           </span>
           {!minimized && <div className="min-w-0">
             <p className="truncate text-xs font-bold text-slate-900">{staff.name}</p>
+            <p className="truncate font-mono text-[11px] text-slate-500" data-testid="staff-number">{staff.staffNo}</p>
             <p className="truncate text-[11px] text-slate-500">{staff.role} · {staff.email}</p>
           </div>}
         </div>
