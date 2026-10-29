@@ -4,9 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { runReferralCommand } from "../lifecycle";
 
-type People = Awaited<
-  ReturnType<typeof import("../lifecycle").getAdmissionReviewData>["referrals"]
->;
+type People = Awaited<ReturnType<typeof import("../lifecycle").getAdmissionReviewData>>["referrals"];
 export function ReferralForm({
   admissionId,
   people,

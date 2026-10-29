@@ -149,6 +149,7 @@ export async function getAdmissionCase(admissionId:string){
    "bill.admission_amount_paisa AS bill_admission_paisa,bill.issue_on AS bill_issue_on,",
    "inv.invoice_no,inv.due_on AS invoice_due_on,inv.paid_paisa AS invoice_paid_paisa,",
    "d.student_name_bn,d.gender,d.date_of_birth,d.school_roll,d.guardian_address,",
+   "d.student_mobile,d.student_email,d.present_landmark,d.permanent_address,d.permanent_same_as_present,",
    "d.alternate_mobile,d.guardian_relationship",
    "FROM academy_admissions a",
    "JOIN public_programme_offerings o ON o.id=a.offering_id",
