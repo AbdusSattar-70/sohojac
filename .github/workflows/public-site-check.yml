@@ -293,11 +293,10 @@ jobs:
           echo "ERP D1 workflow stale_year: $stale_year"
           test "$stale_year" = "409"
           second_now_active=$(curl -sS -o /tmp/ci-second-activate.json -w '%{http_code}' \
-            -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/academic-years/$year_two_id" \
-            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
-            --data '{"title":"Academic Year CI 2027","startsOn":"2027-01-01","endsOn":"2027-12-31","nextStatus":"ACTIVE","expectedVersion":2,"reason":"Confirm active year remains active after closure"}')
+            -b /tmp/staff-ci-cookies "http://localhost:4173/api/staff/academic-years")
           echo "ERP D1 workflow second_now_active: $second_now_active"
           test "$second_now_active" = "200"
+          node -e 'const a=require("/tmp/ci-second-activate.json").items; if(a.filter(x=>x.status==="ACTIVE").length!==1||a.filter(x=>x.status==="CLOSED").length!==1)process.exit(1);'
           teacher_year_read=$(curl -sS -o /tmp/ci-teacher-years.json -w '%{http_code}' \
             -b /tmp/teacher-ci-cookies "http://localhost:4173/api/staff/academic-years")
           echo "ERP D1 workflow teacher_year_read: $teacher_year_read"
