@@ -52,20 +52,22 @@ export async function POST(request:Request){
         "(id,receipt_no,student_id,amount_paisa,payment_method,received_by,reference)",
         "SELECT ?,?,i.student_id,?,?,?,? FROM finance_invoices i",
         "WHERE i.id=? AND i.status IN ('ISSUED','PARTIAL')",
-        "AND i.amount_paisa-i.paid_paisa>=?"
+        "AND i.amount_paisa-i.paid_paisa>=? RETURNING id"
       ].join(" ")).bind(paymentId,receiptNo,data.amountPaisa,data.method,
         staff.userId,data.reference||null,data.invoiceId,data.amountPaisa),
       env.DB.prepare([
         "INSERT INTO finance_allocations(id,payment_id,invoice_id,amount_paisa)",
-        "SELECT ?,?,?,? WHERE changes()=1"
+        "SELECT ?,?,?,? WHERE changes()=1 RETURNING id"
       ].join(" ")).bind(allocationId,paymentId,data.invoiceId,data.amountPaisa),
       env.DB.prepare([
         "INSERT INTO erp_audit_events(id,entity_type,entity_id,action,actor_id,reason,after_json)",
-        "SELECT ?,'finance_payment',?,'RECEIVED_AND_ALLOCATED',?,?,? WHERE changes()=1"
+        "SELECT ?,'finance_payment',?,'RECEIVED_AND_ALLOCATED',?,?,? WHERE changes()=1 RETURNING id"
       ].join(" ")).bind(crypto.randomUUID(),paymentId,staff.userId,data.reason,
         JSON.stringify({receiptNo,invoiceId:data.invoiceId,amountPaisa:data.amountPaisa,method:data.method})),
     ]);
-    if(tx.some(x=>x.meta.changes!==1)){
+    // Ledger triggers post several extra rows; only RETURNING tracks the
+    // intended inserted payment, allocation and audit rows precisely.
+    if(tx.some(x=>(x.results?.length??0)!==1)){
       return privateJson({error:"Invoice already settled or amount exceeds outstanding"},409);
     }
     return privateJson({ok:true,id:paymentId,receiptNo,allocatedPaisa:data.amountPaisa},201);
