@@ -296,6 +296,7 @@ jobs:
           grep -q 'CI follow-up test' /tmp/staff-history.json
 
 
+          echo 'CI entering batch lifecycle checks'
           # Batch register: authentication, role denial, capacity, concurrency, lifecycle and audit.
           anonymous_batch=$(curl -sS -o /tmp/ci-anon-batch.json -w '%{http_code}' "http://localhost:4173/api/staff/batches")
           test "$anonymous_batch" = "401"
@@ -320,6 +321,7 @@ jobs:
           node -e 'const n=require("/tmp/ci-batches-checked.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==3)process.exit(1);'
 
 
+          echo 'CI entering fee plan checks'
           # Fee plans: integer paisa, owner/teacher role checks, audit and concurrency.
           unauth_fee=$(curl -sS -o /tmp/ci-unauth-fees.json -w '%{http_code}' "http://localhost:4173/api/staff/fee-plans")
           test "$unauth_fee" = "401"
@@ -340,6 +342,7 @@ jobs:
           node -e 'const n=require("/tmp/ci-fees-checked.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==2)process.exit(1);'
 
 
+          echo 'CI entering admission approval checks'
           # Admission preparation and human approval must never create students or invoices.
           anonymous_admission=$(curl -sS -o /tmp/ci-anon-admissions.json -w '%{http_code}' "http://localhost:4173/api/staff/admissions")
           test "$anonymous_admission" = "401"
@@ -372,6 +375,7 @@ jobs:
           node -e 'const n=require("/tmp/ci-admission-approval.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==0||n?.[2]!==0||n?.[3]!==3)process.exit(1);'
 
 
+          echo 'CI entering initial billing checks'
           # Initial bill snapshots exact approved fees without creating students.
           anonymous_bill=$(curl -sS -o /tmp/ci-anon-bill.json -w '%{http_code}' -X POST "http://localhost:4173/api/staff/admissions/$admission_id/bill" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{}')
           test "$anonymous_bill" = "401"
@@ -388,6 +392,7 @@ jobs:
           node -e 'const n=require("/tmp/ci-initial-bill-check.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==1||n?.[2]!==0||n?.[3]!==0||n?.[4]!==1)process.exit(1);'
 
 
+          echo 'CI entering atomic enrollment checks'
           # Enroll exactly once after initial bill. The first invoice and seat
           # assignment must be in the same transaction; no payment is invented.
           unauthorized_enroll=$(curl -sS -o /tmp/ci-unauth-enroll.json -w '%{http_code}' -X POST "http://localhost:4173/api/staff/admissions/$admission_id/enroll" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{}')
@@ -397,6 +402,8 @@ jobs:
           stale_enroll=$(curl -sS -o /tmp/ci-stale-enroll.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/admissions/$admission_id/enroll" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"expectedVersion":3,"reason":"Old version must never enroll"}')
           test "$stale_enroll" = "409"
           enrolled=$(curl -sS -o /tmp/ci-enrolled.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/admissions/$admission_id/enroll" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"expectedVersion":4,"reason":"Complete verified synthetic enrollment"}')
+          echo "Atomic enrollment HTTP: $enrolled"
+          if [ "$enrolled" != "201" ]; then cat /tmp/ci-enrolled.json; fi
           test "$enrolled" = "201"
           reused_enrollment=$(curl -sS -o /tmp/ci-reused-enroll.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/admissions/$admission_id/enroll" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"expectedVersion":4,"reason":"Duplicate enrollment is forbidden"}')
           test "$reused_enrollment" = "409"
@@ -410,6 +417,7 @@ jobs:
           node -e 'const n=require("/tmp/ci-enrollment-verified.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==1||n?.[2]!==1||n?.[3]!==1||n?.[4]!==0||n?.[5]!==1)process.exit(1);'
 
 
+          echo 'CI entering printable form checks'
           # A4 signature form must be available to an authenticated operator.
           consent_form=$(curl -sS -o /tmp/ci-admission-form.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/admissions/$admission_id/print")
           test "$consent_form" = "200"
@@ -419,6 +427,7 @@ jobs:
           grep -q "Approved by" /tmp/ci-admission-form.html
 
 
+          echo 'CI entering tuition collection and GL checks'
           # Tuition collections: only actual payments, no over-allocation, balanced GL.
           anonymous_collection=$(curl -sS -o /tmp/ci-anon-collection.json -w '%{http_code}' "http://localhost:4173/api/staff/collections")
           test "$anonymous_collection" = "401"
@@ -431,16 +440,21 @@ jobs:
           invalid_collection=$(curl -sS -o /tmp/ci-invalid-collection.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/collections" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"invoiceId\":\"$invoice_id\",\"amountPaisa\":0,\"method\":\"CASH\",\"reference\":\"\",\"reason\":\"Zero money is not a payment\"}")
           test "$invalid_collection" = "400"
           collection_one=$(curl -sS -o /tmp/ci-collection-one.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/collections" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"invoiceId\":\"$invoice_id\",\"amountPaisa\":200000,\"method\":\"CASH\",\"reference\":\"\",\"reason\":\"Received cash in synthetic CI test\"}")
+          echo "First collection HTTP: $collection_one"
+          if [ "$collection_one" != "201" ]; then cat /tmp/ci-collection-one.json; fi
           test "$collection_one" = "201"
           over_collection=$(curl -sS -o /tmp/ci-over-collection.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/collections" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"invoiceId\":\"$invoice_id\",\"amountPaisa\":300000,\"method\":\"BANK\",\"reference\":\"\",\"reason\":\"Overpayment must be refused\"}")
           test "$over_collection" = "409"
           collection_two=$(curl -sS -o /tmp/ci-collection-two.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/collections" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"invoiceId\":\"$invoice_id\",\"amountPaisa\":200000,\"method\":\"MFS\",\"reference\":\"MFS-CI-1\",\"reason\":\"Second verified payment closes invoice\"}")
+          echo "Second collection HTTP: $collection_two"
+          if [ "$collection_two" != "201" ]; then cat /tmp/ci-collection-two.json; fi
           test "$collection_two" = "201"
           settled_collection=$(curl -sS -o /tmp/ci-settled-collection.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/collections" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"invoiceId\":\"$invoice_id\",\"amountPaisa\":1,\"method\":\"CASH\",\"reference\":\"\",\"reason\":\"Settled invoices reject new money\"}")
           test "$settled_collection" = "409"
           collections_page=$(curl -sS -o /tmp/ci-collections-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/collections")
           test "$collections_page" = "200"
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM finance_invoices WHERE paid_paisa=400000 AND amount_paisa=400000 AND status='PAID'),(SELECT COUNT(*) FROM finance_payments),(SELECT COUNT(*) FROM finance_allocations),(SELECT COUNT(*) FROM finance_journals WHERE status='POSTED'),(SELECT SUM(debit_paisa) FROM finance_journal_lines),(SELECT SUM(credit_paisa) FROM finance_journal_lines)" > /tmp/ci-gl-check.json
+          cat /tmp/ci-gl-check.json
           node -e 'const n=require("/tmp/ci-gl-check.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==2||n?.[2]!==2||n?.[3]!==3||n?.[4]!==800000||n?.[5]!==800000)process.exit(1);'
 
           # Revoking a staff membership removes access even with a live
