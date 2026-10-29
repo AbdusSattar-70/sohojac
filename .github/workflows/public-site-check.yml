@@ -54,6 +54,8 @@ jobs:
         run: node scripts/verify-crm-history-reconciliation.mjs
       - name: Verify original Website Management design and D1 public control contract
         run: node scripts/verify-original-website-management.mjs
+      - name: Verify original Student Register page and D1 query parity
+        run: node scripts/verify-original-student-register.mjs
       - name: Reject destructive migrations before any deployment
         run: node scripts/check-d1-migrations.mjs
       - name: Apply public D1 migrations locally
@@ -665,6 +667,26 @@ jobs:
           test "$teacher_students" = "403"
           student_page=$(curl -sS -o /tmp/ci-student-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/students")
           test "$student_page" = "200"
+          # Original (not the simplified /app) register must show the same
+          # enrolled canonical student and retain staff permission boundaries.
+          source_students=$(curl -sS -o /tmp/ci-original-students.html -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/students")
+          echo "Original Student Register HTTP: $source_students"
+          test "$source_students" = "200"
+          grep -q 'Student ID' /tmp/ci-original-students.html
+          grep -q 'Search student ID, name or school' /tmp/ci-original-students.html
+          student_no=$(node -e 'const r=require("/tmp/ci-students-api.json");if(!r.items?.[0]?.student_no)process.exit(1);process.stdout.write(r.items[0].student_no)')
+          grep -Fq "$student_no" /tmp/ci-original-students.html
+          empty_students=$(curl -sS -o /tmp/ci-filtered-students.html -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/students?q=CI-nonexistent-unknown")
+          test "$empty_students" = "200"
+          grep -q 'No admitted students yet' /tmp/ci-filtered-students.html
+          anonymous_students=$(curl -sS -o /dev/null -w '%{http_code}' \
+            "http://localhost:4173/dashboard/students")
+          test "$anonymous_students" != "200"
+          teacher_source_students=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -b /tmp/teacher-ci-cookies "http://localhost:4173/dashboard/students")
+          test "$teacher_source_students" != "200"
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM academy_admissions WHERE status='ENROLLED' AND student_id IS NOT NULL),(SELECT COUNT(*) FROM academy_students),(SELECT COUNT(*) FROM academy_enrollments WHERE status='ACTIVE'),(SELECT COUNT(*) FROM finance_invoices WHERE amount_paisa=400000 AND paid_paisa=0 AND status='ISSUED'),(SELECT COUNT(*) FROM finance_payments),(SELECT COUNT(*) FROM erp_audit_events WHERE action='ENROLLED')" > /tmp/ci-enrollment-verified.json
           node -e 'const n=require("/tmp/ci-enrollment-verified.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==1||n?.[2]!==1||n?.[3]!==1||n?.[4]!==0||n?.[5]!==1)process.exit(1);'
 
