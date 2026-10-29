@@ -142,3 +142,59 @@ export async function editAdmissionIdentity(input:unknown){
   return {ok:true,message:"Application details saved. Verify the corrected identity and paper consent before approval."};
  }catch{return {ok:false,message:"Identity update could not be confirmed. Reload the case before retrying."};}
 }
+
+/** Source READY / RETURN_TO_DRAFT state with verified identity/placement.
+ * Both transitions are guarded by a live version and separate audit event.
+ * Neither action verifies signatures, bills or activates a Student ID.
+ */
+export async function advanceAdmissionReview(input:unknown){
+ const parsed=z.object({
+  admissionId:uuid,action:z.enum(["READY","RETURN_TO_DRAFT"]),
+  reason:z.string().trim().min(5).max(500)
+ }).strict().safeParse(input);
+ if(!parsed.success)return {ok:false,message:"Choose a case, action and verification reason."};
+ const context=await getErpContext();
+ if(!context?.permissions.includes("admissions.create"))
+  return {ok:false,message:"Admission permission required."};
+ const v=parsed.data,old=await eligible(v.admissionId);
+ const expected=v.action==="READY"?"DRAFT":"REVIEW";
+ const next=v.action==="READY"?"REVIEW":"DRAFT";
+ if(!old||old.status!==expected)
+  return {ok:false,message:"Case is no longer in the expected review state. Refresh first."};
+ const canReview=v.action==="READY"?
+  [
+   "AND length(trim(COALESCE(student_full_name,'')))>=2",
+   "AND class_grade BETWEEN 1 AND 12",
+   "AND length(trim(COALESCE(guardian_full_name,'')))>=2",
+   "AND length(guardian_mobile)=11",
+   "AND batch_id IS NOT NULL",
+   "AND EXISTS(SELECT 1 FROM academy_batches b WHERE b.id=academy_admissions.batch_id",
+   " AND b.offering_id=academy_admissions.offering_id AND b.status='ACTIVE')",
+   "AND EXISTS(SELECT 1 FROM academy_admission_intake_details d",
+   " WHERE d.admission_id=academy_admissions.id",
+   " AND length(trim(COALESCE(d.guardian_address,'')))>=5)"
+  ].join(" "):"";
+ try{
+  const changes=await env.DB.batch([
+   env.DB.prepare([
+    "UPDATE academy_admissions SET status=?,version=version+1,",
+    "updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+    "WHERE id=? AND status=? AND version=?",canReview,
+    "RETURNING id"
+   ].join(" ")).bind(next,v.admissionId,expected,old.version),
+   env.DB.prepare([
+    "INSERT INTO erp_audit_events(id,entity_type,entity_id,action,actor_id,reason,before_json,after_json)",
+    "SELECT ?,'admission',?,?,?,?,?,? WHERE changes()=1"
+   ].join(" ")).bind(crypto.randomUUID(),v.admissionId,
+    v.action,context.profileId,v.reason,
+    JSON.stringify({status:expected,version:old.version}),
+    JSON.stringify({status:next,version:old.version+1}))
+  ]);
+  if(changes[0].results?.length!==1||changes[1].meta.changes!==1)
+   return {ok:false,message:"Verify student class, guardian address, active batch and current case status."};
+  changed(v.admissionId);
+  return {ok:true,message:next==="REVIEW"?
+   "Application ready for independent verification. No consent or payment has been recorded.":
+   "Returned to draft for corrections. No billing or enrollment was changed."};
+ }catch{return {ok:false,message:"Review transition was not confirmed. Reload before retrying."};}
+}
