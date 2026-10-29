@@ -1290,12 +1290,21 @@ jobs:
           NODE
           trap 'rm -f "$RUNNER_TEMP/sohojac-dev-secrets.json"' EXIT
           pnpm exec cf deploy --prebuilt --mode staging --secrets-file "$RUNNER_TEMP/sohojac-dev-secrets.json"
+      - name: Activate only the dev Worker workers.dev route
+        run: node scripts/enable-dev-worker.mjs
       - name: Smoke-test deployed preview and staff access denial
         run: |
           set -euo pipefail
           for path in / /sign-in; do
-            code=$(curl --silent --show-error --retry 3 --retry-delay 2 --max-time 20 -o /dev/null -w '%{http_code}' "$BETTER_AUTH_URL$path")
-            test "$code" = "200" || { echo "::error::Dev $path returned HTTP $code"; exit 1; }
+            # Cloudflare script routes may take time to propagate on first deploy.
+            code=""
+            for attempt in $(seq 1 18); do
+              code=$(curl --silent --show-error --max-time 15 -o /dev/null -w '%{http_code}' "$BETTER_AUTH_URL$path" || true)
+              if [ "$code" = "200" ]; then break; fi
+              echo "Dev $path not ready: HTTP $code (attempt $attempt)"
+              sleep 5
+            done
+            test "$code" = "200" || { echo "::error::Dev $path returned HTTP $code after propagation retries"; exit 1; }
           done
           private_code=$(curl --silent --show-error --max-time 15 -o /dev/null -w '%{http_code}' "$BETTER_AUTH_URL/api/staff/students")
           test "$private_code" = "401"
