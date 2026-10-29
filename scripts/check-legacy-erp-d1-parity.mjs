@@ -27,4 +27,11 @@ for(const p of migrated){
 for(const p of ["modules/crm/manage/actions.ts","modules/crm/manage/queries.ts"]){
  if(/supabase/i.test(file(p)))throw new Error("Migrated master-data backend still depends on Supabase: "+p);
 }
+const masterWrite = file("modules/crm/manage/actions.ts");
+if(masterWrite.includes('flag?"ACTIVE":"CLOSED"'))
+ throw new Error("Inactive source academic years must not be finalized CLOSED");
+if(!masterWrite.includes('flag?"ACTIVE":"DRAFT"'))
+ throw new Error("Source academic-year form needs reversible ACTIVE/DRAFT semantics");
+if(!masterWrite.includes('status==="CLOSED"'))
+ throw new Error("Previously finalized CLOSED academic years must remain protected");
 console.log("Original navigation, D1 grants and overlapping academic years contract verified.");
