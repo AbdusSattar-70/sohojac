@@ -826,6 +826,18 @@ jobs:
           test "$settled_collection" = "409"
           collections_page=$(curl -sS -o /tmp/ci-collections-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/finance/collections")
           test "$collections_page" = "200"
+          # Billing is a genuine permission-gated D1 receivables workspace,
+          # not a redirect back to Collections.
+          billing_page=$(curl -sS -o /tmp/ci-billing-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/finance/billing")
+          echo "D1 Student Billing page HTTP: $billing_page"
+          test "$billing_page" = "200"
+          grep -q 'Student billing &amp; receivables' /tmp/ci-billing-page.html
+          grep -q 'Search invoice, student name or ID' /tmp/ci-billing-page.html
+          anonymous_billing=$(curl -sS -o /dev/null -w '%{http_code}' "http://localhost:4173/dashboard/finance/billing")
+          test "$anonymous_billing" != "200"
+          teacher_billing=$(curl -sS -o /dev/null -w '%{http_code}' -b /tmp/teacher-ci-cookies "http://localhost:4173/dashboard/finance/billing")
+          test "$teacher_billing" != "200"
+
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM finance_invoices WHERE paid_paisa=400000 AND amount_paisa=400000 AND status='PAID'),(SELECT COUNT(*) FROM finance_payments),(SELECT COUNT(*) FROM finance_allocations),(SELECT COUNT(*) FROM finance_journals WHERE status='POSTED'),(SELECT SUM(debit_paisa) FROM finance_journal_lines),(SELECT SUM(credit_paisa) FROM finance_journal_lines)" > /tmp/ci-gl-check.json
           cat /tmp/ci-gl-check.json
           node -e 'const n=require("/tmp/ci-gl-check.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==2||n?.[2]!==2||n?.[3]!==3||n?.[4]!==800000||n?.[5]!==800000)process.exit(1);'
