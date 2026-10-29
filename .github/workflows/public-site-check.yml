@@ -40,6 +40,17 @@ jobs:
         run: |
           DB=d6f3e4e9-2190-43bf-bc90-969687f6db78
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "INSERT INTO staff_owner_setup (id,email,display_name,token,expires_at) VALUES ('first-owner','staff-ci@example.invalid','Synthetic Staff Owner','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',strftime('%Y-%m-%dT%H:%M:%fZ','now','+30 minutes'))" > /tmp/setup-ticket.json
+      - name: Verify scoped dark-only staff UI and A4 printout
+        run: |
+          set -euo pipefail
+          grep -q 'erp-dark flex min-h-screen' components/staff/staff-shell.tsx
+          grep -q 'staff-auth-dark' app/sign-in/page.tsx
+          grep -q 'staff-auth-dark' app/request-access/page.tsx
+          grep -q 'erp-paper' app/app/admissions/'[id]'/print/page.tsx
+          grep -q 'erp-paper' app/app/admissions/'[id]'/bill/page.tsx
+          grep -q 'color-scheme: dark' app/globals.css
+          grep -q 'STAFF_EMAIL_FROM' lib/staff-mail.ts
+
       - name: Build Cloudflare Worker
         run: pnpm run build
 

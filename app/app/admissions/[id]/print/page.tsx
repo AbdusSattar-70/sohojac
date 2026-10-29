@@ -42,7 +42,7 @@ export default async function AdmissionFormPage({params}:Context){
   const amount=(v:number|null)=>v===null?"To be assigned":"৳"+(v/100).toFixed(2);
   return <>
     <style>{"@page{size:A4;margin:0;}@media print{html,body{margin:0!important;padding:0!important;background:white!important}main{box-shadow:none!important;border:none!important;width:210mm!important;min-height:297mm!important;break-after:avoid!important}}@media screen{body{background:#f1f5f9;}} "}</style>
-    <main lang="en" className="mx-auto flex min-h-[297mm] w-[210mm] max-w-full flex-col bg-white px-[12mm] pb-[10mm] pt-0 text-slate-950 shadow-md print:shadow-none">
+    <main lang="en" className="erp-paper mx-auto flex min-h-[297mm] w-[210mm] max-w-full flex-col bg-white px-[12mm] pb-[10mm] pt-0 text-slate-950 shadow-md print:shadow-none">
       <header className="flex items-start justify-between gap-4 border-b-2 border-slate-800 py-4">
         <div><h1 className="text-[23px] font-extrabold tracking-tight">SOHOJ ACADEMY</h1>
           <p className="text-[11px] text-slate-600">Learning made easy & fun · {a.branch_name}</p></div>

@@ -28,7 +28,7 @@ export default async function AdmissionBillPage({params}:Context){
   ].join(" ")).bind(id).first<Record>();
   if(!record)notFound();
   const taka=(v:number)=>"৳"+(v/100).toFixed(2);
-  return <main className="mx-auto min-h-screen max-w-[210mm] bg-white p-8 text-slate-900 print:p-0">
+  return <main className="erp-paper mx-auto min-h-screen max-w-[210mm] bg-white p-8 text-slate-900 print:p-0">
     <div className="border-b-2 border-slate-800 pb-4">
       <h1 className="text-2xl font-extrabold">Sohoj Academy</h1>
       <p className="text-xs text-slate-500">Learning made easy & fun</p>
