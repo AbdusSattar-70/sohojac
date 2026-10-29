@@ -22,7 +22,7 @@ export default async function StaffPage({searchParams}:{searchParams:Promise<{re
   const query=await searchParams;const page=Math.max(1,Math.min(10000,Number.parseInt(query.requestsPage??"1",10)||1));
   const history=query.requestsView==="history";
   const requests=can(context,"system.users.manage")?await getStaffAccessRequestPage({page,history}):null;
-  if(requests?.error)throw Error(requests.error.message);
+  // The D1 query adapter throws on read failure rather than returning an error union.
 
   return (
     <div className="space-y-7">
