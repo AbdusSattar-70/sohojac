@@ -295,6 +295,30 @@ jobs:
           test "$history_status" = "200"
           grep -q 'CI follow-up test' /tmp/staff-history.json
 
+
+          # Batch register: authentication, role denial, capacity, concurrency, lifecycle and audit.
+          anonymous_batch=$(curl -sS -o /tmp/ci-anon-batch.json -w '%{http_code}' "http://localhost:4173/api/staff/batches")
+          test "$anonymous_batch" = "401"
+          teacher_batch=$(curl -sS -o /tmp/ci-teacher-batch.json -w '%{http_code}' -b /tmp/teacher-ci-cookies -X POST "http://localhost:4173/api/staff/batches" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{}')
+          test "$teacher_batch" = "403"
+          oversized_batch=$(curl -sS -o /tmp/ci-oversized-batch.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/batches" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"code":"INVALID","name":"Over capacity","offeringId":"sa-ssc-science","yearId":"","capacity":13,"beginsOn":"","endsOn":"","reason":"Capacity boundary test"}')
+          test "$oversized_batch" = "400"
+          batch_create=$(curl -sS -o /tmp/ci-created-batch.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/batches" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"code":"CI-SSC-A","name":"SSC Science CI Batch","offeringId":"sa-ssc-science","yearId":"","capacity":12,"beginsOn":"2027-01-01","endsOn":"2027-06-01","reason":"CI verifies planned batch creation"}')
+          test "$batch_create" = "201"
+          batch_id=$(node -e 'process.stdout.write(require("/tmp/ci-created-batch.json").id)')
+          batch_active=$(curl -sS -o /tmp/ci-active-batch.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/batches/$batch_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"name":"SSC Science CI Batch","capacity":12,"beginsOn":"2027-01-01","endsOn":"2027-06-01","nextStatus":"ACTIVE","expectedVersion":1,"reason":"Activate test batch after approval"}')
+          test "$batch_active" = "200"
+          batch_stale=$(curl -sS -o /tmp/ci-stale-batch.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/batches/$batch_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"name":"SSC Science CI Batch","capacity":12,"beginsOn":"","endsOn":"","nextStatus":"ACTIVE","expectedVersion":1,"reason":"Stale version must never win"}')
+          test "$batch_stale" = "409"
+          batch_close=$(curl -sS -o /tmp/ci-close-batch.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/batches/$batch_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"name":"SSC Science CI Batch","capacity":12,"beginsOn":"2027-01-01","endsOn":"2027-06-01","nextStatus":"COMPLETED","expectedVersion":2,"reason":"Complete batch in CI lifecycle test"}')
+          test "$batch_close" = "200"
+          batch_reopen=$(curl -sS -o /tmp/ci-reopen-batch.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/batches/$batch_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"name":"SSC Science CI Batch","capacity":12,"beginsOn":"","endsOn":"","nextStatus":"ACTIVE","expectedVersion":3,"reason":"Closed batch must not reopen"}')
+          test "$batch_reopen" = "409"
+          batch_page=$(curl -sS -o /tmp/ci-batch-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/batches")
+          test "$batch_page" = "200"
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM academy_batches WHERE status='COMPLETED' AND capacity=12),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type='academy_batch')" > /tmp/ci-batches-checked.json
+          node -e 'const n=require("/tmp/ci-batches-checked.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==3)process.exit(1);'
+
           # Revoking a staff membership removes access even with a live
           # Better Auth session cookie; do not rely on client-side role state.
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \

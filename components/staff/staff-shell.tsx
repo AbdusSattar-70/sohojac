@@ -43,7 +43,8 @@ const groups: Group[] = [
     items: [
       { label: "Academic years", href: "/app/academic-years", icon: CalendarDays },
       { label: "Programme offerings", href: "/app/offerings", icon: GraduationCap },
-      { label: "Batches & routines", icon: CalendarDays },
+      { label: "Batches", href: "/app/batches", icon: CalendarDays },
+      { label: "Routines", icon: CalendarDays },
     ],
   },
   {
@@ -87,6 +88,7 @@ export function StaffShell({ staff, children }: { staff: StaffAccess; children: 
   const pageTitle = pathname.startsWith("/app/prospects") ? "Enquiries"
     : pathname.startsWith("/app/staff-access") ? "Staff & access"
     : pathname.startsWith("/app/academic-years") ? "Academic years"
+    : pathname.startsWith("/app/batches") ? "Batches"
     : pathname.startsWith("/app/offerings") ? "Programme offerings"
     : "Overview";
 
