@@ -31,8 +31,8 @@ in the live D1, no student/guardian login, staff UI English only.
 | Attendance, timetable, homework, exams | Classroom operations and assessments | D1 foundation only |
 | Staff/teacher/workforce attendance & tasks | Workforce dashboard and assigned work | Missing |
 | Payroll, compensation, referral rewards | Staff compensation controls | Missing |
-| Finance GL/journals/accounting | Double-entry, immutable posted journals and reports | D1 foundation only |
-| Invoices, collections, receipts, allocations | Student receivables and reconciliations | D1 foundation only |
+| Finance GL/journals/accounting | Double-entry, immutable posted journals and reports | Initial invoices and collections use balanced GL; revenue recognition and full statements pending |
+| Invoices, collections, receipts, allocations | Student receivables and reconciliations | Exact-price invoice, overpayment-guarded collection, audit and GL journal staged; further reconciliation pending |
 | Discounts, refunds, purchases, suppliers, expenses | Finance operations and approvals | Missing |
 | Inventory/stock/assets/cash handling | Operational ledgers and closing | Missing |
 | Reporting, dashboard, audit logs, exports | Governed views and reliable summaries | Basic prospect dashboard live; full reports missing |
