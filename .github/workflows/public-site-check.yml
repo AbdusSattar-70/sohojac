@@ -525,6 +525,13 @@ jobs:
             -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
             --data '{"status":"CONTACTED","note":"CI follow-up test"}')
           echo "authorized staff update HTTP status: $staff_update_status"
+          if [ "$staff_update_status" != "200" ]; then
+            echo "Legacy prospect mutation response:"
+            cat /tmp/staff-update.json
+            pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql \
+              "SELECT p.status,p.version,e.status FROM academy_prospects p JOIN public_enquiries e ON e.id=p.id WHERE e.id='$enquiry_id'"
+          fi
+
           test "$staff_update_status" = "200"
           history_status=$(curl -sS -o /tmp/staff-history.json -w '%{http_code}' \
             -b /tmp/staff-ci-cookies "http://localhost:4173/api/staff/prospects/$enquiry_id")
