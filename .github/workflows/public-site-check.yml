@@ -140,6 +140,49 @@ jobs:
           test "$history_status" = "200"
           grep -q 'CI follow-up test' /tmp/staff-history.json
 
+
+          # Academic-year production candidate (local D1; no real student data).
+          echo "Testing academic year create, activation, uniqueness, concurrency and close"
+          unauthed_year=$(curl -sS -o /tmp/year-anonymous.json -w '%{http_code}' "http://localhost:4173/api/staff/academic-years")
+          test "$unauthed_year" = "401"
+          unauthed_year_post=$(curl -sS -o /tmp/year-anonymous-write.json -w '%{http_code}' -X POST "http://localhost:4173/api/staff/academic-years" -H "Content-Type: application/json" --data '{}')
+          test "$unauthed_year_post" = "401"
+          year_created=$(curl -sS -o /tmp/year-created.json -w '%{http_code}' -b /tmp/staff-ci-cookies \
+            -X POST "http://localhost:4173/api/staff/academic-years" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"code":"2027","title":"Academic Year 2027","startsOn":"2027-01-01","endsOn":"2027-12-31"}')
+          test "$year_created" = "201"
+          year_id=$(node -e 'const r=require("/tmp/year-created.json");if(r.status!=="DRAFT")process.exit(1);process.stdout.write(r.id)')
+          duplicate_year=$(curl -sS -o /tmp/year-duplicate.json -w '%{http_code}' -b /tmp/staff-ci-cookies \
+            -X POST "http://localhost:4173/api/staff/academic-years" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"code":"2027","title":"Academic Year 2027","startsOn":"","endsOn":""}')
+          test "$duplicate_year" = "409"
+          year_activated=$(curl -sS -o /tmp/year-active.json -w '%{http_code}' -b /tmp/staff-ci-cookies \
+            -X PATCH "http://localhost:4173/api/staff/academic-years/$year_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"title":"Academic Year 2027","startsOn":"2027-01-01","endsOn":"2027-12-31","nextStatus":"ACTIVE","expectedVersion":1,"reason":"Approved first active year"}')
+          test "$year_activated" = "200"
+          second_year=$(curl -sS -o /tmp/second-year.json -w '%{http_code}' -b /tmp/staff-ci-cookies \
+            -X POST "http://localhost:4173/api/staff/academic-years" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"code":"2028","title":"Academic Year 2028","startsOn":"","endsOn":""}')
+          test "$second_year" = "201"
+          year_second_id=$(node -e 'process.stdout.write(require("/tmp/second-year.json").id)')
+          second_activation=$(curl -sS -o /tmp/second-year-conflict.json -w '%{http_code}' -b /tmp/staff-ci-cookies \
+            -X PATCH "http://localhost:4173/api/staff/academic-years/$year_second_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"title":"Academic Year 2028","startsOn":"","endsOn":"","nextStatus":"ACTIVE","expectedVersion":1,"reason":"Second active year is forbidden"}')
+          test "$second_activation" = "409"
+          stale_year=$(curl -sS -o /tmp/stale-year.json -w '%{http_code}' -b /tmp/staff-ci-cookies \
+            -X PATCH "http://localhost:4173/api/staff/academic-years/$year_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"title":"Stale Academic Year","startsOn":"","endsOn":"","nextStatus":"ACTIVE","expectedVersion":1,"reason":"Old version must be rejected"}')
+          test "$stale_year" = "409"
+          year_closed=$(curl -sS -o /tmp/year-closed.json -w '%{http_code}' -b /tmp/staff-ci-cookies \
+            -X PATCH "http://localhost:4173/api/staff/academic-years/$year_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"title":"Academic Year 2027","startsOn":"2027-01-01","endsOn":"2027-12-31","nextStatus":"CLOSED","expectedVersion":2,"reason":"Year closed following approval"}')
+          test "$year_closed" = "200"
+          years_page=$(curl -sS -o /tmp/academic-years-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/academic-years")
+          test "$years_page" = "200"
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
+            --sql "SELECT (SELECT COUNT(*) FROM academic_years WHERE status='ACTIVE'),(SELECT COUNT(*) FROM academic_years WHERE status='CLOSED' AND version=3),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type='academic_year')" > /tmp/academic-year-ci.json
+          node -e 'const r=require("/tmp/academic-year-ci.json")[0]?.results?.rows?.[0];if(r?.[0]!==0||r?.[1]!==1||r?.[2]!==4)process.exit(1)'
+
           # Revoking a staff membership removes access even with a live
           # Better Auth session cookie; do not rely on client-side role state.
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
@@ -308,5 +351,8 @@ jobs:
           done
           status=$(curl -sS --max-time 15 -o /dev/null -w '%{http_code}' https://sohojac.com/api/staff/prospects)
           test "$status" = "401" || { echo "::error::Private prospect endpoint returned HTTP $status instead of 401"; exit 1; }
+          status=$(curl -sS --max-time 15 -o /dev/null -w '%{http_code}' https://sohojac.com/api/staff/academic-years)
+          test "$status" = "401" || { echo "::error::Academic year endpoint returned HTTP $status instead of 401"; exit 1; }
+          echo "Academic-year endpoint deployed with anonymous access denied."
           echo "Site healthy; unauthenticated prospect access denied."
 

@@ -40,6 +40,7 @@ const groups: Group[] = [
   {
     title: "Academics",
     items: [
+      { label: "Academic years", href: "/app/academic-years", icon: CalendarDays },
       { label: "Programme offerings", icon: GraduationCap },
       { label: "Batches & routines", icon: CalendarDays },
     ],
@@ -82,7 +83,9 @@ export function StaffShell({ staff, children }: { staff: StaffAccess; children: 
     return () => window.removeEventListener("keydown", close);
   }, [mobileOpen]);
 
-  const pageTitle = pathname.startsWith("/app/prospects") ? "Enquiries" : "Overview";
+  const pageTitle = pathname.startsWith("/app/prospects") ? "Enquiries"
+    : pathname.startsWith("/app/academic-years") ? "Academic years"
+    : "Overview";
 
   async function signOut() {
     if (signingOut) return;
