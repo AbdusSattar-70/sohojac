@@ -42,6 +42,8 @@ jobs:
         run: node scripts/check-staff-number-parity.mjs
       - name: Report original ERP route and module coverage (not a parity pass)
         run: node scripts/audit-source-first-erp.mjs
+      - name: Verify exact original dashboard UI port
+        run: node scripts/verify-original-dashboard-ui.mjs
       - name: Reject destructive migrations before any deployment
         run: node scripts/check-d1-migrations.mjs
       - name: Apply public D1 migrations locally

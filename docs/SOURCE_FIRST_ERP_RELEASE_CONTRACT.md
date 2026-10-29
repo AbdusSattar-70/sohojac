@@ -36,3 +36,14 @@ Strict page/file gate: node scripts/audit-source-first-erp.mjs --strict
 ## Implementation rule
 
 Start from the ACTUAL original screen/component/module files. Preserve UI, route, schema semantics and workflow behavior; replace only Supabase adapters with D1/Workers/R2/Better Auth. Do not substitute a simplified new interface. Keep incomplete modules outside final acceptance.
+
+## Implementation proof of source-first approach (draft branch only)
+- The original `app/dashboard/page.tsx` is copied **byte for byte** from
+  source Git blob `29775f515071f4d4d09911937787a857d4d27f38`; it is NOT the simplified new dashboard.
+- `modules/dashboard/queries.ts` provides the original return contract
+  through Cloudflare D1 with permission-filtered counts.
+- As-yet-unmigrated approval and follow-up metrics return **null**, not
+  invented zeros. Links to unported routes remain incomplete, which is
+  why this migration branch is not yet releasable.
+- CI checks the original dashboard Git blob hash. All other original
+  domain workflows and pages must still be moved before final release.
