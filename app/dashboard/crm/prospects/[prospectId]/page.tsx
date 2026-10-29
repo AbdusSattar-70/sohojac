@@ -1,4 +1,5 @@
 import { ProspectAssignmentForm } from "@/modules/crm/components/prospect-assignment-form";
+import { ProspectReconciliationForm } from "@/modules/crm/components/prospect-reconciliation-form";
 import { getProspectAssignmentOptions } from "@/modules/crm/queries";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -63,7 +64,8 @@ export default async function ProspectDetailPage({
           <div className="flex flex-wrap gap-2">
             {can(context, "admissions.create") &&
             prospect.status !== "CONVERTED" &&
-            prospect.status !== "LOST" ? (
+            prospect.status !== "LOST" &&
+            prospect.status !== "LEGACY_CLOSED" ? (
               <Link
                 href={`/dashboard/admissions?prospect=${prospect.id}`}
                 className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-blue-700 px-4 text-sm font-semibold text-white hover:bg-blue-800"
@@ -83,6 +85,9 @@ export default async function ProspectDetailPage({
       />
 
       {prospect.status === "LEGACY_CLOSED" && <p role="status" className="rounded-xl border border-amber-300 p-4 text-sm">This historical website enquiry was marked CLOSED under an older, simpler status system. It has not been classified as LOST or CONVERTED. Verify its history before deciding how to reopen it.</p>}
+      {prospect.status === "LEGACY_CLOSED" && can(context, "crm.prospects.manage") && (
+        <ProspectReconciliationForm prospectId={prospect.id} />
+      )}
       {assignment && (
         <ProspectAssignmentForm
           prospectId={prospect.id}
