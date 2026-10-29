@@ -249,6 +249,16 @@ jobs:
             -b /tmp/staff-ci-cookies "http://localhost:4173/api/staff/directory")
           echo "owner staff register HTTP: $owner_staff_status"
           test "$owner_staff_status" = "200"
+          original_staff_status=$(curl -sS -o /tmp/ci-original-staff.html -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/staff")
+          echo "original ERP staff register HTTP: $original_staff_status"
+          test "$original_staff_status" = "200"
+          grep -q 'SA-STF-000001' /tmp/ci-original-staff.html
+          account_page=$(curl -sS -o /tmp/ci-staff-account.html -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/account")
+          test "$account_page" = "200"
+          grep -q 'SA-STF-000001' /tmp/ci-staff-account.html
+
           node -e 'const r=require("/tmp/ci-owner-staff-directory.json").items;if(r.length!==2||r[0].staff_no!=="SA-STF-000002"||r[1].staff_no!=="SA-STF-000001"||r[0].staff_no===r[1].staff_no)process.exit(1)'
           anonymous_staff=$(curl -sS -o /dev/null -w '%{http_code}' \
             "http://localhost:4173/api/staff/directory")
