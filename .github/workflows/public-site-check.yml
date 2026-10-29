@@ -44,6 +44,8 @@ jobs:
         run: node scripts/audit-source-first-erp.mjs
       - name: Verify exact original dashboard UI port
         run: node scripts/verify-original-dashboard-ui.mjs
+      - name: Verify source Staff Register UI and D1 security adapters
+        run: node scripts/verify-original-staff-port.mjs
       - name: Reject destructive migrations before any deployment
         run: node scripts/check-d1-migrations.mjs
       - name: Apply public D1 migrations locally
@@ -258,6 +260,15 @@ jobs:
           echo "original ERP staff register HTTP: $original_staff_status"
           test "$original_staff_status" = "200"
           grep -q 'SA-STF-000001' /tmp/ci-original-staff.html
+          # Original source Staff Register and access queue appear together.
+          grep -q 'Staff ID / name' /tmp/ci-original-staff.html
+          grep -q 'Staff access requests' /tmp/ci-original-staff.html
+          grep -q 'Edit details' /tmp/ci-original-staff.html
+          grep -q 'Mark inactive' /tmp/ci-original-staff.html
+          anonymous_original_staff=$(curl -sS -o /dev/null -w '%{http_code}' \
+            "http://localhost:4173/dashboard/staff")
+          test "$anonymous_original_staff" != "200"
+
           account_page=$(curl -sS -o /tmp/ci-staff-account.html -w '%{http_code}' \
             -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/account")
           test "$account_page" = "200"
