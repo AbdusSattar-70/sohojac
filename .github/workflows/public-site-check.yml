@@ -176,6 +176,11 @@ jobs:
           echo "original ERP dashboard HTTP: $dashboard_status"
           test "$dashboard_status" = "200"
           grep -q "Digital Campus" /tmp/ci-legacy-dashboard.html
+          original_settings=$(curl -sS --max-time 20 -o /tmp/ci-original-settings.html -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/academics/settings")
+          echo "source academic settings on D1 HTTP: $original_settings"
+          test "$original_settings" = "200"
+          grep -q "Academic &amp; registration settings\|Academic & registration settings" /tmp/ci-original-settings.html
           anonymous_dashboard=$(curl -sS -o /dev/null -w '%{http_code}' \
             "http://localhost:4173/dashboard")
           echo "anonymous ERP dashboard HTTP: $anonymous_dashboard"
@@ -247,6 +252,10 @@ jobs:
             -b /tmp/teacher-ci-cookies "http://localhost:4173/api/staff/prospects")
           echo "teacher forbidden prospects HTTP: $teacher_access"
           test "$teacher_access" = "403"
+          teacher_settings=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -b /tmp/teacher-ci-cookies "http://localhost:4173/dashboard/academics/settings")
+          echo "teacher unauthorized academic settings HTTP: $teacher_settings"
+          test "$teacher_settings" != "200"
 
           # Academic-year workflow: owner creates drafts, overlapping active years,
           # version-safe edits, irreversible closure and role protection.
