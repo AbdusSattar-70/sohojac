@@ -152,3 +152,34 @@ present at their original paths. Presence is not proof of runtime parity.
 
 The source-first branch is intentionally **draft** and must not
 auto-deploy; only `master` is currently production.
+
+
+## Additional source-first slices — 2026-10-30 (draft only)
+
+### Student Register
+- `app/dashboard/students/page.tsx` is copied byte-for-byte from pinned
+  `sohoj-academy@f46b6161`; D1 `modules/students/queries.ts`
+  matches the original paginated/searchable result contract.
+- Only `academy_students` is read; CRM enquiries are never treated as
+  enrolled students. Access requires `students.view` server-side.
+- Smoke test exercises a genuine synthetic atomic enrollment, original Student
+  Register rendering, permanent ID, search, anonymous denial and teacher denial.
+- **Not full Student Lifecycle parity**: original student detail, guardian
+  history, transfers, re-enrollment, merge and close-enrollment actions are
+  outstanding. The source list's detail links need their original destination
+  restored before end-user acceptance.
+
+### Audit Trail
+- The original `/dashboard/governance/audit` route and audit table component
+  are restored, with the ERP language fixed to English.
+- D1 `modules/governance/queries.ts` reads actual `erp_audit_events`, joins
+  authenticated actor/staff identity and role, and supports bounded search,
+  entity/action/date filtering and pagination. Unauthorized viewers are denied.
+- Activity totals for original Supabase workflows not yet reconciled are
+  deliberately `null` (not fabricated zeros). Cross-ledger audit coverage,
+  source correlation IDs and finance activity reconciliations remain missing.
+- Tests include exact original route blob, permission/query contract, actual
+  event rendering, search and role denial.
+
+**Release gate unchanged**: these slices are development code in draft PR #16,
+not a fully restored ERP and not a reason to deploy or merge it.
