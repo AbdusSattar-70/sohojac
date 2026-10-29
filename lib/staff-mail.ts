@@ -10,7 +10,7 @@ type EmailBindings = { RESEND_API_KEY?: string; STAFF_EMAIL_FROM?: string };
 export function staffMailConfigured(): boolean {
   const e = env as typeof env & EmailBindings;
   return Boolean(e.RESEND_API_KEY && e.STAFF_EMAIL_FROM &&
-    /^(?:[^\\s@<>]+@[^\\s@<>]+\\.[A-Za-z]{2,}|[A-Za-z0-9 .'-]{1,80} <[^\\s@<>]+@[^\\s@<>]+\\.[A-Za-z]{2,}>)$/.test(e.STAFF_EMAIL_FROM));
+    /^(?:[^\s@<>]+@[^\s@<>]+\.[A-Za-z]{2,}|[A-Za-z0-9 .'-]{1,80} <[^\s@<>]+@[^\s@<>]+\.[A-Za-z]{2,}>)$/.test(e.STAFF_EMAIL_FROM));
 }
 
 export async function sendStaffEmail({
