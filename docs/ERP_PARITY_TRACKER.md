@@ -23,7 +23,7 @@ in the live D1, no student/guardian login, staff UI English only.
 | Password reset | Better Auth recovery + real staff email | UI and code staged; requires verified mail sender and delivery test |
 | Account/profile, role management, MFA | Authorized staff lifecycle | Missing |
 | Branches, academic years, classes/groups | Academic configuration screens, D1 persistence | D1 foundation only |
-| Subjects, programmes, offerings, fee plans | Academic catalogue, public website projections | Offering and fee-plan management staged; subjects/programme setup pending |
+| Subjects, programmes, offerings, fee plans | Academic catalogue, public website projections | Subject/offering linkage and fee-plan management staged; dedicated programme template management pending |
 | Batches, schedules, capacity | Academic offerings and batch register | Batch create/edit/lifecycle tested on isolated branch; timetable pending |
 | CRM prospects, assignments, referral sources | CRM pipeline, staff follow-up | Prospect list/status/audit live; assignment/referral missing |
 | Admissions, reviews, consent, print form | Draft → review → accept → bill → enroll | Draft → review → accept → bill → enroll and A4 consent form implemented on isolated branch; production checks pending |
