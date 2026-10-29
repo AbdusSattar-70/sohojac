@@ -65,6 +65,34 @@ jobs:
             }
           done
           grep -q "Learning should be" /tmp/sohojac-home.html
+          for route in /sign-in /forgot-password /reset-password /request-access; do
+            curl -fsS "http://localhost:4173$route" > /tmp/staff-auth-page.html
+          done
+          grep -q "Request staff access" /tmp/staff-auth-page.html
+
+          # Anonymous access requests only create review records, never a login.
+          anonymous_queue=$(curl -sS -o /tmp/private-access-queue.json -w '%{http_code}' \
+            "http://localhost:4173/api/staff/access-requests")
+          test "$anonymous_queue" = "401"
+          invalid_access=$(curl -sS -o /tmp/invalid-access.json -w '%{http_code}' \
+            -X POST "http://localhost:4173/api/staff/access-request" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"fullName":"T","email":"x","mobile":"123","requestedRole":"OWNER","purpose":"x","consent":true}')
+          test "$invalid_access" = "400"
+          valid_access=$(curl -sS -o /tmp/valid-access.json -w '%{http_code}' \
+            -X POST "http://localhost:4173/api/staff/access-request" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"fullName":"Synthetic Staff Applicant","email":"applicant-ci@example.invalid","mobile":"01700000002","requestedRole":"TEACHER","purpose":"Synthetic teacher access verification","consent":true,"website":"","turnstileToken":""}')
+          test "$valid_access" = "202"
+          duplicate_access=$(curl -sS -o /tmp/duplicate-access.json -w '%{http_code}' \
+            -X POST "http://localhost:4173/api/staff/access-request" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"fullName":"Synthetic Staff Applicant","email":"applicant-ci@example.invalid","mobile":"01700000002","requestedRole":"TEACHER","purpose":"Synthetic teacher access verification","consent":true,"website":"","turnstileToken":""}')
+          test "$duplicate_access" = "202"
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
+            --sql "SELECT COUNT(*) FROM staff_access_requests WHERE email='applicant-ci@example.invalid' AND status='PENDING'" > /tmp/access-count.json
+          node -e 'const r=require("/tmp/access-count.json");if(r[0]?.results?.rows?.[0]?.[0]!==1)process.exit(1);'
+
           curl -fsS --max-time 20 -X POST "http://localhost:4173/api/enquiries" \
             -H "Content-Type: application/json" \
             --data '{"intent":"interest","offeringId":"","studentName":"Smoke Test Student","className":"Class 8","guardianName":"Smoke Test Guardian","mobile":"01700000000","subjectNames":["English"],"preferredSchedule":"","preferredDays":[],"trialInterest":false,"consent":true,"website":"","turnstileToken":""}' \
@@ -118,6 +146,27 @@ jobs:
           staff_list_status=$(curl -sS -o /tmp/staff-prospects.json -w '%{http_code}' \
             -b /tmp/staff-ci-cookies "http://localhost:4173/api/staff/prospects")
           test "$staff_list_status" = "200"
+
+          # Owner can verify a request, but verification never creates a login.
+          queue_code=$(curl -sS -o /tmp/owner-access-queue.json -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies "http://localhost:4173/api/staff/access-requests")
+          test "$queue_code" = "200"
+          access_id=$(node -e 'const fs=require("fs");const r=JSON.parse(fs.readFileSync("/tmp/owner-access-queue.json","utf8"));const item=r.items.find(x=>x.email==="applicant-ci@example.invalid");if(!item)process.exit(1);process.stdout.write(item.id)')
+          review_code=$(curl -sS -o /tmp/owner-review.json -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/access-requests/$access_id" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"decision":"VERIFIED","assignedRole":"TEACHER","note":"Identity confirmed in synthetic local CI test"}')
+          echo "access review HTTP: $review_code"
+          test "$review_code" = "200"
+          reviewed_again=$(curl -sS -o /tmp/access-retry.json -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/access-requests/$access_id" \
+            -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+            --data '{"decision":"VERIFIED","assignedRole":"TEACHER","note":"Attempt to verify again must be denied"}')
+          test "$reviewed_again" = "409"
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
+            --sql "SELECT (SELECT COUNT(*) FROM staff_access_requests WHERE status='VERIFIED'), (SELECT COUNT(*) FROM erp_audit_events WHERE entity_type='staff_access_request'), (SELECT COUNT(*) FROM \"user\")" > /tmp/access-verified.json
+          node -e 'const r=require("/tmp/access-verified.json");const n=r[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==1||n?.[2]!==1)process.exit(1);'
+
 
           # Server-rendered staff pages also require the valid owner session.
           for route in /app /app/prospects; do
