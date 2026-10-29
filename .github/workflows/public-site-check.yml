@@ -409,6 +409,15 @@ jobs:
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM academy_admissions WHERE status='ENROLLED' AND student_id IS NOT NULL),(SELECT COUNT(*) FROM academy_students),(SELECT COUNT(*) FROM academy_enrollments WHERE status='ACTIVE'),(SELECT COUNT(*) FROM finance_invoices WHERE amount_paisa=400000 AND paid_paisa=0 AND status='ISSUED'),(SELECT COUNT(*) FROM finance_payments),(SELECT COUNT(*) FROM erp_audit_events WHERE action='ENROLLED')" > /tmp/ci-enrollment-verified.json
           node -e 'const n=require("/tmp/ci-enrollment-verified.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==1||n?.[2]!==1||n?.[3]!==1||n?.[4]!==0||n?.[5]!==1)process.exit(1);'
 
+
+          # A4 signature form must be available to an authenticated operator.
+          consent_form=$(curl -sS -o /tmp/ci-admission-form.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/admissions/$admission_id/print")
+          test "$consent_form" = "200"
+          grep -q "Student signature" /tmp/ci-admission-form.html
+          grep -q "Guardian signature" /tmp/ci-admission-form.html
+          grep -q "Prepared by" /tmp/ci-admission-form.html
+          grep -q "Approved by" /tmp/ci-admission-form.html
+
           # Revoking a staff membership removes access even with a live
           # Better Auth session cookie; do not rely on client-side role state.
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \

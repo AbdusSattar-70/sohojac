@@ -121,7 +121,10 @@ export function AdmissionsRegister(){
               <p className="text-xs text-slate-500">{row.application_no} · {row.offering_name} · Class {row.class_grade} · {row.guardian_full_name}</p>
               <p className="text-xs text-slate-500">Guardian: {row.guardian_mobile}</p>
             </div>
-            <span className="rounded-lg bg-blue-50 px-3 py-1 text-xs font-extrabold text-blue-800">{row.status}</span>
+            <div className="flex flex-wrap items-center gap-3">
+              <Link className="text-xs font-bold text-blue-700 underline" href={"/app/admissions/"+row.id+"/print"}>Print A4 admission form</Link>
+              <span className="rounded-lg bg-blue-50 px-3 py-1 text-xs font-extrabold text-blue-800">{row.status}</span>
+            </div>
           </div>
           {row.status==="DRAFT"&&<div className="mt-4 grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-3">
             <label className="text-xs font-bold">Student name<input className={field} value={edit.studentName} maxLength={160} onChange={e=>patchDraft(row.id,{studentName:e.target.value})}/></label>
