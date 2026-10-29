@@ -72,3 +72,31 @@ Legacy groups inspected in the source tree:
 ## Production safeguard
 
 Master is the sole production-deployment branch. The development branch `feature/erp_access_lifecycle` is not a deploy target. This consolidation was authorized as a full-code merge; pending feature parity and staff acceptance testing remain documented above. Prior deployed state is available in `feature/staff_crm_better_auth` and commit history; do not force-update production branches or rewrite applied D1 migrations.
+
+
+## Exact-source migration work-in-progress (draft PR #13)
+
+The live `master` implementation above is **not** the source-parity ERP. On
+`refactor/original-erp-architecture-20261029`, we have now:
+
+- Preserved original `ErpContext`, permission-linked routes and workspace
+  navigation, plus source `ErpShell`, `ErpSidebar`, `ErpHeader`, account,
+  workflow and page-render components. The sidebar primitive uses an existing
+  React/Tailwind compatibility layer; exact visual parity needs acceptance.
+- Added `/dashboard` and `/dashboard/account`; anonymous denial and owner
+  rendering are verified against local D1.
+- Added D1 user permission grants for named original ERP permissions.
+  Owner routes are available; other staff roles require explicit grants.
+- Removed the erroneous single-active-academic-year uniqueness index in a
+  narrowly reviewed schema-only migration. Existing year records are intact.
+- Restored the **original** Academic & Registration Settings page/form/schema,
+  mapped to the existing D1 years, subjects and programmes with six new
+  missing lookup tables. A D1 authorization-aware, reason-audited server
+  action replaces the Supabase RPC. Page rendering and role denial passed CI;
+  an authenticated full create/edit/reopen acceptance walkthrough is still
+  required before calling the workspace fully verified.
+
+**Release gate:** This draft PR is intentionally *not merged to master*.
+Finance, admissions, workforce, teacher academics and other source workflows
+are still incomplete; neither the old `/app` UI nor this preview is an
+exact source-parity ERP. No production D1 migration has been applied by this PR.

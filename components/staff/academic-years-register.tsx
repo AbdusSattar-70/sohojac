@@ -74,8 +74,8 @@ export function AcademicYearsRegister(){
       <p className="text-xs font-extrabold uppercase tracking-widest text-blue-700">Academic settings</p>
       <h1 className="mt-1 text-2xl font-extrabold text-slate-950">Academic years</h1>
       <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-        Create years in draft, then activate one year when ready.
-        Only one year may be active at a time. Closing an active year is irreversible.
+        Create years in draft, then activate each year independently.
+        Multiple academic years can remain active together. Closing an active year is irreversible.
       </p>
     </header>
     {message&&<p role="status" className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">{message}</p>}
