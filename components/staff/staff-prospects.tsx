@@ -131,7 +131,7 @@ export function StaffProspects({ initialStatus = "ALL" }: { initialStatus?: Filt
   return <div className="space-y-6">
     <div className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-200 pb-5">
       <div>
-        <Link href="/app" className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 hover:underline">
+        <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 hover:underline">
           <ArrowLeft size={14}/> Digital Campus
         </Link>
         <p className="mt-3 text-xs font-bold uppercase tracking-[0.16em] text-blue-700">CRM & applications</p>
