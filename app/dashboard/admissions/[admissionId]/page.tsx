@@ -74,7 +74,7 @@ export default async function AdmissionCasePage({
     : "No initial bill has been posted for this case."}</p>
    <p className="mt-2 text-sm">Review note: {a.review_note??"Not recorded"}</p>
    <div className="mt-4 flex flex-wrap gap-4 text-sm">
-    <Link className="underline" href={`/app/admissions/${a.id}/print`}>Open existing verified case printout</Link>
+    <Link className="underline" href={`/dashboard/admissions/${a.id}/print`}>Print original A4 admission case</Link>
     <Link className="underline" href="/app/admissions">Continue the existing operational admission workbench</Link>
    </div>
   </section>
