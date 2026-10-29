@@ -1313,3 +1313,19 @@ jobs:
           echo "Staging ERP deployed: $BETTER_AUTH_URL"
           echo "Dev has an independent D1 and needs its own OWNER setup; no production records were copied."
 
+  dev_cleanup:
+    name: Prune safely merged, obsolete feature branches
+    needs: [build, dev_release]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out exact deployed dev commit
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Delete only integrated branches with unchanged observed SHA
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/prune-integrated-dev-branches.mjs
