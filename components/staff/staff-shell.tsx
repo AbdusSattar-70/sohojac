@@ -62,6 +62,7 @@ const groups: Group[] = [
     items: [
       { label: "Staff & access", href: "/app/staff-access", icon: ShieldCheck, ownerAdminOnly: true },
       { label: "Settings", icon: Settings2 },
+      { label: "Audit history", href: "/app/audit", icon: ShieldCheck, ownerAdminOnly: true },
       { label: "Help & workflows", icon: CircleHelp },
     ],
   },
@@ -91,6 +92,7 @@ export function StaffShell({ staff, children }: { staff: StaffAccess; children: 
   const pageTitle = pathname.startsWith("/app/prospects") ? "Enquiries"
     : pathname.startsWith("/app/staff-access") ? "Staff & access"
     : pathname.startsWith("/app/academic-years") ? "Academic years"
+    : pathname.startsWith("/app/audit") ? "Audit history"
     : pathname.startsWith("/app/attendance") ? "Attendance"
     : pathname.startsWith("/app/collections") ? "Collections"
     : pathname.startsWith("/app/students") ? "Students"

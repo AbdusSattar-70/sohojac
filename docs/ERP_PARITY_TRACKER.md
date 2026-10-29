@@ -35,7 +35,7 @@ in the live D1, no student/guardian login, staff UI English only.
 | Invoices, collections, receipts, allocations | Student receivables and reconciliations | Exact-price invoice, overpayment-guarded collection, audit and GL journal staged; further reconciliation pending |
 | Discounts, refunds, purchases, suppliers, expenses | Finance operations and approvals | Missing |
 | Inventory/stock/assets/cash handling | Operational ledgers and closing | Missing |
-| Reporting, dashboard, audit logs, exports | Governed views and reliable summaries | Basic prospect dashboard live; full reports missing |
+| Reporting, dashboard, audit logs, exports | Governed views and reliable summaries | Restricted, paginated audit-history viewer staged; full reports and exports missing |
 | Help, action center, setup guidance | Staff workflow guides and onboarding | Sidebar placeholder only |
 
 Legacy groups inspected in the source tree:

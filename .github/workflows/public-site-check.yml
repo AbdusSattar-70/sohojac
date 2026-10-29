@@ -482,6 +482,19 @@ jobs:
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM academy_attendance WHERE state='LATE' AND version=2),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type='academy_attendance')" > /tmp/ci-attendance-verified.json
           node -e 'const n=require("/tmp/ci-attendance-verified.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==2)process.exit(1);'
 
+          echo 'CI entering audit viewer checks'
+
+          # Governance: only admins may read audit actor/reason (no raw PII JSON).
+          unauth_audit=$(curl -sS -o /tmp/ci-unauth-audit.json -w '%{http_code}' "http://localhost:4173/api/staff/audit")
+          test "$unauth_audit" = "401"
+          teacher_audit=$(curl -sS -o /tmp/ci-teacher-audit.json -w '%{http_code}' -b /tmp/teacher-ci-cookies "http://localhost:4173/api/staff/audit")
+          test "$teacher_audit" = "403"
+          owner_audit=$(curl -sS -o /tmp/ci-owner-audit.json -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/api/staff/audit?type=academy_attendance&page=1")
+          test "$owner_audit" = "200"
+          node -e 'const x=require("/tmp/ci-owner-audit.json");if(x.items?.length!==2||x.items.some(e=>Object.hasOwn(e,"before_json")||Object.hasOwn(e,"after_json")))process.exit(1);'
+          audit_page=$(curl -sS -o /tmp/ci-audit-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/audit")
+          test "$audit_page" = "200"
+
           # Revoking a staff membership removes access even with a live
           # Better Auth session cookie; do not rely on client-side role state.
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
