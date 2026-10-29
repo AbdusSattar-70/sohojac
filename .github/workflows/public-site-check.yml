@@ -50,6 +50,8 @@ jobs:
         run: node scripts/verify-original-help-port.mjs
       - name: Verify source CRM UI, status transitions and D1 authorization
         run: node scripts/verify-original-crm-port.mjs
+      - name: Verify historical CRM reconciliation permissions and audit contract
+        run: node scripts/verify-crm-history-reconciliation.mjs
       - name: Reject destructive migrations before any deployment
         run: node scripts/check-d1-migrations.mjs
       - name: Apply public D1 migrations locally
