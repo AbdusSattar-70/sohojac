@@ -1,4 +1,5 @@
 import {env} from "cloudflare:workers";
+import {notFound} from "next/navigation";
 import {requirePermission} from "@/modules/platform/auth/erp-context";
 import {workspaceSchema} from "./schema";
 
@@ -162,7 +163,7 @@ export async function getAdmissionCase(admissionId:string){
    "WHERE inv.admission_id=? ORDER BY p.received_at,p.id LIMIT 100"
   ].join(" ")).bind(admissionId).all<Receipt>()
  ]);
- if(!caseRow)return null;
+ if(!caseRow)notFound();
  const a=caseRow;
  const hasBill=a.bill_id!==null,total=(a.bill_amount_paisa??0)/100;
  const paid=(a.invoice_paid_paisa??0)/100;
