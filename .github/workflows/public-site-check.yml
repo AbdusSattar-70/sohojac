@@ -52,6 +52,8 @@ jobs:
         run: node scripts/verify-original-crm-port.mjs
       - name: Verify historical CRM reconciliation permissions and audit contract
         run: node scripts/verify-crm-history-reconciliation.mjs
+      - name: Verify original Website Management design and D1 public control contract
+        run: node scripts/verify-original-website-management.mjs
       - name: Reject destructive migrations before any deployment
         run: node scripts/check-d1-migrations.mjs
       - name: Apply public D1 migrations locally
@@ -227,6 +229,14 @@ jobs:
           grep -q 'Record Follow-up' /tmp/ci-crm-detail.html
           grep -q 'School Pending Review' /tmp/ci-crm-detail.html
           grep -q 'Follow-up Timeline' /tmp/ci-crm-detail.html
+          original_website_management=$(curl -sS -o /tmp/ci-original-website-management.html -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/crm/manage")
+          echo "Original Website Management HTTP: $original_website_management"
+          test "$original_website_management" = "200"
+          grep -q "Website management" /tmp/ci-original-website-management.html
+          grep -q "Programme showcase" /tmp/ci-original-website-management.html
+          grep -q "Edit public content" /tmp/ci-original-website-management.html
+
           anonymous_crm=$(curl -sS -o /dev/null -w '%{http_code}' \
             "http://localhost:4173/dashboard/crm/prospects")
           test "$anonymous_crm" != "200"
@@ -425,6 +435,10 @@ jobs:
           teacher_crm=$(curl -sS -o /dev/null -w '%{http_code}' \
             -b /tmp/teacher-ci-cookies "http://localhost:4173/dashboard/crm/prospects")
           test "$teacher_crm" != "200"
+          teacher_website_management=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -b /tmp/teacher-ci-cookies "http://localhost:4173/dashboard/crm/manage")
+          test "$teacher_website_management" != "200"
+
 
 
           # Academic-year workflow: owner creates drafts, overlapping active years,
