@@ -234,7 +234,7 @@ jobs:
             -b /tmp/teacher-ci-cookies "http://localhost:4173/api/staff/prospects")
           test "$teacher_access" = "403"
 
-          # Academic-year workflow: owner creates drafts, one active year,
+          # Academic-year workflow: owner creates drafts, overlapping active years,
           # version-safe edits, irreversible closure and role protection.
           anonymous_years=$(curl -sS -o /tmp/ci-anon-years.json -w '%{http_code}' \
             "http://localhost:4173/api/staff/academic-years")
@@ -259,8 +259,8 @@ jobs:
           second_active=$(curl -sS -o /tmp/ci-second-active.json -w '%{http_code}' \
             -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/academic-years/$year_two_id" \
             -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
-            --data '{"title":"Academic Year CI 2027","startsOn":"2027-01-01","endsOn":"2027-12-31","nextStatus":"ACTIVE","expectedVersion":1,"reason":"This must fail while 2026 is active"}')
-          test "$second_active" = "409"
+            --data '{"title":"Academic Year CI 2027","startsOn":"2027-01-01","endsOn":"2027-12-31","nextStatus":"ACTIVE","expectedVersion":1,"reason":"Overlapping active years are supported"}')
+          test "$second_active" = "200"
           year_closed=$(curl -sS -o /tmp/ci-year-closed.json -w '%{http_code}' \
             -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/academic-years/$year_one_id" \
             -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
@@ -274,7 +274,7 @@ jobs:
           second_now_active=$(curl -sS -o /tmp/ci-second-activate.json -w '%{http_code}' \
             -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/academic-years/$year_two_id" \
             -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
-            --data '{"title":"Academic Year CI 2027","startsOn":"2027-01-01","endsOn":"2027-12-31","nextStatus":"ACTIVE","expectedVersion":1,"reason":"Activate next year after closure"}')
+            --data '{"title":"Academic Year CI 2027","startsOn":"2027-01-01","endsOn":"2027-12-31","nextStatus":"ACTIVE","expectedVersion":2,"reason":"Confirm active year remains active after closure"}')
           test "$second_now_active" = "200"
           teacher_year_read=$(curl -sS -o /tmp/ci-teacher-years.json -w '%{http_code}' \
             -b /tmp/teacher-ci-cookies "http://localhost:4173/api/staff/academic-years")
