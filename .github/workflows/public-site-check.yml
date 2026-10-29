@@ -143,6 +143,15 @@ jobs:
               cat /tmp/sohojac-enquiry.json || true
               exit 1
             }
+          # Public submissions are rate-limited for ONE MINUTE. Check immediately
+          # after the first submission, not after the multi-minute ERP test suite.
+          # A second submission with the same contact must be rate-limited.
+          duplicate_status=$(curl -sS -o /tmp/enquiry-duplicate.json -w '%{http_code}' -X POST "http://localhost:4173/api/enquiries" \
+            -H "Content-Type: application/json" \
+            --data '{"intent":"interest","offeringId":"","studentName":"Smoke Test Student","className":"Class 8","guardianName":"Smoke Test Guardian","mobile":"01700000000","subjectNames":[],"preferredSchedule":"","preferredDays":[],"trialInterest":false,"consent":true,"website":"","turnstileToken":""}')
+          echo "duplicate_status: $duplicate_status"
+          test "$duplicate_status" = "429"
+
           # Private staff resources are never readable anonymously.
           private_status=$(curl -sS -o /tmp/sohojac-private.json -w '%{http_code}' "http://localhost:4173/api/staff/prospects")
           test "$private_status" = "401"
@@ -919,13 +928,6 @@ jobs:
           # enquiry and deliberately unreconciled historical CLOSED fixture remain.
           pnpm exec cf d1 raw "$DB" --sql "SELECT COUNT(*) AS n FROM public_enquiries" --local --persist-to .cloudflare/state >/tmp/enquiry-count.json
           node -e 'const fs = require("node:fs"); const data = JSON.parse(fs.readFileSync("/tmp/enquiry-count.json", "utf8")); const count = data[0]?.results?.rows?.[0]?.[0]; if (count !== 2) { console.error("Expected public smoke + historical review fixture (2 enquiries); got", count); process.exit(1); } console.log("D1 write verified: public smoke plus historical review fixture");'
-
-          # A second submission with the same contact must be rate-limited.
-          duplicate_status=$(curl -sS -o /tmp/enquiry-duplicate.json -w '%{http_code}' -X POST "http://localhost:4173/api/enquiries" \
-            -H "Content-Type: application/json" \
-            --data '{"intent":"interest","offeringId":"","studentName":"Smoke Test Student","className":"Class 8","guardianName":"Smoke Test Guardian","mobile":"01700000000","subjectNames":[],"preferredSchedule":"","preferredDays":[],"trialInterest":false,"consent":true,"website":"","turnstileToken":""}')
-          echo "duplicate_status: $duplicate_status"
-          test "$duplicate_status" = "429"
 
           # An admission request must never be accepted while applications are closed.
           admission_status=$(curl -sS -o /tmp/enquiry-closed.json -w '%{http_code}' -X POST "http://localhost:4173/api/enquiries" \
