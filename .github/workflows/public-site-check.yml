@@ -1,7 +1,7 @@
 name: Public Website Checks
 on:
   push:
-    branches: [master, feature/public_site_port, feature/erp_access_lifecycle]
+    branches: [master, dev, feature/public_site_port, feature/erp_access_lifecycle]
   pull_request:
   workflow_dispatch:
     inputs:
@@ -1205,4 +1205,100 @@ jobs:
           done
           echo "All private ERP endpoints reject anonymous access."
           echo "Site healthy; unauthenticated prospect access denied."
+
+  dev_release:
+    name: Deploy isolated dev preview to Cloudflare
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    concurrency:
+      group: sohojac-dev-deploy
+      cancel-in-progress: false
+    env:
+      CF_SEND_TELEMETRY: "false"
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      PRODUCTION_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+      STAGING_AUTH_SECRET: ${{ secrets.DEV_BETTER_AUTH_SECRET }}
+      TURNSTILE_SITE_KEY: ${{ vars.DEV_TURNSTILE_SITE_KEY }}
+      STAGING_TURNSTILE_SECRET: ${{ secrets.DEV_TURNSTILE_SECRET_KEY }}
+      STAFF_EMAIL_FROM: ""
+    steps:
+      - name: Check out tested dev commit only
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Confirm dev-only deployment credentials
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/dev"
+          if [ -z "${CLOUDFLARE_API_TOKEN:-}" ] || [ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
+            echo "::error::Set existing CLOUDFLARE_API_TOKEN (Workers Scripts Edit + D1 Edit) and CLOUDFLARE_ACCOUNT_ID GitHub Actions secrets."
+            exit 1
+          fi
+          if [ -z "${STAGING_AUTH_SECRET:-}" ] && [ -z "${PRODUCTION_AUTH_SECRET:-}" ]; then
+            echo "::error::Set DEV_BETTER_AUTH_SECRET or the existing BETTER_AUTH_SECRET GitHub Actions secret."
+            exit 1
+          fi
+          latest=$(git ls-remote https://github.com/AbdusSattar-70/sohojac.git refs/heads/dev | cut -f1)
+          if [ "$latest" != "$GITHUB_SHA" ]; then
+            echo "::error::Dev moved since CI started; blocking stale deploy."
+            exit 1
+          fi
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "12.15.0"
+          run_install: false
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Locate or provision independent development D1 and URL
+        id: target
+        run: node scripts/provision-dev-cloudflare.mjs
+      - name: Apply pending migrations ONLY to development D1
+        run: |
+          set -euo pipefail
+          test "$SOHOJAC_DEV_D1_ID" != "d6f3e4e9-2190-43bf-bc90-969687f6db78"
+          node scripts/check-d1-migrations.mjs
+          pnpm exec cf d1 migrations list "$SOHOJAC_DEV_D1_ID" --mode staging
+          printf 'y\n' | pnpm exec cf d1 migrations apply "$SOHOJAC_DEV_D1_ID" --mode staging
+      - name: Rebuild tested source with staging Cloudflare configuration
+        run: |
+          set -euo pipefail
+          pnpm run cf-typegen
+          pnpm exec tsc --noEmit
+          pnpm exec vite build --mode staging
+          pnpm exec cf deploy --prebuilt --mode staging --dry-run
+      - name: Deploy separate sohojac-dev Worker with stable isolated auth
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          import crypto from "node:crypto";
+          import path from "node:path";
+          const root=process.env.STAGING_AUTH_SECRET||process.env.PRODUCTION_AUTH_SECRET;
+          if(!root||root.length<32)throw Error("Stable auth secret (32+ chars) missing.");
+          const secret=crypto.createHmac("sha256",root).update("sohojac-dev-auth-v1").digest("hex");
+          const turnstile=process.env.STAGING_TURNSTILE_SECRET||"dev-turnstile-disabled-no-submissions";
+          fs.writeFileSync(path.join(process.env.RUNNER_TEMP,"sohojac-dev-secrets.json"),
+            JSON.stringify({BETTER_AUTH_SECRET:secret,TURNSTILE_SECRET_KEY:turnstile}),{mode:0o600});
+          NODE
+          trap 'rm -f "$RUNNER_TEMP/sohojac-dev-secrets.json"' EXIT
+          pnpm exec cf deploy --prebuilt --mode staging --secrets-file "$RUNNER_TEMP/sohojac-dev-secrets.json"
+      - name: Smoke-test deployed preview and staff access denial
+        run: |
+          set -euo pipefail
+          for path in / /sign-in; do
+            code=$(curl --silent --show-error --retry 3 --retry-delay 2 --max-time 20 -o /dev/null -w '%{http_code}' "$BETTER_AUTH_URL$path")
+            test "$code" = "200" || { echo "::error::Dev $path returned HTTP $code"; exit 1; }
+          done
+          private_code=$(curl --silent --show-error --max-time 15 -o /dev/null -w '%{http_code}' "$BETTER_AUTH_URL/api/staff/students")
+          test "$private_code" = "401"
+          echo "Staging ERP deployed: $BETTER_AUTH_URL"
+          echo "Dev has an independent D1 and needs its own OWNER setup; no production records were copied."
 
