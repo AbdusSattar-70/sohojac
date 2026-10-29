@@ -692,6 +692,19 @@ jobs:
           teacher_source_admissions=$(curl -sS -o /dev/null -w '%{http_code}' \
             -b /tmp/teacher-ci-cookies "http://localhost:4173/dashboard/admissions")
           test "$teacher_source_admissions" != "200"
+          # Original sidebar links should open actual case data, not 404.
+          source_case=$(curl -sS -o /tmp/ci-source-case.html -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/admissions/$admission_id")
+          echo "Source case detail bridge HTTP: $source_case"
+          test "$source_case" = "200"
+          grep -q 'Verified application data' /tmp/ci-source-case.html
+          grep -q 'Permanent Student ID' /tmp/ci-source-case.html
+          anonymous_case=$(curl -sS -o /dev/null -w '%{http_code}' \
+            "http://localhost:4173/dashboard/admissions/$admission_id")
+          test "$anonymous_case" != "200"
+          teacher_source_case=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -b /tmp/teacher-ci-cookies "http://localhost:4173/dashboard/admissions/$admission_id")
+          test "$teacher_source_case" != "200"
           # Original paper application: source A4 print preview, no mutations.
           original_blank_application=$(curl -sS -o /tmp/ci-source-admission-paper.html -w '%{http_code}' \
             -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/admissions/application-form")
