@@ -13,3 +13,28 @@
   remain readable in the original detail timeline.
 - Not merged or deployed; full UI, transition, access denial and history tests
   and verified historical Supabase crosswalk required before parity signoff.
+
+## Legacy status reconciliation (added in the draft branch)
+
+- Older CLOSED website enquiries keep their original public records and a distinct
+  `LEGACY_CLOSED` canonical status until reviewed. Automatic mapping to LOST or
+  CONVERTED is prohibited.
+- Only staff with `crm.prospects.manage` may classify these as NEW, CONTACTED,
+  or LOST after examining historical context and providing a factual reason.
+- `reconcileLegacyProspect` validates same-origin requests, checks canonical and
+  legacy status, uses optimistic record versioning and atomically writes audit
+  evidence plus the compatible public status.
+- Lost classification retains the historical public CLOSED status and stores the
+  reason; it never fabricates a student, admission or conversion.
+- The review form appears only on historical records. The normal source CRM
+  component and status transitions remain unmodified.
+- `scripts/verify-crm-history-reconciliation.mjs` is now part of CI. This is
+  static contract verification; browser-driven mutation, negative authorization,
+  trigger sequencing and historical crosswalk tests remain required for signoff.
+
+## Admission dependency
+
+The original CRM detail screen links to `/dashboard/admissions`, which is not
+yet migrated in this draft. **Do not merge or release this unfinished source-first
+ERP as a complete staff system.** The next domain port is the original Admissions
+case lifecycle and its single-A4 print templates.
