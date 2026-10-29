@@ -705,6 +705,22 @@ jobs:
           teacher_source_case=$(curl -sS -o /dev/null -w '%{http_code}' \
             -b /tmp/teacher-ci-cookies "http://localhost:4173/dashboard/admissions/$admission_id")
           test "$teacher_source_case" != "200"
+          # Original source case print route must map real D1 student and charges.
+          source_case_print=$(curl -sS -o /tmp/ci-source-case-print.html -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/admissions/$admission_id/print")
+          echo "Original case print HTTP: $source_case_print"
+          test "$source_case_print" = "200"
+          grep -q 'Admission application' /tmp/ci-source-case-print.html
+          grep -q 'Print / Save PDF' /tmp/ci-source-case-print.html
+          anonymous_source_case_print=$(curl -sS -o /dev/null -w '%{http_code}' \
+            "http://localhost:4173/dashboard/admissions/$admission_id/print")
+          test "$anonymous_source_case_print" != "200"
+          teacher_source_case_print=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -b /tmp/teacher-ci-cookies "http://localhost:4173/dashboard/admissions/$admission_id/print")
+          test "$teacher_source_case_print" != "200"
+          receipt_not_in_this_case=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/admissions/$admission_id/print?receipt=unknown")
+          test "$receipt_not_in_this_case" = "404"
           # Original paper application: source A4 print preview, no mutations.
           original_blank_application=$(curl -sS -o /tmp/ci-source-admission-paper.html -w '%{http_code}' \
             -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/admissions/application-form")
