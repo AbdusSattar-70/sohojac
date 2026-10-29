@@ -1,5 +1,6 @@
 import { betterAuth } from "better-auth";
 import { env } from "cloudflare:workers";
+import { sendStaffEmail } from "@/lib/staff-mail";
 
 type AuthBindings = { BETTER_AUTH_SECRET?: string; BETTER_AUTH_URL?: string };
 
@@ -43,6 +44,16 @@ export function createAuth() {
       disableSignUp: true,
       minPasswordLength: 8,
       maxPasswordLength: 128,
+      resetPasswordTokenExpiresIn: 1800,
+      revokeSessionsOnPasswordReset: true,
+      sendResetPassword: async ({ user, url, token }) => {
+        await sendStaffEmail({
+          recipient: user.email,
+          subject: "Sohoj Academy — secure password recovery",
+          text: `A password recovery request was received for your academy staff account.\\n\\nOpen this single-use link within 30 minutes:\\n${url}\\n\\nIf you did not request this, no action is required.`,
+          idempotencyKey: "password-reset-" + token.slice(0, 80),
+        });
+      },
     },
     session: {
       expiresIn: 60 * 60 * 8,
