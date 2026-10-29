@@ -32,6 +32,22 @@ export function AccessReview({isOwner}:{isOwner:boolean}) {
   },[filter]);
   useEffect(()=>{void load();},[load]);
 
+  async function sendInvitation(item:Item) {
+    if (busy) return;
+    setBusy(item.id); setMessage("");
+    try {
+      const response = await fetch("/api/staff/access-requests/"+encodeURIComponent(item.id)+"/invite", {
+        method:"POST",credentials:"same-origin",cache:"no-store",
+        headers:{"Content-Type":"application/json"},body:"{}",
+      });
+      const data=await response.json() as {error?:string;message?:string};
+      if(!response.ok)throw new Error(data.error||"Could not send invitation");
+      setMessage(data.message||"Secure invitation sent to the approved address.");
+      await load();
+    }catch(error){setMessage(error instanceof Error?error.message:"Could not send invitation");}
+    finally{setBusy(null);}
+  }
+
   async function decide(item:Item,decision:"VERIFIED"|"DECLINED") {
     const assignedRole=roles[item.id]||item.requested_role;
     const note=(notes[item.id]||"").trim();
@@ -109,10 +125,16 @@ export function AccessReview({isOwner}:{isOwner:boolean}) {
               <button type="button" disabled={busy!==null} onClick={()=>void decide(item,"DECLINED")}
                 className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50">Decline request</button>
             </div>
-          </div>:<div className="mt-3 text-xs text-slate-600">
+          </div>:<div className="mt-3 space-y-2 text-xs text-slate-600">
             <p>Assigned role: {item.assigned_role||"None"}</p>
-            {item.review_note&&<p className="mt-1">Review: {item.review_note}</p>}
-            <p className="mt-1">{item.reviewed_by_name ? "Reviewed by "+item.reviewed_by_name : "Pending a reviewer"}</p>
+            {item.review_note&&<p>Review: {item.review_note}</p>}
+            <p>{item.reviewed_by_name ? "Reviewed by "+item.reviewed_by_name : "Pending a reviewer"}</p>
+            {(item.status==="VERIFIED"||item.status==="INVITED") &&
+              item.assigned_role!=="ACCOUNTANT" && (item.assigned_role!=="ADMIN"||isOwner) &&
+              <button type="button" disabled={busy!==null} onClick={()=>void sendInvitation(item)}
+                className="mt-2 rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-800 disabled:opacity-50">
+                {busy===item.id?"Sending…":item.status==="INVITED"?"Resend secure invitation":"Send secure invitation"}
+              </button>}
           </div>}
         </section>)}
       </div>}
