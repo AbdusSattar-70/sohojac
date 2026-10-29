@@ -1,5 +1,5 @@
 import { betterAuth } from "better-auth";
-import { env } from "cloudflare:workers";
+import { env, waitUntil } from "cloudflare:workers";
 import { sendStaffEmail } from "@/lib/staff-mail";
 
 type AuthBindings = { BETTER_AUTH_SECRET?: string; BETTER_AUTH_URL?: string };
@@ -47,12 +47,22 @@ export function createAuth() {
       resetPasswordTokenExpiresIn: 1800,
       revokeSessionsOnPasswordReset: true,
       sendResetPassword: async ({ user, url, token }) => {
-        await sendStaffEmail({
+        // Do not send recovery links to accounts with revoked staff access.
+        const active = await env.DB.prepare(
+          "SELECT 1 FROM staff_memberships WHERE user_id = ? AND active = 1"
+        ).bind(user.id).first();
+        if (!active) return;
+        // Never reveal delivery status or block response duration on email.
+        // Cloudflare keeps this promise alive after the response.
+        waitUntil(sendStaffEmail({
           recipient: user.email,
           subject: "Sohoj Academy — secure password recovery",
-          text: `A password recovery request was received for your academy staff account.\\n\\nOpen this single-use link within 30 minutes:\\n${url}\\n\\nIf you did not request this, no action is required.`,
+          text: `A password recovery request was received for your academy staff account.\n\nOpen this single-use link within 30 minutes:\n${url}\n\nIf you did not request this, no action is required.`,
           idempotencyKey: "password-reset-" + token.slice(0, 80),
-        });
+        }).catch(() => {
+          // Delivery failures are deliberately not exposed to the requestor.
+          console.error("Staff email delivery failed (no account data logged)");
+        }));
       },
     },
     session: {
