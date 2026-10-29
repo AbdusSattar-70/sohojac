@@ -58,6 +58,8 @@ jobs:
         run: node scripts/verify-original-student-register.mjs
       - name: Verify original Audit Trail route, English UI and D1 access
         run: node scripts/verify-original-audit-trail.mjs
+      - name: Verify original printable admission application and live D1 catalogue
+        run: node scripts/verify-original-admission-print.mjs
       - name: Reject destructive migrations before any deployment
         run: node scripts/check-d1-migrations.mjs
       - name: Apply public D1 migrations locally
@@ -669,6 +671,20 @@ jobs:
           test "$teacher_students" = "403"
           student_page=$(curl -sS -o /tmp/ci-student-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/students")
           test "$student_page" = "200"
+          # Original paper application: source A4 print preview, no mutations.
+          original_blank_application=$(curl -sS -o /tmp/ci-source-admission-paper.html -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/admissions/application-form")
+          echo "Source printable admission form HTTP: $original_blank_application"
+          test "$original_blank_application" = "200"
+          grep -q 'Admission application' /tmp/ci-source-admission-paper.html
+          grep -q 'Print / Save PDF' /tmp/ci-source-admission-paper.html
+          grep -q 'This application alone does not confirm admission' /tmp/ci-source-admission-paper.html
+          anonymous_blank_application=$(curl -sS -o /dev/null -w '%{http_code}' \
+            "http://localhost:4173/dashboard/admissions/application-form")
+          test "$anonymous_blank_application" != "200"
+          teacher_blank_application=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -b /tmp/teacher-ci-cookies "http://localhost:4173/dashboard/admissions/application-form")
+          test "$teacher_blank_application" != "200"
           # Original (not the simplified /app) register must show the same
           # enrolled canonical student and retain staff permission boundaries.
           source_students=$(curl -sS -o /tmp/ci-original-students.html -w '%{http_code}' \
