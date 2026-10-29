@@ -18,4 +18,13 @@ if (/Only one year may be active/.test(file("components/staff/academic-years-reg
   throw new Error("Old academic-year restriction still shown in UI");
 if (/Only one academic year may be active/.test(file("app/api/staff/academic-years/[id]/route.ts")))
   throw new Error("Incorrect academic-year conflict remains");
+const migrated=["modules/crm/manage/schema.ts","modules/crm/manage/actions.ts",
+ "modules/crm/manage/queries.ts","modules/crm/manage/components/master-data-workspace.tsx",
+ "app/dashboard/academics/settings/page.tsx"];
+for(const p of migrated){
+ if(!file(p))throw new Error("Missing original-master-data migration contract: "+p);
+}
+for(const p of ["modules/crm/manage/actions.ts","modules/crm/manage/queries.ts"]){
+ if(/supabase/i.test(file(p)))throw new Error("Migrated master-data backend still depends on Supabase: "+p);
+}
 console.log("Original navigation, D1 grants and overlapping academic years contract verified.");

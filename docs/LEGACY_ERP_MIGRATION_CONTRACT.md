@@ -74,3 +74,15 @@ is not proof that the ERP is migrated. The current `/app` shell and
 - A compatibility sidebar UI primitive adapts source shell to existing
   `@base-ui/react` UI stack without adding another component framework.
 - CI tests both authenticated dashboard and anonymous denial.
+
+## Academic & Registration Settings port (in draft)
+- Source page `app/dashboard/academics/settings/page.tsx` and the original
+  `modules/crm/manage/components/master-data-workspace.tsx` plus schema and
+  form guides are restored.
+- `modules/crm/manage/queries.ts` and `actions.ts` now use D1 directly and
+  preserve authorizations/audited reason capture. Existing
+  `academic_years`, `academic_subjects`, `academy_programmes` are
+  canonical; `0023_academic_master_data.sql` only creates missing supporting
+  reference entities.
+- Authenticated screen rendering and teacher denial are tested on local D1.
+  Source form mutation/reopen workflows still require end-to-end acceptance.
