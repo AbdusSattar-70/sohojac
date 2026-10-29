@@ -26,6 +26,31 @@ export type ErpRouteDefinition = {
 };
 
 export const erpRouteRegistry: ErpRouteDefinition[] = [
+  {id:"academic-years",title:"Academic years",eyebrow:"Academy Setup",
+   href:"/dashboard/academics/academic-years",navGroup:"Academy Setup",
+   permission:"academics.view",icon:"offerings"},
+  {id:"subjects",title:"Subjects",eyebrow:"Academics",
+   href:"/dashboard/academics/subjects",navGroup:"Teaching & Academics",
+   permission:"academics.view",icon:"offerings"},
+  {id:"collections",title:"Payment collections",eyebrow:"Finance",
+   href:"/dashboard/finance/collections",navGroup:"Finance",
+   permission:"finance.view",icon:"accounting"},
+  {id:"finance-expenses",title:"Operating expenses",eyebrow:"Finance",
+   href:"/dashboard/finance/expenses",navGroup:"Finance",
+   permission:"accounting.view",icon:"accounting"},
+  {id:"management-reports",title:"Management reports",eyebrow:"Finance",
+   href:"/dashboard/finance/reports",navGroup:"Finance",
+   permission:"accounting.view",icon:"accounting"},
+  {id:"staff-directory",title:"Staff directory",eyebrow:"People",
+   href:"/dashboard/staff/directory",navGroup:"People",
+   permission:"staff.view",icon:"staff"},
+  {id:"staff-access",title:"Staff access",eyebrow:"Administration",
+   href:"/dashboard/staff/access",navGroup:"Administration",
+   permission:"system.users.manage",icon:"settings"},
+  {id:"teacher-assignments",title:"Teacher assignments",eyebrow:"People",
+   href:"/dashboard/staff/teachers",navGroup:"People",
+   permission:"staff.view",icon:"teacher"},
+
   {
     id: "help",
     title: "Help & workflows",
@@ -366,6 +391,28 @@ export const erpRouteRegistry: ErpRouteDefinition[] = [
     icon: "audit",
   },
 ];
+
+/** The route registry describes the original ERP information architecture.
+ * Only pages actually implemented on D1 are clickable. Do not hide pages
+ * behind shell-specific one-off filters or advertise placeholder 404 routes.
+ * Keep this list synchronized with scripts/check-dashboard-navigation.mjs.
+ */
+export const implementedErpRoutes = [
+ "/dashboard", "/dashboard/help", "/dashboard/account",
+ "/dashboard/admissions", "/dashboard/students", "/dashboard/crm/prospects",
+ "/dashboard/crm/manage", "/dashboard/academics/settings",
+ "/dashboard/staff", "/dashboard/governance/audit",
+ "/dashboard/academics/academic-years", "/dashboard/academics/offerings",
+ "/dashboard/academics/subjects", "/dashboard/academics/batches",
+ "/dashboard/academics/routine", "/dashboard/academics/assessments",
+ "/dashboard/attendance", "/dashboard/teacher",
+ "/dashboard/finance/fee-plans", "/dashboard/finance/collections",
+ "/dashboard/finance/billing", "/dashboard/finance/expenses",
+ "/dashboard/finance/reports", "/dashboard/staff/access",
+ "/dashboard/staff/directory", "/dashboard/staff/teachers"
+] as const;
+const available=new Set<string>(implementedErpRoutes);
+export function isAvailableErpRoute(href:string){return available.has(href);}
 
 export function routeMatches(pathname: string, route: ErpRouteDefinition) {
   if (
