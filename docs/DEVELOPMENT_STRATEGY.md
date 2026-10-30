@@ -92,13 +92,23 @@ No deployment provisions another Cloudflare D1. CI uses ephemeral local SQLite s
 Dev and master releases share one concurrency group because their migrations/data affect the same DB.
 Keep migrations backward compatible with the other deployed Worker. A dev deployment is not data isolation.
 
-The user authorized resetting if necessary, but no reset is required for this phase. The additive
-`seeds/development.sql` runs on dev releases and preserves existing accounts, staff edits and ledgers.
-It supplies a hidden TEST programme, published test fee components, a 12-seat TEST batch, a returning
-student, new/returning admission drafts and a TEST CRM prospect. It creates no login, payment, invoice,
-active enrollment or signed-paper evidence. Test data must not be represented as real activity.
+## Phase 1B: clean development foundation
 
-The former `sohojac-dev` D1 is retired only after both actual Worker bindings are confirmed to use
-`sohojac` and a recovery bookmark is captured. The exact old ID is pinned; `sohojac` is never a deletion target.
-Five additional SQLite/API-simulation tests cover seed repeatability, owner prerequisite, preservation,
-zero financial posting and guarded legacy retirement.
+The user explicitly requested a reset of the shared `sohojac` DB. Replace the former TEST seed with
+`seeds/foundation.sql`: Classes 1–12, 27 editable guardian relationships (including Other), academic
+years 2026/2027, groups, subjects, lead sources, programmes, Main Campus and the existing chart of accounts.
+Do not fabricate schools, students, consent, offerings, batches, prices or financial transactions.
+The subject list is a configurable starting point, not a claim of official curriculum coverage.
+The legacy offering-subject register currently supports grades 4–12; extending its schema to grades 1–3
+and reconciling the two subject registers remains Phase 3 work. Class masters and public interest support 1–12.
+
+Main release runs the explicit one-time operation `foundation-reset-20261030-v1` only after a fresh recovery
+bookmark and both Workers' maintenance support are verified. Preserve auth credentials, staff identities,
+permission grants and migration history. Persist the original trigger manifest, block mutations, clear
+business data, restore triggers, seed and validate foreign keys. A PREPARED operation blocks writes on failure;
+retry using the saved manifest or restore the captured bookmark. COMPLETE prevents subsequent resets.
+Dev releases no longer add TEST data. Academic years and academy identity belong to Academic Setup;
+the dashboard link and duplicate sidebar grouping are corrected. Public choices read active reference masters.
+
+Local reset/security and existing domain checks must pass before release. Record deployed reset evidence below
+only after the main Actions step confirms completion; implementation alone is not proof of a remote reset.

@@ -38,6 +38,12 @@ export default async function InterestPage({
   const initiallyClosedRequested = intent === "admission" &&
     Boolean(requestedOffering && !requestedOffering.is_accepting_applications);
   const optionsUnavailable = publicOfferings === null;
+  const [classRows, relationshipRows, subjectRows] = await Promise.all([
+    env.DB.prepare("SELECT name FROM academy_classes WHERE is_active=1 ORDER BY sort_order,name").all<{name:string}>(),
+    env.DB.prepare("SELECT name FROM academy_guardian_relationships WHERE is_active=1 ORDER BY name").all<{name:string}>(),
+    env.DB.prepare("SELECT title name FROM academic_subjects WHERE active=1 ORDER BY title").all<{name:string}>(),
+  ]);
+  const registrationOptions = {classes:classRows.results.map(x=>x.name),relationships:relationshipRows.results.map(x=>x.name),subjects:subjectRows.results.map(x=>x.name)};
   const config = env as unknown as { TURNSTILE_SITE_KEY?: string; TURNSTILE_SECRET_KEY?: string };
   const siteKey = config.TURNSTILE_SITE_KEY ?? "";
   const requestedHost = (await headers()).get("host")?.split(":")[0]?.toLowerCase() ?? "";
@@ -142,7 +148,7 @@ export default async function InterestPage({
             </div>
           ) : (
             <div className="rounded-[2rem] border border-border bg-card p-5 text-card-foreground shadow-[0_24px_70px_-50px_rgba(15,23,42,.35)] sm:p-7 lg:p-9">
-              <PublicInterestForm
+              <PublicInterestForm options={registrationOptions}
                 offerings={publicOfferings ?? []}
                 initialOfferingId={preselected?.id ?? ""}
                 initiallyClosedRequested={initiallyClosedRequested}
