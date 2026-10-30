@@ -40,6 +40,10 @@ jobs:
           run_install: false
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
+      - name: Preview canonical 4-file SQLite baseline against historical schema
+        env:
+          EMIT_CANONICAL_TO_LOGS: "1"
+        run: node scripts/generate-canonical-migrations.mjs migrations /tmp/sohojac-canonical-preview
       - name: Local auth configuration (never a deployed secret)
         run: |
           printf '%s\n' 'BETTER_AUTH_URL=http://localhost:4173' 'BETTER_AUTH_SECRET=ci-not-a-production-secret-0123456789-abcdefgh' > .env
