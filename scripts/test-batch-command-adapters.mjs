@@ -49,7 +49,7 @@ function enrollment(batchId,n){const sid=uuid(),aid=uuid();
 }
 beforeEach(()=>{
  db?.close();db=new DatabaseSync(":memory:");db.exec("PRAGMA foreign_keys=ON");
- for(const file of fs.readdirSync("migrations/history/history").filter(n=>/^\d{4}_.*\.sql$/.test(n)&&Number(n.slice(0,4))<=28).sort())db.exec(fs.readFileSync(path.join("migrations/history/history",file),"utf8"));
+ for(const file of fs.readdirSync("migrations/history").filter(n=>/^\d{4}_.*\.sql$/.test(n)&&Number(n.slice(0,4))<=28).sort())db.exec(fs.readFileSync(path.join("migrations/history",file),"utf8"));
  db.exec(fs.readFileSync("migrations/history/0030_academic_source_workflows.sql","utf8"));
  for(const id of [uid,other])db.prepare('INSERT INTO "user"(id,name,email,"createdAt","updatedAt") VALUES (?,?,?,?,?)').run(id,"Synthetic operator",id+"@example.invalid",0,0);
  db.prepare("INSERT INTO academy_branches(id,code,name) VALUES (?,'PARITY','Verified Campus')").run(branch);
