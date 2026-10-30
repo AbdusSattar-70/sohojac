@@ -56,6 +56,7 @@ jobs:
           node --test scripts/test-academy-identity.mjs scripts/test-student-lifecycle.mjs scripts/test-student-profile.mjs
           node --test scripts/test-source-offerings.mjs scripts/test-source-batches.mjs scripts/test-admission-fee-concurrency.mjs scripts/test-finance-receivables.mjs scripts/test-retired-admission-mutations.mjs
           node --test scripts/test-payment-commands.mjs scripts/test-collection-retry-ui.mjs scripts/test-expense-commands.mjs scripts/test-batch-command-adapters.mjs
+          node --test scripts/test-finance-theme.mjs
       - name: Route and identity contracts
         run: |
           node scripts/check-staff-number-parity.mjs
