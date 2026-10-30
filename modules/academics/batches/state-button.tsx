@@ -7,11 +7,13 @@ export function RecordStateButton({
   id,
   active,
   expectedVersion,
+  inactiveLabel = "Reactivate",
 }: {
   entity: "batch";
   id: string;
   active: boolean;
   expectedVersion: number | undefined;
+  inactiveLabel?: string;
 }) {
   const [open, setOpen] = useState(false),
     [note, setNote] = useState(""),
@@ -26,7 +28,7 @@ export function RecordStateButton({
         type="button"
         onClick={() => setOpen(!open)}
       >
-        {active ? "Mark inactive" : "Reactivate"}
+        {active ? "Mark inactive" : inactiveLabel}
       </button>
       {open && (
         <div className="mt-2 max-w-sm space-y-2 rounded-xl border bg-background p-3 text-left">
