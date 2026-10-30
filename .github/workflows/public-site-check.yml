@@ -72,6 +72,10 @@ jobs:
         run: node scripts/test-academy-identity.mjs
       - name: Verify source offering commands, immutable fees and permissions
         run: node scripts/test-source-offerings.mjs
+      - name: Verify original Batch Register contract
+        run: node scripts/check-source-batches-contract.mjs
+      - name: Verify source batch commands, capacity and public seats
+        run: node scripts/test-source-batches.mjs
       - name: Reject destructive migrations before any deployment
         run: node scripts/check-d1-migrations.mjs
       - name: Apply public D1 migrations locally
@@ -627,6 +631,18 @@ jobs:
               -b /tmp/teacher-ci-cookies "http://localhost:4173$source_page")
             test "$source_page_teacher" != "200"
           done
+
+          # The original academic batch register is isolated from admissions PII.
+          source_batch_owner=$(curl -sS -o /tmp/ci-source-batch-register.html -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/academics/batches")
+          test "$source_batch_owner" = "200"
+          grep -q 'Batch register' /tmp/ci-source-batch-register.html
+          grep -q 'Create batch' /tmp/ci-source-batch-register.html
+          source_batch_anon=$(curl -sS -o /dev/null -w '%{http_code}' "http://localhost:4173/dashboard/academics/batches")
+          test "$source_batch_anon" != "200"
+          source_batch_teacher=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -b /tmp/teacher-ci-cookies "http://localhost:4173/dashboard/academics/batches")
+          test "$source_batch_teacher" != "200"
 
           echo 'CI entering fee plan checks'
           # Fee plans: integer paisa, owner/teacher role checks, audit and concurrency.

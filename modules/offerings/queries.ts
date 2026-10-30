@@ -99,6 +99,7 @@ type RawOffering = {
   public_requirements: string | null; public_requirements_bn: string | null;
   admission_policy: string | null; admission_policy_bn: string | null;
   active_batch_count: number; current_open_seats: number; current_total_seats: number;
+  live_active_batch_count: number; live_open_seats: number; live_total_seats: number;
   is_accepting_applications: number; application_state: "OPEN" | "UPCOMING" | "CLOSED";
   applications_open_on: string | null; applications_close_on: string | null;
   subjects_json: string; fee_plan_json: string | null;
@@ -113,10 +114,19 @@ function decode<T>(json: string | null, fallback: T): T {
 export async function getPublicProgrammeOfferings(): Promise<PublicOfferingCard[] | null> {
   try {
     const result = await env.DB.prepare(
-      "SELECT * FROM public_programme_offerings WHERE show_on_website = 1 AND is_active = 1 ORDER BY showcase_sort_order, created_at DESC LIMIT 48"
+      [
+        "SELECT o.*,",
+        "(SELECT COUNT(*) FROM academy_batches b WHERE b.offering_id=o.id AND b.status='ACTIVE') AS live_active_batch_count,",
+        "COALESCE((SELECT SUM(b.capacity) FROM academy_batches b WHERE b.offering_id=o.id AND b.status='ACTIVE'),0) AS live_total_seats,",
+        "COALESCE((SELECT SUM(MAX(0,b.capacity-(SELECT COUNT(*) FROM academy_enrollments e WHERE e.batch_id=b.id AND e.status='ACTIVE'))) FROM academy_batches b WHERE b.offering_id=o.id AND b.status='ACTIVE'),0) AS live_open_seats",
+        "FROM public_programme_offerings o WHERE o.show_on_website = 1 AND o.is_active = 1 ORDER BY o.showcase_sort_order, o.created_at DESC LIMIT 48"
+      ].join(" ")
     ).all<RawOffering>();
     return (result.results ?? []).map((row: RawOffering) => ({
       ...row,
+      active_batch_count: row.live_active_batch_count,
+      current_total_seats: row.live_total_seats,
+      current_open_seats: row.live_open_seats,
       is_accepting_applications: Boolean(row.is_accepting_applications && row.application_state === "OPEN"),
       subjects: decode<{ id: string; code: string; name: string }[]>(row.subjects_json, []),
       fee_plan: decode<PublicOfferingCard["fee_plan"]>(row.fee_plan_json, null),
