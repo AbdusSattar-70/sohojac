@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { test, beforeEach, after } from "node:test";
-import { resetPlan, operationId } from "./foundation-reset-plan.mjs";
+import { freshDevBootstrapSql } from "./canonical-dev-bootstrap.mjs";
 import { seedPublicCatalogue } from "./public-catalogue-seed.mjs";
 let db;
 beforeEach(() => {
@@ -17,17 +17,14 @@ beforeEach(() => {
   db.exec(
     `INSERT INTO "user"(id,name,email,"createdAt","updatedAt") VALUES ('owner','Existing Owner','owner@example.invalid',0,0); INSERT INTO staff_memberships(user_id,role,active) VALUES ('owner','OWNER',1);`,
   );
-  const schema = db
-    .prepare(
-      "SELECT type,name,sql FROM sqlite_schema WHERE type IN ('table','trigger')",
-    )
-    .all();
-  db.prepare(
-    "INSERT INTO system_maintenance_operations(id,status,manifest_json) VALUES (?,'PREPARED','[]')",
-  ).run(operationId);
   db.exec("BEGIN");
-  db.exec(resetPlan(schema, fs.readFileSync("seeds/foundation.sql", "utf8")));
-  db.exec("COMMIT");
+  try {
+    db.exec(freshDevBootstrapSql());
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
 });
 after(() => db?.close());
 async function query(sql) {
