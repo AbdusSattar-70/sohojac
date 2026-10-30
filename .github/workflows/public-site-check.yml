@@ -147,6 +147,9 @@ jobs:
           curl -fsS "http://localhost:4173/request-access" > /tmp/access-request-page.html
           grep -q "Request staff access" /tmp/access-request-page.html
 
+          curl -fsS http://localhost:4173/api/security/challenge > /tmp/local-security-config.json
+          node -e 'const x=require("/tmp/local-security-config.json");if(x.required!==false||x.ready!==true)process.exit(1);'
+
           # Anonymous access requests only create review records, never a login.
           anonymous_queue=$(curl -sS -o /tmp/private-access-queue.json -w '%{http_code}' \
             "http://localhost:4173/api/staff/access-requests")
@@ -1523,6 +1526,12 @@ jobs:
               exit 1
             fi
           done
+          # Prove the deployed proxy guards auth before the credential handler.
+          curl -fsS --max-time 15 "$BETTER_AUTH_URL/api/security/challenge" > /tmp/security-readiness.json
+          node -e 'const x=require("/tmp/security-readiness.json");if(x.required!==true||x.ready!==true||!x.siteKey)process.exit(1);'
+          denied=$(curl -sS --max-time 15 -o /dev/null -w '%{http_code}' -X POST "$BETTER_AUTH_URL/api/auth/sign-in/email" -H "Origin: $BETTER_AUTH_URL" -H "Content-Type: application/json" --data '{}')
+          test "$denied" = "403" || { echo "::error::Unverified sign-in returned HTTP $denied instead of 403"; exit 1; }
+          echo "Production Turnstile configuration ready; unverified sign-in denied."
           echo "All private ERP endpoints reject anonymous access."
           echo "Site healthy; unauthenticated prospect access denied."
 
