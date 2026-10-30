@@ -1,3 +1,4 @@
+import {batchOfferingReadySql} from "../lib/academic-offering-readiness.ts";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -20,7 +21,7 @@ let realZod,schemas={commandSchema:pass,workspaceSchema:pass};
 function executable(file){return stripTypeScriptTypes(fs.readFileSync(new URL("../"+file,import.meta.url),"utf8"),{mode:"strip"}).replace(/^import .*;\r?\n/gm,"").replace(/\bexport (?=(?:async function|function|const))/g,"");}
 try{realZod=(await import("zod")).z;schemas=new Function("z",executable("modules/admissions/schema.ts")+"\nreturn {commandSchema,workspaceSchema};")(realZod);}catch(error){if(error.code!=="ERR_MODULE_NOT_FOUND"||process.env.CI)throw error;console.log("Local SQL/permission checks only: Zod is unavailable. CI uses installed real admission schemas.");}
 const z=realZod??new Proxy(function(){},{get:(_,key)=>key==="safeParse"?value=>({success:true,data:value}):key==="parse"?value=>value:z,apply:()=>z});
-function load(file,exports){const deps={env,headers,getErpContext,requirePermission,revalidatePath:()=>{},z,...schemas};return new Function(...Object.keys(deps),executable(file)+"\nreturn {"+exports.join(",")+"};")(...Object.values(deps));}
+function load(file,exports){const deps={batchOfferingReadySql,env,headers,getErpContext,requirePermission,revalidatePath:()=>{},z,...schemas};return new Function(...Object.keys(deps),executable(file)+"\nreturn {"+exports.join(",")+"};")(...Object.values(deps));}
 const actions=load("modules/academics/batches/actions.ts",["runAcademicBatchCommand","changeRecordState"]);
 const reads=load("modules/academics/batches/queries.ts",["getBatchWorkspace"]);
 const publicReads=load("modules/offerings/queries.ts",["getPublicProgrammeOfferings"]);
@@ -114,4 +115,22 @@ test("public seats reflect actual active cohorts and enrollments rather than cac
  await actions.changeRecordState({entity:"batch",id:made.entityId,active:false,reason:"Pause cohort intake"});
  catalogue=await publicReads.getPublicProgrammeOfferings();offering=catalogue.find(o=>o.id==="sa-ssc-science");
  assert.equal(offering.active_batch_count,0);assert.equal(offering.current_total_seats,0);assert.equal(offering.current_open_seats,0);
+});
+
+test("inactive class context are unavailable in both choices and batch commands",async()=>{
+ db.exec("UPDATE academy_classes SET is_active=0");
+ const result=await actions.runAcademicBatchCommand(command());assert.equal(result.ok,false);assert.equal(result.field,'offeringId');
+ assert.equal((await reads.getBatchWorkspace()).offerings.find(o=>o.id==='sa-ssc-science').feeReady,false);
+});
+
+test("expired published fees block new batches and reactivation consistently",async()=>{
+ const made=await actions.runAcademicBatchCommand(command());assert.equal(made.ok,true);
+ const plan=uuid();db.exec("UPDATE academy_fee_plans SET active=0");
+ db.prepare("INSERT INTO academy_fee_plans(id,offering_id,title,monthly_amount_paisa,admission_amount_paisa,active,source_version,source_status,billing_cycle,due_day,currency_code,effective_from,effective_to) VALUES (?,'sa-ssc-science','Past term',250000,0,0,1,'DRAFT','MONTHLY',10,'BDT','2020-01-01','2020-12-31')").run(plan);
+ db.prepare("INSERT INTO academy_fee_plan_components(id,plan_id,code,name,amount_paisa,charge_type,recurrence,sort_order) VALUES (?,?,'TUITION','Tuition',250000,'TUITION','PER_CYCLE',0)").run(uuid(),plan);
+ db.prepare("UPDATE academy_fee_plans SET source_status='ACTIVE',active=1 WHERE id=?").run(plan);
+ assert.equal((await actions.runAcademicBatchCommand(command({code:'EXPIRED-A'}))).ok,false);
+ assert.equal((await reads.getBatchWorkspace()).offerings.find(o=>o.id==='sa-ssc-science').feeReady,false);
+ assert.equal((await actions.changeRecordState({entity:'batch',id:made.entityId,active:false,reason:'Pause expired term intake'})).ok,true);
+ assert.equal((await actions.changeRecordState({entity:'batch',id:made.entityId,active:true,reason:'Reject expired term reopen'})).ok,false);
 });

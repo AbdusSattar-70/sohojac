@@ -349,12 +349,18 @@ export function AdmissionCommandForm({
                 field(
                   "offeringId",
                   "Offering",
-                  "Choose the programme offering this batch belongs to.",
+                  "Choose an active offering with a published current Fee Plan. Publish fees first to activate a draft.",
                   data.offerings.map((o) => ({
                     id: o.id,
-                    name: `${o.name} · ${o.yearName} · ${o.branchName ?? "No branch"} · ${o.className}`,
+                    name: `${o.name} · ${o.yearName} · ${o.branchName ?? "No branch"} · ${o.className}${o.feeReady === false ? " · Publish Fee Plan first" : ""}`,
+                    disabled: o.feeReady === false,
                   })),
                 )}
+              {action === "CREATE_BATCH" && data.offerings.every(o=>o.feeReady === false) && (
+                <p className="rounded-xl border p-3 text-sm md:col-span-2">
+                  No offering is ready for a batch. <a className="underline" href="/dashboard/finance/fee-plans">Publish its Fee Plan</a> to activate a draft first.
+                </p>
+              )}
               {field(
                 "code",
                 "Batch Code",

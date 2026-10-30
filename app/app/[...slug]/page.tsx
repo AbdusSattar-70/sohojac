@@ -2,7 +2,7 @@ import {notFound,redirect} from "next/navigation";
 export const dynamic="force-dynamic";
 /** One-way compatibility for old external bookmarks; no parallel ERP renders on /app. */
 const routes:Record<string,string>={
- "academic-years":"/dashboard/academics/academic-years",
+ "academic-years":"/dashboard/academics/settings",
  "admissions":"/dashboard/admissions",
  "assessments":"/dashboard/academics/assessments",
  "attendance":"/dashboard/attendance",

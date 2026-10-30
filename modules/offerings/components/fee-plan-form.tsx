@@ -68,16 +68,20 @@ export function FeePlanForm({
     reset,
     setError,
     setValue,
-    formState: { errors, isDirty, isValid },
+    formState: { errors },
   } = useForm<PublishFeePlanInput>({
-    resolver: zodResolver(publishFeePlanSchema) as unknown as Resolver<PublishFeePlanInput>,
+    resolver: zodResolver(
+      publishFeePlanSchema,
+    ) as unknown as Resolver<PublishFeePlanInput>,
     mode: "onChange",
     defaultValues: {
       offeringId: initialOfferingId,
       requestId: crypto.randomUUID(),
-      expectedVersion: data.offerings.find(row=>row.id===initialOfferingId)?.version ?? 1,
+      expectedVersion:
+        data.offerings.find((row) => row.id === initialOfferingId)?.version ??
+        1,
       billingCycle: starting?.billing_cycle ?? "MONTHLY",
-      dueDay: starting?.due_day ?? null,
+      dueDay: starting?.due_day ?? 10,
       effectiveFrom: today,
       reason: "",
       components: starting ? planComponents(starting.id) : [initialComponent],
@@ -96,26 +100,41 @@ export function FeePlanForm({
     (row) => row.id === selectedOffering,
   );
 
-  const submit = handleSubmit((input) => {
-    setMessage(null);
-    startTransition(async () => {
-      const result = await publishFeePlan({...input, expectedVersion: chosenOffering?.version ?? input.expectedVersion});
-      if (!result.ok) {
-        if (result.field)
-          setError(result.field as FieldPath<PublishFeePlanInput>, {
-            message: result.error,
-          });
-        setMessage({ ok: false, text: result.error });
-        return;
-      }
-      reset();
-      setMessage({
-        ok: true,
-        text: `${result.reference} published. Current fees saved. Existing admission fee terms remain unchanged.`,
+  const submit = handleSubmit(
+    (input) => {
+      setMessage(null);
+      startTransition(async () => {
+        const result = await publishFeePlan({
+          ...input,
+          expectedVersion: chosenOffering?.version ?? input.expectedVersion,
+        }).catch(() => ({
+          ok: false as const,
+          field: undefined as string | undefined,
+          error:
+            "Could not confirm publication. Your entries remain; retry when connected.",
+        }));
+        if (!result.ok) {
+          if (result.field)
+            setError(result.field as FieldPath<PublishFeePlanInput>, {
+              message: result.error,
+            });
+          setMessage({ ok: false, text: result.error });
+          return;
+        }
+        reset({ ...input, requestId: crypto.randomUUID(), reason: "" });
+        setMessage({
+          ok: true,
+          text: `${result.reference} published. Current fees saved. Existing admission fee terms remain unchanged.`,
+        });
+        finishWorkflow(router);
       });
-      finishWorkflow(router);
-    });
-  });
+    },
+    () =>
+      setMessage({
+        ok: false,
+        text: "Complete the highlighted fields, then submit again. Your entries are retained.",
+      }),
+  );
 
   return (
     <section className="rounded-2xl border bg-card p-5 sm:p-6">
@@ -162,7 +181,7 @@ export function FeePlanForm({
                           shouldDirty: true,
                         },
                       );
-                      setValue("dueDay", plan?.due_day ?? null, {
+                      setValue("dueDay", plan?.due_day ?? 10, {
                         shouldDirty: true,
                       });
                       replace(
@@ -197,11 +216,14 @@ export function FeePlanForm({
                   className={controlClass}
                   {...register("billingCycle", {
                     onChange: (event) => {
-                      if (event.target.value !== "MONTHLY")
-                        setValue("dueDay", null, {
+                      setValue(
+                        "dueDay",
+                        event.target.value === "MONTHLY" ? 10 : null,
+                        {
                           shouldDirty: true,
                           shouldValidate: true,
-                        });
+                        },
+                      );
                     },
                   })}
                 >
@@ -432,7 +454,7 @@ export function FeePlanForm({
             )}
           </ErpFormField>
           <div className="flex flex-wrap items-center gap-4">
-            <Button type="submit" disabled={!isDirty || !isValid || pending}>
+            <Button type="submit" disabled={pending}>
               {pending ? "Saving…" : "Save Fee Plan"}
             </Button>
             <ErpFormStatus message={message} />
