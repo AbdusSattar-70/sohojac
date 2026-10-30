@@ -25,7 +25,7 @@ export function getNavigation(context: ErpContext): ErpNavGroup[] {
     if (!isAvailableErpRoute(route.href) || !context.permissions.includes(route.permission) || seen.has(route.href))
       continue;
     // These remain reachable as contextual workflows; they are not duplicate sidebar destinations.
-    if (["admin-review-queue", "account"].includes(route.id)) continue;
+    if (["admin-review-queue", "account", "programme-offerings"].includes(route.id)) continue;
     if (route.id === "dashboard" && home !== "/dashboard") continue;
     if (route.id === "teacher-dashboard" && home !== "/dashboard/teacher")
       continue;
