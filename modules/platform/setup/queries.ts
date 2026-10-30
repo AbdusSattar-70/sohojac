@@ -1,11 +1,9 @@
-/** D1-backed academy identity for existing original source print form.
- * Source's full setup-status command/RPC still needs migration. This
- * print-only read intentionally does not assert setup completion.
- */
+/** Compatibility adapter for the original print forms. */
 import { cache } from "react";
-export const getAcademySetup = cache(async () => ({
-  academyName: "Sohoj Academy",
-  completed: false,
-  ready: false,
-  steps: [] as {id:string;title:string;href:string;done:boolean}[],
-}));
+import { env } from "cloudflare:workers";
+export const getAcademySetup = cache(async () => {
+  const identity = await env.DB.prepare(
+    "SELECT name FROM academy_identity WHERE id='academy'",
+  ).first<{ name: string }>();
+  return { academyName: identity?.name ?? "Sohoj Academy" };
+});

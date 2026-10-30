@@ -139,6 +139,21 @@ export async function protectRequest(
     return securityResponse("Invalid request path.", 400);
   }
   if (!policy) return null;
+  try {
+    const operation = await env.DB.prepare(
+      "SELECT id FROM system_maintenance_operations WHERE status='PREPARED' LIMIT 1",
+    ).first();
+    if (operation)
+      return securityResponse(
+        "Scheduled database maintenance. Please try again shortly.",
+        503,
+      );
+  } catch {
+    return securityResponse(
+      "Request verification is temporarily unavailable.",
+      503,
+    );
+  }
   // Local bypass needs BOTH the request hostname and configured auth origin.
   // No client header, CI flag or production environment variable disables protection.
   if (localSecurityRequest(request)) return null;

@@ -4,7 +4,7 @@ export function workflowReturnPath(value: string | null) {
   if (!value || /[\\\x00-\x1f]/.test(value) || /%0[ad]|%5c/i.test(value))
     return null;
   return value &&
-    (value === "/dashboard/setup" ||
+    (value === "/dashboard/academics/settings" ||
       /^\/dashboard\/finance\/procurement(?:\?q=[^#&]*&status=ALL)?$/.test(
         value,
       ) ||

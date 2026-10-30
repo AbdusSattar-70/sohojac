@@ -12,13 +12,11 @@ type Confirmation = { reference: string; studentName: string; guardianName: stri
 const inputClass = "mt-1.5 min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-blue-500";
 const labelClass = "block text-sm font-medium";
 const days = [["SAT","Saturday","শনিবার"],["SUN","Sunday","রবিবার"],["MON","Monday","সোমবার"],["TUE","Tuesday","মঙ্গলবার"],["WED","Wednesday","বুধবার"],["THU","Thursday","বৃহস্পতিবার"],["FRI","Friday","শুক্রবার"]] as const;
-const classes = ["Class 8","Class 9","Class 10"];
-const classForOffering = (className?: string | null) => classes.find(c => className?.startsWith(c) && !className.includes("Classes")) || "";
-const subjects = ["Bangla","English","Mathematics","General Science","Physics","Chemistry","Biology","Higher Mathematics","ICT"];
 const offeringName = (o: PublicOfferingCard, bn: boolean) =>
   (bn ? o.showcase_title_bn : o.showcase_title) || o.showcase_title || o.name;
 
-export function PublicInterestForm({ offerings, intent, initialOfferingId = "", initiallyClosedRequested = false, siteKey = "", registrationReady = false }: {
+export function PublicInterestForm({ options, offerings, intent, initialOfferingId = "", initiallyClosedRequested = false, siteKey = "", registrationReady = false }: {
+  options: {classes:string[]; relationships:string[]; subjects:string[]};
   offerings: PublicOfferingCard[];
   intent: Intent;
   initialOfferingId?: string;
@@ -26,6 +24,8 @@ export function PublicInterestForm({ offerings, intent, initialOfferingId = "", 
   siteKey?: string;
   registrationReady?: boolean;
 }) {
+  const {classes,relationships,subjects}=options;
+  const classForOffering=(value?:string|null)=>classes.find(c=>value===c || value?.startsWith(c+" ")) ?? "";
   const { locale } = useLanguage();
   const bn = locale === "bn";
   const [offeringId, setOfferingId] = useState(initialOfferingId);
@@ -198,7 +198,7 @@ export function PublicInterestForm({ offerings, intent, initialOfferingId = "", 
       <h2 className="text-lg font-semibold">{bn ? "অভিভাবক ও যোগাযোগ" : "Guardian & contact"}</h2>
       <div className="grid gap-5 md:grid-cols-2">
         <label className={labelClass}>{bn ? "অভিভাবকের নাম" : "Guardian name"} *<input className={inputClass} name="guardianName" maxLength={120} required/></label>
-        <label className={labelClass}>{bn ? "সম্পর্ক" : "Relationship"}<select name="guardianRelationship" className={inputClass} defaultValue=""><option value="">{bn ? "নির্বাচন করুন" : "Select"}</option><option value="Father">{bn ? "পিতা" : "Father"}</option><option value="Mother">{bn ? "মাতা" : "Mother"}</option><option value="Other guardian">{bn ? "অন্যান্য অভিভাবক" : "Other guardian"}</option></select></label>
+        <label className={labelClass}>{bn ? "সম্পর্ক" : "Relationship"}<select name="guardianRelationship" className={inputClass} defaultValue=""><option value="">{bn ? "নির্বাচন করুন" : "Select"}</option>{relationships.map(name=><option key={name} value={name}>{name}</option>)}</select></label>
         <label className={labelClass}>{bn ? "প্রধান মোবাইল" : "Primary mobile"} *<input className={inputClass} name="mobile" type="tel" inputMode="numeric" pattern="01[3-9][0-9]{8}" maxLength={11} placeholder="01XXXXXXXXX" required/></label>
         <label className={labelClass}>{bn ? "বিকল্প মোবাইল" : "Alternate mobile"}<input className={inputClass} name="alternateMobile" type="tel" inputMode="numeric" pattern="01[3-9][0-9]{8}" maxLength={11}/></label>
       </div>

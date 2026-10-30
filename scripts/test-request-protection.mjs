@@ -13,6 +13,10 @@ const env = {
   DB: {
     prepare(sql) {
       return {
+        async first() {
+          if (broken) throw Error("D1 unavailable");
+          return db.prepare(sql).get() ?? null;
+        },
         bind(...args) {
           return { sql, args };
         },
@@ -79,6 +83,9 @@ beforeEach(() => {
   db?.close();
   db = new DatabaseSync(":memory:");
   db.exec(fs.readFileSync("migrations/0034_request_protection.sql", "utf8"));
+  db.exec(
+    fs.readFileSync("migrations/0035_maintenance_operations.sql", "utf8"),
+  );
   Object.assign(env, bindings);
   verification = {
     success: true,
@@ -261,6 +268,14 @@ test("missing trusted IP, forged origin, cross-site requests and D1 outages fail
     403,
   );
   broken = true;
+  assert.equal((await api.protectRequest(request(), now)).status, 503);
+  assert.equal(fetches, 0);
+});
+
+test("maintenance blocks mutations before authentication or verification", async () => {
+  db.exec(
+    "INSERT INTO system_maintenance_operations(id,status,manifest_json) VALUES ('reset','PREPARED','[]')",
+  );
   assert.equal((await api.protectRequest(request(), now)).status, 503);
   assert.equal(fetches, 0);
 });
