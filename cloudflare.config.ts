@@ -1,8 +1,9 @@
-import { sharedD1 } from "./lib/database-target.ts";
+import { resolveDatabaseTarget } from "./lib/database-target.ts";
 import { bindings, defineConfig, defineWorker } from "cf/config";
 
 export default defineConfig(({ mode }) => {
   const staging = mode === "staging";
+  const database = resolveDatabaseTarget(staging ? "staging" : "production", process.env.SOHOJAC_DEV_D1_ID);
   if (
     staging &&
     (!process.env.BETTER_AUTH_URL ||
@@ -14,7 +15,7 @@ export default defineConfig(({ mode }) => {
   }
   return {
     worker: defineWorker({
-      name: staging ? "sohojac-dev" : "sohojac",
+      name: database.worker,
       entrypoint: "vinext/server/fetch-handler",
       compatibilityDate: "2026-10-26",
       compatibilityFlags: ["nodejs_compat"],
@@ -27,11 +28,10 @@ export default defineConfig(({ mode }) => {
         ASSETS: bindings.assets(),
         IMAGES: bindings.images(),
         DB: bindings.d1({
-          name: sharedD1.name,
-          id: sharedD1.id,
+          name: database.name,
+          id: database.id,
         }),
-        // Require this secret; the manual deployment workflow uploads it on
-        // every release to avoid losing secrets with the beta cf deploy API.
+        // Each deployment must inject ONLY its own environment secrets.
         TURNSTILE_SECRET_KEY: bindings.secret(),
         // Auth is intentionally unavailable until BETTER_AUTH_SECRET is configured.
         BETTER_AUTH_SECRET: bindings.secret(),
