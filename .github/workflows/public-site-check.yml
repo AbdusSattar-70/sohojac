@@ -89,6 +89,11 @@ jobs:
           grep -q 'color-scheme: dark' app/globals.css
           grep -q 'STAFF_EMAIL_FROM' lib/staff-mail.ts
 
+      - name: Verify retired admission mutation guards
+        run: node scripts/test-retired-admission-mutations.mjs
+      - name: Verify admission fee snapshot concurrency
+        run: node scripts/test-admission-fee-concurrency.mjs
+
       - name: Build Cloudflare Worker
         run: pnpm run build
 
@@ -617,8 +622,8 @@ jobs:
           node -e 'const n=require("/tmp/ci-fees-checked.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==2)process.exit(1);'
 
 
-          echo 'CI entering admission approval checks'
-          # Admission preparation and human approval must never create students or invoices.
+          echo 'CI entering canonical admission cutover checks'
+          # Read compatibility remains; old mutation handlers must fail closed.
           anonymous_admission=$(curl -sS -o /tmp/ci-anon-admissions.json -w '%{http_code}' "http://localhost:4173/api/staff/admissions")
           test "$anonymous_admission" = "401"
           teacher_admission=$(curl -sS -o /tmp/ci-teacher-admissions.json -w '%{http_code}' -b /tmp/teacher-ci-cookies "http://localhost:4173/api/staff/admissions")
@@ -631,19 +636,81 @@ jobs:
           admission_batch_id=$(node -e 'process.stdout.write(require("/tmp/ci-admission-batch.json").id)')
           activated_batch=$(curl -sS -o /tmp/ci-activated-batch.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/batches/$admission_batch_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"name":"CI Admissions Active","capacity":12,"beginsOn":"","endsOn":"","nextStatus":"ACTIVE","expectedVersion":1,"reason":"Activate CI admission batch"}')
           test "$activated_batch" = "200"
-          invalid_admission=$(curl -sS -o /tmp/ci-invalid-admission.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/admissions" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"offeringId":"sa-ssc-science","studentName":"A","classGrade":10,"guardianName":"Guardian CI","guardianMobile":"1","schoolName":"","reason":"Invalid application input"}')
-          test "$invalid_admission" = "400"
-          app_create=$(curl -sS -o /tmp/ci-created-admission.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/admissions" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"offeringId":"sa-ssc-science","enquiryId":"","studentName":"Synthetic Admission Student","classGrade":10,"guardianName":"Synthetic Guardian","guardianMobile":"01700000003","schoolName":"CI School","reason":"Prepare application after identity check"}')
-          test "$app_create" = "201"
-          admission_id=$(node -e 'process.stdout.write(require("/tmp/ci-created-admission.json").id)')
-          app_review=$(curl -sS -o /tmp/ci-review-admission.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/admissions/$admission_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"action":"REVIEW","expectedVersion":1,"reason":"Send verified application for review"}')
-          test "$app_review" = "200"
-          premature_accept=$(curl -sS -o /tmp/ci-bad-accept.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/admissions/$admission_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"action":"ACCEPT","expectedVersion":2,"batchId":"not-a-real-batch","feePlanId":"invalid-fee","consentVerified":true,"reason":"Reject nonexistent fee and batch"}')
-          test "$premature_accept" = "409"
-          approved=$(curl -sS -o /tmp/ci-approved-admission.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/admissions/$admission_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"action\":\"ACCEPT\",\"expectedVersion\":2,\"batchId\":\"$admission_batch_id\",\"feePlanId\":\"$admission_fee_id\",\"consentVerified\":true,\"reason\":\"Physical forms verified by authorised owner\"}")
-          test "$approved" = "200"
-          duplicate_approval=$(curl -sS -o /tmp/ci-duplicate-approval.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/admissions/$admission_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"action\":\"ACCEPT\",\"expectedVersion\":2,\"batchId\":\"$admission_batch_id\",\"feePlanId\":\"$admission_fee_id\",\"consentVerified\":true,\"reason\":\"A second approval should always fail\"}")
-          test "$duplicate_approval" = "409"
+          # Old simplified writes are retired. Authentication and origin checks
+          # remain in force; even an owner cannot bypass signed consent/payment.
+          admission_id=$(node -e 'process.stdout.write(require("node:crypto").randomUUID())')
+          retired_counts_sql="SELECT (SELECT COUNT(*) FROM academy_admissions),(SELECT COUNT(*) FROM academy_students),(SELECT COUNT(*) FROM academy_enrollments),(SELECT COUNT(*) FROM academy_admission_bills),(SELECT COUNT(*) FROM finance_invoices),(SELECT COUNT(*) FROM finance_payments),(SELECT COUNT(*) FROM academy_admission_consents),(SELECT COUNT(*) FROM academy_admission_referrals),(SELECT COUNT(*) FROM erp_audit_events)"
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
+            --sql "$retired_counts_sql" > /tmp/ci-retired-before.json
+          for retired_case in \
+            "POST /api/staff/admissions" \
+            "PATCH /api/staff/admissions/$admission_id" \
+            "POST /api/staff/admissions/$admission_id/bill" \
+            "POST /api/staff/admissions/$admission_id/enroll"; do
+            read -r retired_method retired_path <<< "$retired_case"
+            retired_anon=$(curl -sS -o /tmp/ci-retired-anon.json -w '%{http_code}' \
+              -X "$retired_method" "http://localhost:4173$retired_path" \
+              -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{}')
+            test "$retired_anon" = "401"
+            retired_teacher=$(curl -sS -o /tmp/ci-retired-teacher.json -w '%{http_code}' \
+              -b /tmp/teacher-ci-cookies -X "$retired_method" "http://localhost:4173$retired_path" \
+              -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{}')
+            test "$retired_teacher" = "403"
+            retired_origin=$(curl -sS -o /tmp/ci-retired-origin.json -w '%{http_code}' \
+              -b /tmp/staff-ci-cookies -X "$retired_method" "http://localhost:4173$retired_path" \
+              -H "Origin: https://other.invalid" -H "Content-Type: application/json" --data '{}')
+            test "$retired_origin" = "403"
+            retired_owner=$(curl -sS -o /tmp/ci-retired-owner.json -w '%{http_code}' \
+              -b /tmp/staff-ci-cookies -X "$retired_method" "http://localhost:4173$retired_path" \
+              -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+              --data '{"action":"ACCEPT","consentVerified":true,"expectedVersion":1,"reason":"Legacy consent and payment bypass must be refused"}')
+            echo "Retired admission mutation $retired_method $retired_path HTTP: $retired_owner"
+            test "$retired_owner" = "410"
+            node -e 'const r=require("/tmp/ci-retired-owner.json");if(!r.error)process.exit(1)'
+          done
+          for retired_case in \
+            "PATCH /api/staff/admissions/not-a-uuid" \
+            "POST /api/staff/admissions/not-a-uuid/bill" \
+            "POST /api/staff/admissions/not-a-uuid/enroll"; do
+            read -r retired_method retired_path <<< "$retired_case"
+            retired_invalid=$(curl -sS -o /tmp/ci-retired-invalid.json -w '%{http_code}' \
+              -b /tmp/staff-ci-cookies -X "$retired_method" "http://localhost:4173$retired_path" \
+              -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{}')
+            test "$retired_invalid" = "400"
+          done
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
+            --sql "$retired_counts_sql" > /tmp/ci-retired-after.json
+          node -e 'const assert=require("node:assert/strict");assert.deepEqual(require("/tmp/ci-retired-before.json")[0]?.results?.rows,require("/tmp/ci-retired-after.json")[0]?.results?.rows,"Retired mutations must not change any admission/student/financial/audit ledger")'
+
+          # Historical records remain readable and collectible. This synthetic
+          # fixture models a pre-cutover enrollment and never uses a live DB.
+          # New admissions are exercised through the canonical workflow below.
+          historical_student_id=$(node -e 'process.stdout.write(require("node:crypto").randomUUID())')
+          historical_enrollment_id=$(node -e 'process.stdout.write(require("node:crypto").randomUUID())')
+          historical_invoice_id=$(node -e 'process.stdout.write(require("node:crypto").randomUUID())')
+          historical_bill_id=$(node -e 'process.stdout.write(require("node:crypto").randomUUID())')
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "
+            INSERT INTO academy_students(id,student_no,full_name,class_grade,guardian_name,guardian_mobile,school_name,status)
+            VALUES('$historical_student_id','SA-STD-CI-HISTORICAL','Synthetic Admission Student',10,'Synthetic Guardian','01700000003','CI School','ACTIVE');
+            INSERT INTO academy_admissions(id,application_no,offering_id,student_id,status,prepared_by,student_full_name,class_grade,guardian_full_name,guardian_mobile,school_name,batch_id,fee_plan_id,consent_verified,version)
+            SELECT '$admission_id','SA-APP-CI-HISTORICAL','sa-ssc-science','$historical_student_id','ENROLLED',id,
+              'Synthetic Admission Student',10,'Synthetic Guardian','01700000003','CI School','$admission_batch_id','$admission_fee_id',1,5
+            FROM \"user\" WHERE email='staff-ci@example.invalid';
+            INSERT INTO academy_admission_bills(id,admission_id,reference,monthly_amount_paisa,admission_amount_paisa,amount_paisa,issue_on,issued_by)
+            SELECT '$historical_bill_id','$admission_id','SA-BILL-CI-HISTORICAL',250000,150000,400000,date('now'),id
+            FROM \"user\" WHERE email='staff-ci@example.invalid';
+            INSERT INTO academy_enrollments(id,student_id,batch_id,admission_id,status)
+            VALUES('$historical_enrollment_id','$historical_student_id','$admission_batch_id','$admission_id','ACTIVE');
+            INSERT INTO finance_invoices(id,invoice_no,student_id,admission_id,issue_on,amount_paisa,status,created_by)
+            SELECT '$historical_invoice_id','SA-BILL-CI-HISTORICAL','$historical_student_id','$admission_id',date('now'),400000,'ISSUED',id
+            FROM \"user\" WHERE email='staff-ci@example.invalid';
+            INSERT INTO erp_audit_events(id,entity_type,entity_id,action,actor_id,reason,after_json)
+            SELECT lower(hex(randomblob(16))),'admission','$admission_id','ENROLLED',id,
+              'Synthetic historical fixture for local regression only','{}'
+            FROM \"user\" WHERE email='staff-ci@example.invalid';
+            " > /tmp/ci-historical-admission.json
+          node -e 'require("node:fs").writeFileSync("/tmp/ci-enrolled.json",JSON.stringify({ok:true,status:"ENROLLED",studentId:process.argv[1],studentNo:"SA-STD-CI-HISTORICAL",invoiceId:process.argv[2],version:5}))' "$historical_student_id" "$historical_invoice_id"
+
           # Historical /app/admissions links must resolve to the original ERP.
           admission_page=$(curl -sS -D /tmp/ci-legacy-admission-headers -o /dev/null -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/app/admissions")
           echo "Legacy Admissions redirect HTTP: $admission_page"
@@ -654,42 +721,9 @@ jobs:
           test "$redirected_admissions" = "200"
           grep -q 'Start an admission' /tmp/ci-admission-page.html
           grep -q 'Admission cases' /tmp/ci-admission-page.html
-          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM academy_admissions WHERE status='ACCEPTED' AND consent_verified=1),(SELECT COUNT(*) FROM academy_students),(SELECT COUNT(*) FROM finance_invoices),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type='admission')" > /tmp/ci-admission-approval.json
-          node -e 'const n=require("/tmp/ci-admission-approval.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==0||n?.[2]!==0||n?.[3]!==3)process.exit(1);'
-
-
-          echo 'CI entering initial billing checks'
-          # Initial bill snapshots exact approved fees without creating students.
-          anonymous_bill=$(curl -sS -o /tmp/ci-anon-bill.json -w '%{http_code}' -X POST "http://localhost:4173/api/staff/admissions/$admission_id/bill" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{}')
-          test "$anonymous_bill" = "401"
-          teacher_bill=$(curl -sS -o /tmp/ci-teacher-bill.json -w '%{http_code}' -b /tmp/teacher-ci-cookies -X POST "http://localhost:4173/api/staff/admissions/$admission_id/bill" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{}')
-          test "$teacher_bill" = "403"
-          initial_bill=$(curl -sS -o /tmp/ci-initial-bill.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/admissions/$admission_id/bill" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"expectedVersion":3,"reason":"Issue official initial fee statement"}')
-          test "$initial_bill" = "200"
-          duplicate_bill=$(curl -sS -o /tmp/ci-dupe-bill.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/admissions/$admission_id/bill" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"expectedVersion":3,"reason":"Duplicate bill must be rejected"}')
-          test "$duplicate_bill" = "409"
           bill_page=$(curl -sS -o /tmp/ci-bill-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/admissions/$admission_id/bill")
           test "$bill_page" = "200"
           grep -q "Initial admission bill" /tmp/ci-bill-page.html
-          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM academy_admissions WHERE status='BILLED'),(SELECT COUNT(*) FROM academy_admission_bills WHERE monthly_amount_paisa=250000 AND admission_amount_paisa=150000 AND amount_paisa=400000),(SELECT COUNT(*) FROM academy_students),(SELECT COUNT(*) FROM finance_invoices),(SELECT COUNT(*) FROM erp_audit_events WHERE action='INITIAL_BILL_ISSUED')" > /tmp/ci-initial-bill-check.json
-          node -e 'const n=require("/tmp/ci-initial-bill-check.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==1||n?.[2]!==0||n?.[3]!==0||n?.[4]!==1)process.exit(1);'
-
-
-          echo 'CI entering atomic enrollment checks'
-          # Enroll exactly once after initial bill. The first invoice and seat
-          # assignment must be in the same transaction; no payment is invented.
-          unauthorized_enroll=$(curl -sS -o /tmp/ci-unauth-enroll.json -w '%{http_code}' -X POST "http://localhost:4173/api/staff/admissions/$admission_id/enroll" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{}')
-          test "$unauthorized_enroll" = "401"
-          teacher_enroll=$(curl -sS -o /tmp/ci-teacher-enroll.json -w '%{http_code}' -b /tmp/teacher-ci-cookies -X POST "http://localhost:4173/api/staff/admissions/$admission_id/enroll" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{}')
-          test "$teacher_enroll" = "403"
-          stale_enroll=$(curl -sS -o /tmp/ci-stale-enroll.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/admissions/$admission_id/enroll" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"expectedVersion":3,"reason":"Old version must never enroll"}')
-          test "$stale_enroll" = "409"
-          enrolled=$(curl -sS -o /tmp/ci-enrolled.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/admissions/$admission_id/enroll" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"expectedVersion":4,"reason":"Complete verified synthetic enrollment"}')
-          echo "Atomic enrollment HTTP: $enrolled"
-          if [ "$enrolled" != "201" ]; then cat /tmp/ci-enrolled.json; fi
-          test "$enrolled" = "201"
-          reused_enrollment=$(curl -sS -o /tmp/ci-reused-enroll.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/admissions/$admission_id/enroll" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"expectedVersion":4,"reason":"Duplicate enrollment is forbidden"}')
-          test "$reused_enrollment" = "409"
           students_api=$(curl -sS -o /tmp/ci-students-api.json -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/api/staff/students")
           test "$students_api" = "200"
           teacher_students=$(curl -sS -o /tmp/ci-teacher-students.json -w '%{http_code}' -b /tmp/teacher-ci-cookies "http://localhost:4173/api/staff/students")
@@ -1126,6 +1160,21 @@ jobs:
             }'
           source_due=$(node -e 'const r=require("/tmp/ci-finalized-admission.json")[0].results.rows[0];process.stdout.write(String(r[2]/100))')
           if [ "$source_due" != "0" ]; then
+            unpaid_activate=$(curl -sS -o /tmp/ci-unpaid-activate.json -w '%{http_code}' \
+              -b /tmp/staff-ci-cookies -X POST "$workflow_endpoint" \
+              -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+              --data '{"action":"ACTIVATE","reason":"Unpaid admission activation must be refused"}')
+            test "$unpaid_activate" = "409"
+            legacy_unpaid_enroll=$(curl -sS -o /tmp/ci-legacy-unpaid-enroll.json -w '%{http_code}' \
+              -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/admissions/$source_parity_id/enroll" \
+              -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+              --data '{"expectedVersion":3,"reason":"Old route must not activate unpaid canonical admission"}')
+            test "$legacy_unpaid_enroll" = "410"
+            pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql \
+              "SELECT a.status,s.status,(SELECT COUNT(*) FROM academy_enrollments e WHERE e.admission_id=a.id)
+               FROM academy_admissions a JOIN academy_students s ON s.id=a.student_id
+               WHERE a.id='$source_parity_id'" > /tmp/ci-unpaid-inactive.json
+            node -e 'const r=require("/tmp/ci-unpaid-inactive.json")[0]?.results?.rows?.[0];if(r?.[0]!=="BILLED"||r?.[1]!=="INACTIVE"||r?.[2]!==0)process.exit(1)'
             workflow_call payment "{\"action\":\"PAYMENT\",\"amount\":$source_due,\"method\":\"CASH\",\"reference\":\"Local CI payment\",\"reason\":\"Verified actual cash payment in synthetic local fixture\"}"
           fi
           workflow_call enroll '{"action":"ACTIVATE","reason":"Confirmed full invoice settlement and available cohort capacity"}'
