@@ -5,7 +5,7 @@
 **Document status:** Proposed product and engineering strategy; **review-only, no runtime changes authorized by this document**  
 **Technical architecture:** [Enterprise-grade modular target architecture, command contracts and migration gates](./ERP_TARGET_ARCHITECTURE.md)  
 **Audience:** Owner, administrator, operator, teacher, developer and future QA staff  
-**Product:** Sohoj Academy coaching-centre ERP and public website; one Cloudflare D1 shared by dev/main; English-only dark ERP; no student/guardian accounts; guardians reached by SMS.
+**Product:** Sohoj Academy coaching-centre ERP and public website; separate Cloudflare D1 databases (`dev` → `sohojac_dev`, `master` → `sohojac`; migration pending); English-only dark ERP; no student/guardian accounts; guardians reached by SMS.
 
 ## Executive recommendation
 
@@ -161,16 +161,22 @@ Do not preserve a confusing original screen **only for visual parity**; preserve
 
 Evidence and design references: [Nielsen Norman usability heuristics](https://www.nngroup.com/articles/ten-usability-heuristics/), [GOV.UK Check answers](https://design-system.service.gov.uk/patterns/check-answers/), [GOV.UK task list guidance](https://design-system.service.gov.uk/components/task-list/), [GOV.UK error messages](https://design-system.service.gov.uk/components/error-message/), and [WCAG 2.2](https://www.w3.org/TR/WCAG22/).
 
+## Environment and approval policy — supersedes the old shared-DB approach
+
+**New owner instruction (31 October 2026):** `dev` must use the **new `sohojac_dev` database** and a separate dev Worker; `master` must continue using the existing production `sohojac` database. The developer may deploy changes to dev for testing. **Only the owner decides, after personally reviewing the deployed dev version, whether that exact code revision may be promoted to master.** Do not merge or deploy to production on the basis of CI success alone. Never share or copy production minors' personal data, credentials or financial records into dev. Dev and production must have separate D1 bindings, migration/seed jobs, secrets, staff auth and recovery points. Explicit automated guards must reject branch → database mismatches.
+
+**Transition is not complete:** the inspected source still binds both Workers to the same `sohojac` DB. The deployment and DB reconfiguration is a separate implementation phase; document updates do not create D1 resources or isolate running Workers. See [architecture Section 7](./ERP_TARGET_ARCHITECTURE.md#7-strict-developmentproduction-separation-and-manual-promotion) for provisioning, verification and promotion requirements.
+
 ## Engineering workflow: simplify without disabling safeguards
 
-**Actual current state:** one workflow file, three jobs (build, main release, dev release), not many separate automatic job files. It includes a ~1,300-line embedded test shell section. Its shared-D1 deployment concurrency and pre-deploy recovery bookmarks are safety-critical and must stay.
+**Actual current state:** one workflow file, three jobs (build, main release, dev release), not many separate automatic job files. It includes a ~1,300-line embedded test shell section. Its pre-deploy recovery bookmarks are safety-critical and must stay; current shared-D1 release assumptions must be **removed after provisioning separate environment DBs**.
 
 1. **Extract** inlined smoke tests into smaller versioned scripts grouped by auth/security, admissions, academic/offerings, finance and deployment. Keep the same assertions and local test data; remove only proven duplicate assertions.
 2. **CI fast gates**: typecheck, lint/format, tests, migration lint, domain parity and Worker build. No unnecessary live DB writes from pull-request CI.
-3. **Deploy dev on tested code changes** with one shared-D1 release lock; the current dev Worker shares production data, so dev must not run destructive experiments or user-visible test financial postings.
-4. **Deploy main only from the tested, authorized master revision**, after backup bookmark/migrations and production smoke checks; no skipped build accepted. Keep an explicit tested rollback procedure and audit who triggered releases.
+3. **Deploy dev on tested code changes to `sohojac_dev` only**, a **new independent D1** that must be provisioned. Until binding migration is verified, the current dev Worker still shares `sohojac`; do not run destructive or financial tests remotely. Once isolated, use only approved synthetic dev records, separate auth credentials and sandboxed SMS/email; dev migrations, seeds and resets must never address production.
+4. **Manual release gate:** deploy the candidate to `dev`, let the owner test the dev site and explicitly approve the exact commit/release. **Do not auto-merge `dev` to `master` or deploy to production without that approval.** After owner approval, merge a reviewed PR to `master`; production uses **only the existing `sohojac` D1**, takes its own bookmark, runs separate migrations and health checks. Keep an explicit rollback procedure and record the approving owner and SHA.
 5. **Docs-only modifications**: run lightweight documentation/link validation and skip Worker upload, DB migrations, seed and reset. Add safe path filters or job-level change detection; verify required checks and branch protection before introducing filters.
-6. **Seeds**: preserve the prior one-time reset completion marker; do not reset the shared DB automatically. Seed reference-only data with explicit idempotency and audit/review; test destructive migrations only in ephemeral local SQLite/D1 emulation.
+6. **Seeds**: preserve the historical production reset completion marker; never automatically reset `sohojac`. Initialize the new `sohojac_dev` with independent migrations, reference seeds and synthetic fixtures; keep production student/guardian/payment/consent data out of dev. Destructive migration rehearsals run first in ephemeral local SQLite/D1.
 7. **Dependencies**: pin validated versions and use scheduled dependency PRs rather than silent latest/beta changes on a release; install with frozen lockfile.
 8. **Observability**: track command outcome IDs, meaningful non-sensitive errors, access denials, failed writes, migration status, page performance, and audit trails. Do not log raw credentials or minors' personal information.
 
@@ -203,16 +209,16 @@ Evidence and design references: [Nielsen Norman usability heuristics](https://ww
 
 | KEEP | MERGE / HIDE in the UI | RETIRE only after migration |
 |---|---|---|
-| Single shared D1; immutable student/staff IDs; audit history; source mapping; permissions; idempotent domain commands; fee snapshots; real receipts; 12-seat policy; recovery bookmarks; domain regression tests | Offering, Fee Plan, Batch and Public settings into Programme Launch; campus/year defaults; audit reasons for routine draft edits; optional bilingual public content and topic curriculum under Advanced | Duplicate subject master/write path and subjects-assignment UI; legacy weaker finance/batch APIs; outdated unavailable help links; redundant tests/workflows after coverage audit; unused dependencies |
+| Separate `sohojac_dev` and `sohojac` D1s; immutable student/staff IDs; audit history; source mapping; permissions; idempotent domain commands; fee snapshots; real receipts; 12-seat policy; environment-specific recovery bookmarks; domain regression tests | Offering, Fee Plan, Batch and Public settings into Programme Launch; campus/year defaults; audit reasons for routine draft edits; optional bilingual public content and topic curriculum under Advanced | Duplicate subject master/write path and subjects-assignment UI; legacy weaker finance/batch APIs; outdated unavailable help links; redundant tests/workflows after coverage audit; unused dependencies |
 | Guardian relationships, class reference list 1–12, public enquiry form, staff-only ERP, SMS guardian notification policy | Separate visibility/open toggles behind readiness/publish decision; role-targeted dashboard terminology | No historical data deletion, no disabling permissions/backup/CI to reduce page count |
 
 ## Required review checkpoints before implementation
 
 1. **Owner decision:** Approve whether a public "Register interest" page may be visible before a published Fee Plan or batch exists. It must never promise a confirmed seat/price without the real data.
 2. **Owner decision:** Approve global subject master + curriculum templates and programme eligibility covering multiple classes. Verify whether teaching/scheduling needs any genuinely class-specific subjects.
-3. **Technical decision:** Map all existing IDs, references and public JSON before subject migration; choose a non-destructive strategy compatible with the single shared database.
+3. **Technical decision:** Map all existing IDs, references and public JSON before subject migration; test in `sohojac_dev` first and migrate production `sohojac` only after manual owner approval.
 4. **Technical decision:** Approve the new task-based navigation and copy without reducing existing authorization or financial controls.
-5. **Release decision:** Change one bounded slice at a time, test in ephemeral local data, then dev/main with the shared DB and full recovery evidence. Update the original strategy with verified phase status; do not claim this blueprint implemented before it is.
+5. **Release decision:** Create and verify `sohojac_dev`; develop and test each bounded slice locally and on isolated dev, **wait for the owner's manual review and explicit decision**, and only then permit merge/promotion to `master` using production `sohojac`. Record separate recovery evidence and update verified phase status; do not claim database isolation is already implemented.
 
 ---
 
