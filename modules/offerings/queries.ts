@@ -1,3 +1,4 @@
+import type {OfferingSubjectOption} from "@/lib/offering-subject-options";
 import type {PublicOfferingCard} from "./types";
 import {env} from "cloudflare:workers";
 import {getErpContext,requirePermission} from "@/modules/platform/auth/erp-context";
@@ -6,7 +7,7 @@ export type WebsiteOfferingRow={
  id:string;code:string;name:string;status:"DRAFT"|"ACTIVE"|"RETIRED";version:number;
  branch_id:string|null;academic_year_id:string|null;class_id:string|null;program_id:string|null;group_id:string|null;
  operation_kind:"SCHOOL"|"COACHING"|"TRAINING"|null;teaching_starts_on:string|null;teaching_ends_on:string|null;
- class_name:string;academic_year_name:string;branch_name:string;group_name:string|null;
+ class_code?:string|null;class_name:string;academic_year_name:string;branch_name:string;group_name:string|null;
  allowed_discount_percentages:number[];created_at:string;
  is_website_visible:boolean;is_accepting_applications:boolean;
  showcase_title:string|null;showcase_title_bn:string|null;
@@ -36,11 +37,11 @@ export type OfferingOverview={
  offerings:WebsiteOfferingRow[];groups:Directory[];years:Array<Directory&{is_active:boolean}>;
  branches:Directory[];classes:Array<Directory&{sort_order:number}>;programs:Directory[];
  plans:FeePlanRow[];components:FeeComponentRow[];
- subjects:Array<{id:string;code:string;name:string}>;
+ subjects:OfferingSubjectOption[];
  offeringSubjects:Array<{offering_id:string;subject_id:string;sort_order:number}>;
 };
 async function catalogue(){
- const rows=await env.DB.prepare("SELECT * FROM public_programme_offerings ORDER BY created_at DESC,id").all<StoredOffering>();
+ const rows=await env.DB.prepare("SELECT o.*,c.code AS class_code FROM public_programme_offerings o LEFT JOIN academy_classes c ON c.id=o.class_id ORDER BY o.created_at DESC,o.id").all<StoredOffering>();
  return (rows.results??[]).map<WebsiteOfferingRow>(row=>{
   let allowed:number[]=[];
   try{const value=JSON.parse(row.allowed_discount_percentages_json??"[]");if(Array.isArray(value))allowed=value.filter((p):p is number=>Number.isInteger(p)&&p>=5&&p<=30&&p%5===0);}catch{}
@@ -51,7 +52,7 @@ async function catalogue(){
 }
 async function subjectLinks(){
  const [subjects,links]=await Promise.all([
-  env.DB.prepare("SELECT id,code,name FROM academy_subjects WHERE active=1 ORDER BY name,id").all<{id:string;code:string;name:string}>(),
+  env.DB.prepare("SELECT id,code,name,class_grade,group_name,active FROM academy_subjects WHERE active=1 OR id IN (SELECT subject_id FROM academy_offering_subjects) ORDER BY name,class_grade,group_name,id").all<OfferingSubjectOption>(),
   env.DB.prepare("SELECT offering_id,subject_id,sort_order FROM academy_offering_subjects ORDER BY offering_id,sort_order,subject_id").all<{offering_id:string;subject_id:string;sort_order:number}>()
  ]);
  return {subjects:subjects.results??[],offeringSubjects:links.results??[]};
