@@ -1,6 +1,8 @@
 # Sohojac development strategy
 
-Updated: 30 October 2026. This is the single current roadmap and phase-status register.
+> **Architecture and UX redesign proposal (31 October 2026):** [Target modular architecture and phase gates](./ERP_TARGET_ARCHITECTURE.md) · [Operator-first pinpoint audit and workflow blueprint](./OPERATOR_FIRST_ERP_BLUEPRINT.md). Both are design proposals, **not deployed features**. Phase 2 financial/permission hardening remains the prerequisite; these documents do not replace verified phase statuses.
+
+Updated: 31 October 2026. This is the single current roadmap and phase-status register.
 Source parity: `sohoj-academy@f46b61611edce0a82f69e349bb89269329233b62`.
 A deployed slice, a present file or green CI is not proof that the entire original ERP is complete.
 
@@ -10,19 +12,21 @@ A deployed slice, a present file or green CI is not proof that the entire origin
 - English-only dark ERP, canonical `/dashboard`, responsive desktop/mobile navigation.
 - Staff-only accounts; no student/guardian login. Guardian communication is SMS, not email.
 - Preserve permanent identities, historical ledgers and immutable published fee versions.
-- User decision (30 October 2026): ONE Cloudflare D1, `sohojac`, shared by dev and main deployments. This entire installation is development/testing, not separated live/test databases.
+- **New owner decision (31 October 2026; supersedes the prior one-D1 deployment policy):** create a separate Cloudflare D1 database named exactly `sohojac_dev` for the `dev` branch and dev Worker. Keep production `master` deployed with the existing `sohojac` D1 and production Worker. No shared application data, staff login sessions, test receipts or migrations across environments.
+- **Manual production promotion:** implement on a feature branch, merge into `dev`, deploy and verify against `sohojac_dev`. **Do not merge/push changes from `dev` into `master` until the owner has manually tested the deployed dev version and explicitly approved the particular release.** After approval, a reviewed PR may merge into `master` and trigger production CI/deployment against `sohojac`. Neither a green CI check nor a scheduled job constitutes owner's approval.
+- **Transition status:** this is a required change to infrastructure/CI/application bindings, **not yet implemented** by these documentation edits. Current code still points both deployments to `sohojac` through `lib/database-target.ts`; treat dev as **not isolated until binding inspection and test evidence prove otherwise**.
 - User decision (30 October 2026): reset development business data once and seed clean reference masters without TEST prefixes. Preserve login credentials and staff identities. Subsequent releases preserve newly entered work; never invent people, consent or financial history.
 
 ## Delivery rule
 
-Finish one bounded phase, test it, commit it, merge to `dev`, verify the real shared-database dev deployment,
-then promote the frozen version to `master` and verify production. Update this register in each phase PR.
+Finish one bounded phase, test it, commit it, merge to `dev`, deploy using **only `sohojac_dev`**, and verify the actual dev application and DB. Submit the dev URL, changed workflows, test cases and release notes for **manual owner acceptance**. Only after explicit owner approval of that version may a reviewed PR merge into `master`, triggering production deployment using **only `sohojac`**. Update this register in each phase PR. Never auto-merge dev to master or deploy dev commits to production.
 A phase may not be labelled released when its migration, Worker upload or health checks were skipped.
 Record release evidence in the PR and GitHub Actions run; keep the current feature branch until the next phase.
 Do not delete migrations, pinned source manifests or regression checks as cleanup.
 
 | Phase | Outcome and acceptance | Status |
 |---|---|---|
+| **0E — Environment isolation and owner-controlled promotion (new requirement)** | Provision `sohojac_dev`, bind `dev` Worker only to dev DB, preserve `master`→`sohojac`, separate auth/secrets/Turnstile/seeds/migrations/restore; verify DB ID and data isolation; require owner manual review and explicit approval before any dev→master merge | **Implementation committed on `feature/operator-first-erp`; D1 provisioning, CI, independent deployment, security configuration and owner review remain unverified until dev CI/deployment evidence. Never promote before manual acceptance.** |
 | 1 — Security foundation and repository hygiene | Turnstile on anonymous forms; durable request limits; single shared sohojac D1; clean foundation reset and editable reference masters (Phase 1B); retire the old dev-only D1 after verified rebinding; consolidate docs and workflows | Implementation verified; environment release evidence is maintained in [phase PR #38](https://github.com/AbdusSattar-70/sohojac/pull/38) |
 | 1B — Clean development foundation | One-time shared DB reset; Classes 1–12; guardian relationships and reference masters; consolidated Academic Setup; public options from active masters | Released and reset verified in [PR #41](https://github.com/AbdusSattar-70/sohojac/pull/41) |
 | 1C — Academic setup workflow corrections | Single year editor; visible submission validation; consistent batch readiness; public Evening Care offerings and 12-seat cohorts | Released and verified in [PR #44](https://github.com/AbdusSattar-70/sohojac/pull/44) and [PR #46](https://github.com/AbdusSattar-70/sohojac/pull/46) |
@@ -54,12 +58,11 @@ findings remain open for Phase 2; security challenges do not fix them.
 - D1 counters use atomic increments and bounded expiry cleanup. Only hashed IP/scope/window keys are
   stored; no raw address, email, password, token or session cookie is recorded in counters.
 - Production cannot use local/CI headers to disable protection. Local bypass requires both actual
-  request hostname and configured auth origin to be loopback. Dev has real protection, shares the same DB/accounts as main, and needs
-  its own allowed hostname and Turnstile credentials; no production security test bypass is provided.
+  request hostname and configured auth origin to be loopback. **Historical Phase 1 behavior** used shared data and accounts; the 31 October decision replaces it with independent `sohojac_dev` records, staff identities/secrets and an allowed dev hostname/Turnstile widget. No deployed security-test bypass is permitted.
 - This is application request protection, not a claim that account-level Cloudflare WAF/Bot rules
   have been configured. Additional edge rules remain an infrastructure decision.
-- Automated stale-branch pruning and the broken legacy public-only rollback workflow are removed.
-  Essential build/regression, shared-D1 dev/main deployment and recovery capture stay.
+- Automated stale-branch pruning and the broken legacy public-only rollback workflow were removed.
+  Essential build/regression and separate per-environment migration/recovery checks must stay. Do not leave a shared-D1 deployment workflow after separating the environments.
 
 ## Current review findings to close
 
@@ -87,12 +90,20 @@ remain discoverable through the two pinned JSON manifests and the source-path au
 - The phase PR is the current dev/production release record; its exact commit and migration/Worker/health evidence must be verified before calling the phase released.
 - Human Turnstile completion in a real browser remains an explicit acceptance check.
 
-## One-database development decision
+## Separate dev and production databases — approved target, migration pending
 
-Both Worker configurations import the fixed `sharedD1` target from `lib/database-target.ts`.
-No deployment provisions another Cloudflare D1. CI uses ephemeral local SQLite simulations only.
-Dev and master releases share one concurrency group because their migrations/data affect the same DB.
-Keep migrations backward compatible with the other deployed Worker. A dev deployment is not data isolation.
+The former single-D1 decision was used in the verified Phase 1 releases below. **It is superseded as of 31 October 2026.** The permanent target environment matrix is:
+
+| Branch / environment | Cloudflare Worker | D1 database | Data and credentials | Promotion |
+|---|---|---|---|---|
+| `dev` / development | Separate dev Worker and hostname | **`sohojac_dev`** (must be created) | Separate dev staff identities, Better Auth origin/secret, Turnstile keys, test fixtures; safe to reset only with explicit dev authorization | Deploy to dev, test and manually review |
+| `master` / production | Main Worker / `sohojac.com` | **`sohojac`** (retain existing DB and data) | Production identities, secrets and business records untouched | Owner explicitly approves the tested dev revision, then reviewed PR merges to `master` |
+
+**Implementation gate (not done by this doc PR):** (1) provision exact D1 name `sohojac_dev` with its own real database ID, (2) configure dev Worker/CI D1 binding to that ID, production Worker/CI only to production ID, (3) independently apply versioned migrations and seed reference/approved synthetic data in dev, (4) configure separate auth origin, secrets and dev Turnstile hostname, (5) add fail-closed pre-deploy checks of branch → Worker → D1 ID/name and prohibit cross-environment DB usage, (6) run isolated CRUD/security/integration smoke tests on dev and confirm production row counts and worker binding unchanged, (7) enable the explicit manual approval gate before the master merge. **Until all checks pass, dev is still using the production database; do not use it for destructive testing.**
+
+CI PR validation uses disposable local SQLite/D1 and does not migrate either remote database. Dev releases migrate/seed only `sohojac_dev`; master releases migrate **only `sohojac` after owner approval**. Keep individual recovery bookmarks, migration tracking, monitoring and secrets for each environment. Never clone guardian/student/payment PII from production into dev. Do not repeat the historical production reset or remove `sohojac` data.
+
+Historical shared-D1 release evidence below remains accurate for the dates recorded; it does **not** describe the desired future architecture.
 
 ## Phase 1B: clean development foundation
 
@@ -163,3 +174,13 @@ Draft/retired publication controls explain their prerequisite beside the switche
 selection produces an immediate accessible alert and a link to the exact offering's Fee Plan or reactivation.
 An intake flag on an inactive offering is shown as pending activation rather than misleadingly Open.
 No database reset, deletions or fee changes are required. Record actual release evidence in the phase PR.
+
+## Operator-first implementation — initial infrastructure and UX slice (31 October 2026)
+
+- New `feature/operator-first-erp` branch from `dev`; no automatic merge to production.
+- Explicit independent `sohojac_dev` Cloudflare D1 target and fail-closed release identity checks; the dev job is responsible for provisioning the new database only after merge to `dev` and availability of Cloudflare credentials.
+- Replacement GitHub CI `erp-ci.yml` separates local domain/auth regression, dev-only deployment and explicit manual `master` dispatch with reviewed SHA. The old 1,681-line shared-D1 workflow is removed, and its 1,266-line local-only authenticated regression checks live in `scripts/ci-authenticated-smoke.sh` pending gradual replacement by clearer scenario suites.
+- Fresh dev reference seed covers Classes 1–12, guardian relationships and global subject masters without grade-duplicate seed rows or synthetic student/payment records; exact historical 2026 showcase fixtures from migration history are cleared only during initial empty-dev bootstrap.
+- Removed obsolete production reset, retired-database deletion and byte-exact original UI regression scripts. Historical D1 migration files remain intact because `master` still has its applied migration history.
+- Removed `Subjects on this offering` from the ordinary website editor; existing linked subject IDs remain preserved. Canonical subject-master consolidation and guided Programme Launch are **not yet implemented**.
+- **Status:** committed on feature branch; code reviews, CI, actual `sohojac_dev` creation/binding, smoke testing and dev release evidence are pending. No changes made to `master` or its existing D1.
