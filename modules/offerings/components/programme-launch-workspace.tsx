@@ -17,7 +17,7 @@ const STEPS: { id: LaunchStage; label: string; description: string }[] = [
   { id: "FEES", label: "Fees", description: "Standard charges" },
   { id: "BATCHES", label: "Batches", description: "Available seats" },
   { id: "WEBSITE", label: "Website", description: "Parent-facing details" },
-  { id: "REVIEW", label: "Review", description: "Ready to launch?" },
+  { id: "REVIEW", label: "Review", description: "Publication status" },
 ];
 
 const secondaryButton =
@@ -124,7 +124,7 @@ export function ProgrammeLaunchWorkspace({
         <nav aria-label="Programme launch steps" className="h-fit rounded-2xl border border-border bg-card p-3">
           <ol className="space-y-1">
             {STEPS.map((item, index) => {
-              const done = index < 4 && completed[index];
+              const done = index === 4 ? readiness?.publishReady === true : completed[index];
               const current = stage === item.id;
               return (
                 <li key={item.id}>
@@ -315,9 +315,9 @@ export function ProgrammeLaunchWorkspace({
           {stage === "REVIEW" && (
             <>
               <div>
-                <h2 className="text-xl font-semibold">5. Final readiness review</h2>
+                <h2 className="text-xl font-semibold">5. Publication status</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Only programmes with effective fees, an active batch with free seats, a visible card and open intake are marked ready.
+                  The programme is live and accepting applications only when fees are effective, an active batch has available seats, the website card is visible, and the application window is open.
                 </p>
               </div>
               {!selected || !readiness ? <p className="text-sm">Choose a programme first.</p> : (
@@ -325,10 +325,10 @@ export function ProgrammeLaunchWorkspace({
                   <div className={`rounded-xl border p-4 ${readiness.publishReady
                     ? "border-emerald-500/40 bg-emerald-500/10"
                     : "border-border bg-muted/30"}`}>
-                    <p className="font-semibold">{readiness.publishReady ? "Ready for applications" : "Setup not yet complete"}</p>
+                    <p className="font-semibold">{readiness.publishReady ? "Live & accepting applications" : "Setup not yet complete"}</p>
                     <p className="mt-1 text-sm text-muted-foreground">
                       {readiness.publishReady
-                        ? `${selected.name} has ${readiness.openSeats} open seats and is ready to receive public applications.`
+                        ? `${selected.name} is published with ${readiness.openSeats} open seats and its application intake is open.`
                         : "Complete the outstanding items before advertising open admission."}
                     </p>
                   </div>
