@@ -7,11 +7,11 @@ import {beforeEach,after,test} from "node:test";
 const root=new URL("../",import.meta.url);
 let baseline=new URL("migrations/history/",root);
 try{await access(new URL("0001_public_website.sql",baseline));}
-catch{baseline=new URL("scratch/ci-migrations/",root);}
+catch{baseline=new URL("scratch/ci-migrations/history/",root);}
 const names=(await readdir(baseline)).filter(name=>/^00(0[1-9]|1[0-9]|2[0-8])_.*\.sql$/.test(name)).sort();
 assert.equal(names.length,28,"All baseline migrations are needed for this integration test.");
 const migrations=await Promise.all(names.map(name=>readFile(new URL(name,baseline),"utf8")));
-const migration=await readFile(new URL("migrations/0031_finance_source_workflows.sql",root),"utf8");
+const migration=await readFile(new URL("migrations/history/0031_finance_source_workflows.sql",root),"utf8");
 let db;
 let permissions,profileId,beforeBatch,queries,revalidated;
 const studentA="11111111-1111-4111-8111-111111111111";
