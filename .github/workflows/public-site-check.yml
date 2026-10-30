@@ -38,7 +38,7 @@ jobs:
       - name: Verify shared development seed and guarded legacy database retirement
         run: node scripts/test-development-seed.mjs
       - name: Verify actual D1 academic workflow and catalogue seed
-        run: node --test scripts/test-academic-d1-runtime.mjs scripts/test-public-catalogue.mjs
+        run: node --test scripts/test-academic-d1-runtime.mjs scripts/test-public-catalogue.mjs scripts/test-offering-subject-options.mjs
       - name: Verify types
         run: pnpm exec tsc --noEmit
       - name: Verify pinned original ERP architecture contract

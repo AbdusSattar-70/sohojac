@@ -140,7 +140,7 @@ export function OfferingRegister({
                       )}
                     </td>
                     <td className="px-4 py-4">
-                      {row.is_accepting_applications ? (
+                      {row.status!=="ACTIVE" && row.is_accepting_applications ? <span className="text-muted-foreground">Pending activation</span> : row.is_accepting_applications ? (
                         <span className="rounded-full bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-800 dark:bg-blue-950/40 dark:text-blue-200">
                           Open
                         </span>
