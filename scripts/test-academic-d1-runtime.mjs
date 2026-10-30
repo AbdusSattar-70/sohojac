@@ -37,11 +37,11 @@ test("actual D1 binding supports draft → fee publication → public controls �
   try {
     const DB = await mf.getD1Database("DB");
     for (const file of fs
-      .readdirSync("migrations")
+      .readdirSync("migrations/history")
       .filter((f) => /^\d{4}.*sql$/.test(f))
       .sort()) {
       const sql = fs
-        .readFileSync("migrations/" + file, "utf8")
+        .readFileSync("migrations/history/" + file, "utf8")
         .replace(/--[^\n]*/g, "")
         .trim();
       if (sql)
