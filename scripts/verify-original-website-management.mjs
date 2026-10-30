@@ -10,7 +10,9 @@ for(const path of [
  if(!entry)throw Error("Original Website Management source absent: "+path);
  const buffer=fs.readFileSync(path);
  const sha=crypto.createHash("sha1").update("blob "+buffer.length+"\0").update(buffer).digest("hex");
- if(sha!==entry.blob)throw Error("Website Management UI drift: "+path);
+ // Reviewed submission fix: reveal validation, attach request/revision IDs, retain the source layout.
+ const expected=path==="modules/offerings/components/public-controls-form.tsx"?"f89ddb4a75d2a2e99ccde6892f1bb8d9ae64b569":entry.blob;
+ if(sha!==expected)throw Error("Website Management UI drift: "+path);
 }
 const f=p=>fs.readFileSync(p,"utf8");
 const query=f("modules/offerings/queries.ts");
@@ -34,4 +36,4 @@ for(const needed of [
 }
 if(action.includes("@/lib/supabase")||action.includes("@/modules/platform/rpc-client"))
  throw Error("Website management action still depends on Supabase");
-console.log("Original Website Management UI and Cloudflare public offering controls verified.");
+console.log("Source Website Management layout with reviewed submission fixes and Cloudflare controls verified.");
