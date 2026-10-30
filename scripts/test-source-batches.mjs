@@ -36,9 +36,9 @@ function enrollment(batchId,n){
 }
 beforeEach(()=>{
  db?.close();db=new DatabaseSync(":memory:");db.exec("PRAGMA foreign_keys=ON");
- const base=fs.existsSync("migrations/0001_public_website.sql")?"migrations/history":"scratch/ci-migrations";
+ const base=fs.existsSync("migrations/history/0001_public_website.sql")?"migrations/history/history":"scratch/ci-migrations";
  for(const file of fs.readdirSync(base).filter(n=>/^\d{4}_.*\.sql$/.test(n)&&Number(n.slice(0,4))<=28).sort())db.exec(fs.readFileSync(path.join(base,file),"utf8"));
- db.exec(fs.readFileSync("migrations/0030_academic_source_workflows.sql","utf8"));
+ db.exec(fs.readFileSync("migrations/history/0030_academic_source_workflows.sql","utf8"));
  db.prepare('INSERT INTO "user"(id,name,email,"createdAt","updatedAt") VALUES (?,?,?,?,?)').run(uid,"Synthetic Owner","batch-owner@example.invalid",0,0);
  db.prepare("INSERT INTO academy_branches(id,code,name) VALUES (?,'MAIN','Verified Campus')").run(branch);
  db.prepare("INSERT INTO academy_programmes(id,code,name) VALUES (?,'SCIENCE','Science Preparation')").run(programme);
