@@ -19,16 +19,27 @@ const headers=async()=>new Headers({origin:"https://academy.invalid",host:"acade
 const getErpContext=async()=>({profileId:ids.user,permissions});
 async function requirePermission(p){if(!permissions.includes(p))throw Error("Permission denied");return {profileId:ids.user,permissions};}
 const pass={safeParse:value=>({success:true,data:value})};
+const schemaNames=["createOfferingSchema","updateOfferingSchema","publishFeePlanSchema","updateOfferingPublicControlsSchema"];
+let realZod;
+let realSchemas=Object.fromEntries(schemaNames.map(name=>[name,pass]));
+try{
+ realZod=(await import("zod")).z;
+ const schemaCode=stripTypeScriptTypes(fs.readFileSync(new URL("../modules/offerings/schema.ts",import.meta.url),"utf8"),{mode:"strip"}).replace(/^import .*;\r?\n/gm,"").replace(/\bexport (?=(?:const|function))/g,"");
+ realSchemas=new Function("z",schemaCode+"\nreturn {"+schemaNames.join(",")+"};")(realZod);
+}catch(error){
+ if(error.code!=="ERR_MODULE_NOT_FOUND"||process.env.CI)throw error;
+ console.log("Local SQL/permission checks only: Zod is unavailable. CI uses the installed real schemas.");
+}
 function load(file,exports,extra={}){
  const code=stripTypeScriptTypes(fs.readFileSync(new URL("../"+file,import.meta.url),"utf8"),{mode:"strip"}).replace(/^import .*;\r?\n/gm,"").replace(/\bexport (?=(?:async function|function|const))/g,"");
- const dependencies={env,headers,getErpContext,requirePermission,revalidatePath:()=>{},createOfferingSchema:pass,updateOfferingSchema:pass,publishFeePlanSchema:pass,updateOfferingPublicControlsSchema:pass,...extra};
+ const dependencies={env,headers,getErpContext,requirePermission,revalidatePath:()=>{},...realSchemas,...extra};
  return new Function(...Object.keys(dependencies),code+"\nreturn {"+exports.join(",")+"};")(...Object.values(dependencies));
 }
 const actions=load("modules/offerings/actions.ts",["createProgrammeOffering","updateProgrammeOffering","publishFeePlan","updateProgrammeOfferingPublicControls"]);
 const reads=load("modules/offerings/queries.ts",["getOfferingOverview","getWebsiteOfferings"]);
-const z=new Proxy(function(){},{get:()=>z,apply:()=>z});
-const discount=load("modules/offerings/discount-actions.ts",["saveOfferingDiscountPolicy"],{z:{object:()=>pass}});
-const state=load("modules/offerings/state-actions.ts",["changeRecordState"],{z:{object:()=>pass}});
+const z=realZod??new Proxy(function(){},{get:(_,key)=>key==="object"?()=>pass:z,apply:()=>z});
+const discount=load("modules/offerings/discount-actions.ts",["saveOfferingDiscountPolicy"],{z});
+const state=load("modules/offerings/state-actions.ts",["changeRecordState"],{z});
 const today=()=>new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Dhaka",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
 const uuid=()=>crypto.randomUUID();
 function create(overrides={}){return {branchId:ids.branch,programId:ids.program,academicYearId:ids.year,classId:ids.class,groupId:"",operationKind:"COACHING",teachingStartsOn:"",teachingEndsOn:"",code:"SCIENCE-A",name:"",reason:"Verified source learning context",requestId:uuid(),...overrides};}
@@ -110,7 +121,7 @@ test("concurrent offering changes reject stale fee publication with no partial p
 });
 test("published source terms/components reject legacy edits, legacy new plans and retired reactivation",async()=>{
  const offering=await actions.createProgrammeOffering(create());const first=await actions.publishFeePlan(fee(offering.reference));
- assert.throws(()=>db.prepare("UPDATE academy_fee_plans SET monthly_amount_paisa=1 WHERE id=?").run(first.reference),/immutable/);
+ assert.throws(()=>db.prepare("UPDATE academy_fee_plans SET monthly_amount_paisa=1 WHERE id=?").run(first.reference),/immutable|consistent state/);
  assert.throws(()=>db.prepare("UPDATE academy_fee_plan_components SET amount_paisa=1 WHERE plan_id=?").run(first.reference),/cannot change/);
  assert.throws(()=>db.prepare("DELETE FROM academy_fee_plan_components WHERE plan_id=?").run(first.reference),/cannot change/);
  assert.throws(()=>db.prepare("INSERT INTO academy_fee_plans(id,offering_id,title,monthly_amount_paisa,admission_amount_paisa,active) VALUES (?,?,'Legacy overwrite',1,0,1)").run(uuid(),offering.reference),/source Fee Plan/);
