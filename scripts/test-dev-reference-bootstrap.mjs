@@ -7,9 +7,9 @@ import { freshDevLegacyCleanupStatements, devReferenceSeedSql } from "./canonica
 
 const root = new URL("../", import.meta.url);
 const source = await readFile(new URL("scripts/seed-dev-reference.mjs", root), "utf8");
-const migrations = await Promise.all((await readdir(new URL("migrations/", root)))
+const migrations = await Promise.all((await readdir(new URL("migrations/history/", root)))
   .filter(name => /^\d{4}_.*\.sql$/.test(name)).sort()
-  .map(name => readFile(new URL("migrations/" + name, root), "utf8")));
+  .map(name => readFile(new URL("migrations/history/" + name, root), "utf8")));
 // Execute the actual release script, injecting only its imported dependencies,
 // controlled process environment, and a local Cloudflare HTTP boundary.
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
