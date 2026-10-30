@@ -11,7 +11,7 @@ A deployed slice, a present file or green CI is not proof that the entire origin
 - Staff-only accounts; no student/guardian login. Guardian communication is SMS, not email.
 - Preserve permanent identities, historical ledgers and immutable published fee versions.
 - User decision (30 October 2026): ONE Cloudflare D1, `sohojac`, shared by dev and main deployments. This entire installation is development/testing, not separated live/test databases.
-- User-authorized development seeds must be explicitly marked TEST, repeatable and additive. Preserve existing accounts and records; never invent real historical facts or silently post payments.
+- User decision (30 October 2026): reset development business data once and seed clean reference masters without TEST prefixes. Preserve login credentials and staff identities. Subsequent releases preserve newly entered work; never invent people, consent or financial history.
 
 ## Delivery rule
 
@@ -23,7 +23,8 @@ Do not delete migrations, pinned source manifests or regression checks as cleanu
 
 | Phase | Outcome and acceptance | Status |
 |---|---|---|
-| 1 — Security foundation and repository hygiene | Turnstile on anonymous forms; durable request limits; single shared sohojac D1; repeatable TEST seed without reset; retire the old dev-only D1 after verified rebinding; consolidate docs and workflows | Implementation verified; environment release evidence is maintained in [phase PR #38](https://github.com/AbdusSattar-70/sohojac/pull/38) |
+| 1 — Security foundation and repository hygiene | Turnstile on anonymous forms; durable request limits; single shared sohojac D1; clean foundation reset and editable reference masters (Phase 1B); retire the old dev-only D1 after verified rebinding; consolidate docs and workflows | Implementation verified; environment release evidence is maintained in [phase PR #38](https://github.com/AbdusSattar-70/sohojac/pull/38) |
+| 1B — Clean development foundation | One-time shared DB reset; Classes 1–12; guardian relationships and reference masters; consolidated Academic Setup; public options from active masters | Released and reset verified in [PR #41](https://github.com/AbdusSattar-70/sohojac/pull/41) |
 | 2 — One authoritative write path | REST and Server Actions call the same domain commands; named permissions everywhere; retry-safe collections and expenses; retire bypass APIs; exact retry/concurrent/denial regression tests | Next |
 | 3 — Canonical data and business rules | Reconcile the two subject masters without losing IDs; version-check master edits; common Asia/Dhaka business date and integer-paisa helpers; explicit fee-plan pinning policy | Planned |
 | 4 — Engineering and operational reliability | Format/lint; split the long CI smoke script into maintainable suites without removing coverage; structured safe diagnostics; recovery drill and immutable rollback target; controlled dependency updates; remove proven unused dependencies | Planned |
@@ -110,5 +111,13 @@ retry using the saved manifest or restore the captured bookmark. COMPLETE preven
 Dev releases no longer add TEST data. Academic years and academy identity belong to Academic Setup;
 the dashboard link and duplicate sidebar grouping are corrected. Public choices read active reference masters.
 
-Local reset/security and existing domain checks must pass before release. Record deployed reset evidence below
-only after the main Actions step confirms completion; implementation alone is not proof of a remote reset.
+Release evidence is recorded in PR #41 and the verified Actions runs. The reset completion result must be
+confirmed independently of code checks; implementation alone is not proof of a remote reset.
+
+### Phase 1B release evidence
+
+- [PR integration run 41094528806](https://github.com/AbdusSattar-70/sohojac/actions/runs/41094528806) passed original source verifiers, migrations and authenticated smoke checks.
+- [Dev run 41094908761](https://github.com/AbdusSattar-70/sohojac/actions/runs/41094908761) deployed commit `f378443beb6bb8d035da9ce29a944e76eafc5426` and applied maintenance migration 0035 successfully.
+- [Main run 41095569753](https://github.com/AbdusSattar-70/sohojac/actions/runs/41095569753) deployed commit `6bc93c878466406009c8ca93364ad9f868159009`, captured the recovery bookmark, completed the shared D1 reset, and passed public health/private API denial and Turnstile checks.
+- Public `/interest` HTML independently verified Classes 1–12, 27 guardian relationships and no TEST option labels after reset. Runtime validation confirmed zero students/payments and valid foreign keys before marking COMPLETE.
+- Local verification: 15 reset/security/retirement checks, all 80 existing domain tests, TypeScript and Worker build passed. Login credentials and staff identities were preserved; no new login or financial posting was seeded.
