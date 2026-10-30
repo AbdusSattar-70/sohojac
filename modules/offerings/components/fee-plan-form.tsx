@@ -1,4 +1,5 @@
 "use client";
+import { defaultDueDay } from "@/lib/fee-plan-defaults";
 import { finishWorkflow } from "@/modules/platform/navigation/workflow-return";
 
 import { DiscountPolicyForm } from "./discount-policy-form";
@@ -81,7 +82,7 @@ export function FeePlanForm({
         data.offerings.find((row) => row.id === initialOfferingId)?.version ??
         1,
       billingCycle: starting?.billing_cycle ?? "MONTHLY",
-      dueDay: starting?.due_day ?? 10,
+      dueDay: defaultDueDay(starting?.billing_cycle, starting?.due_day),
       effectiveFrom: today,
       reason: "",
       components: starting ? planComponents(starting.id) : [initialComponent],
@@ -181,7 +182,7 @@ export function FeePlanForm({
                           shouldDirty: true,
                         },
                       );
-                      setValue("dueDay", plan?.due_day ?? 10, {
+                      setValue("dueDay", defaultDueDay(plan?.billing_cycle, plan?.due_day), {
                         shouldDirty: true,
                       });
                       replace(

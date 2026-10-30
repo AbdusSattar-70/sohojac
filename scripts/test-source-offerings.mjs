@@ -1,3 +1,4 @@
+import {defaultDueDay} from "../lib/fee-plan-defaults.ts";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -167,4 +168,10 @@ test("a component constraint failure rolls back offering activation, old fees an
  const n=count("academy_offering_command_keys");assert.equal((await actions.publishFeePlan(fee(offering.reference))).ok,false);
  assert.equal(db.prepare("SELECT version FROM public_programme_offerings WHERE id=?").get(offering.reference).version,previous);assert.equal(count("academy_offering_command_keys"),n);
  assert.equal(db.prepare("SELECT active FROM academy_fee_plans WHERE id=?").get(first.reference).active,1);
+});
+
+test("fee form defaults preserve the monthly/non-monthly due-day invariant",()=>{
+ assert.equal(defaultDueDay(),10);assert.equal(defaultDueDay('MONTHLY',15),15);
+ assert.equal(defaultDueDay('TERM',null),null);assert.equal(defaultDueDay('ONE_TIME',null),null);
+ assert.equal(defaultDueDay('TERM',15),null);assert.equal(defaultDueDay('ONE_TIME',15),null);
 });
