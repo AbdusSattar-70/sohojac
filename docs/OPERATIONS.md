@@ -2,11 +2,11 @@
 
 ## Supported releases
 
-The single `public-site-check.yml` pipeline contains regression checks plus `dev` and main
-`master` releases using the SAME `sohojac` D1. Feature PRs targeting dev run checks only; dev-to-master promotion reuses the verified dev run,
-then the master push independently checks the exact production merge. Do not add a competing manual/public-only deploy workflow.
-Both release paths capture a verified D1 Time Travel bookmark before pending migrations and preserve
-it as a seven-day Actions artifact. The three pre-0029 immutable snapshots also remain available.
+**Target policy approved 31 October 2026; feature-branch implementation committed, deployment pending:** The `dev` branch/Worker must use a separately created **`sohojac_dev`** D1. The `master` branch/production Worker must use the existing **`sohojac`** D1. No cross-environment binding, session, seed, migration, snapshot or write is allowed.
+
+The current `public-site-check.yml` historically contained build, dev and master release jobs against a shared D1; **the checked-in workflow must be changed to enforce the new per-environment mapping before isolated dev testing**. Feature PRs target `dev` and run CI; `dev` code is deployed only to its dev Worker and `sohojac_dev`. **The owner manually reviews the actual deployed dev application, then explicitly approves or rejects promotion of the tested commit. No bot, passing CI run or auto-merge may move `dev` to `master`.** Once approved, a reviewed PR may merge to `master`, triggering production build, a production-only D1 migration and Worker deployment. The production database must never be reset by the dev branch.
+
+Retain separate environment recovery bookmarks, migration/seed jobs and audit records. Both release paths capture a verified D1 Time Travel bookmark for **their own database** before pending migrations and preserve it under the applicable retention policy. The three pre-0029 immutable snapshots remain historical evidence. Do not add a competing manual/public-only deploy workflow.
 Use `STUDENT_LIFECYCLE_RELEASE_PLAN.md` for the reviewed canonical rebuild and recovery limits.
 A bookmark is not an exercised restore: Phase 4 must demonstrate application/database recovery together.
 
@@ -17,10 +17,9 @@ Production secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `BETTER_AUT
 (default `https://sohojac.com`). The token needs Workers deployment and D1 migration/bookmark access.
 Keep the auth secret stable across releases. Never put secrets in code, logs, issues or chat.
 
-Dev variables/secrets: `DEV_TURNSTILE_SITE_KEY`, `DEV_TURNSTILE_SECRET_KEY`, optional
-`DEV_BETTER_AUTH_SECRET`. Its actual workers.dev hostname must be allowed by that Turnstile widget.
-Both deployments bind the existing `sohojac` D1. No dev database is provisioned. Without dev Turnstile keys, anonymous account
-forms are deliberately unavailable, rather than silently accepting unverified requests.
+Dev secrets/variables: `DEV_TURNSTILE_SITE_KEY`, `DEV_TURNSTILE_SECRET_KEY`, a **separate required** `DEV_BETTER_AUTH_SECRET`, and an environment-specific `DEV_BETTER_AUTH_URL` matching the real dev hostname. Provision `sohojac_dev` in Cloudflare D1 and record its **actual returned D1 database ID** (e.g., a protected `DEV_D1_DATABASE_ID` CI setting); never copy the production `sohojac` ID. Its actual workers.dev hostname must be allowed by that dev Turnstile widget.
+
+**Before enabling remote dev deploys**, validate `dev → dev Worker → sohojac_dev / dev-ID` and `master → main Worker → sohojac / production-ID`; checks must fail closed on an unexpected name, ID, hostname or branch. Keep auth data and secrets isolated, and route all trial SMS/email through sandbox or allow-list. Without dev Turnstile keys, anonymous account forms deliberately remain unavailable rather than bypassing verification. **This paragraph describes the required configuration, not a claim that it is already installed.**
 
 Optional staff email: configure `STAFF_EMAIL_FROM` and `RESEND_API_KEY` together with a verified sender.
 No guardian/student account or email notification is enabled by this setting.
@@ -73,7 +72,8 @@ request URL and configured auth origin; production and dev have no bypass flag.
 
 ## Documentation retained intentionally
 
-- `DEVELOPMENT_STRATEGY.md`: current phases and acceptance.
+- `DEVELOPMENT_STRATEGY.md`: current phases, environment decision and acceptance.
+- `ERP_TARGET_ARCHITECTURE.md`, `OPERATOR_FIRST_ERP_BLUEPRINT.md`: target domain boundaries, isolated dev/prod approval model and proposed UX (not yet implemented).
 - `legacy-erp-inventory.json`, `source-first-erp-manifest.json`: pinned test/reference inputs.
 - `SOURCE_OFFERINGS_D1_MAPPING.md`, `STAFF_NUMBER_MIGRATION.md`,
   `STUDENT_LIFECYCLE_RELEASE_PLAN.md`: historical identity/data-preservation contracts.
@@ -82,35 +82,25 @@ request URL and configured auth origin; production and dev have no bypass flag.
 Superseded draft/release/status/setup notes were consolidated here and into the strategy. Their
 history remains in Git. Do not create another competing roadmap for each feature.
 
-## Shared development database and seed
+## Development database provisioning and owner-controlled production promotion
 
-The user explicitly chose one DB for this development installation. Both URLs see the same records;
-existing main OWNER credentials work on dev. Sessions remain hostname-specific. Dev changes affect
-main data immediately, and both release jobs serialize through `sohojac-shared-d1-release`.
+**Required change:** Create a **new** Cloudflare D1 named exactly **`sohojac_dev`**. The hyphenated `sohojac-dev` was a **different legacy resource** that was previously retired and must not be silently restored/reused. The existing `sohojac` D1 remains production, with its data, access, migration history and identity intact. These steps are **pending**; the current deployed dev Worker still points to `sohojac` until separate bindings are verified.
 
-The user-authorized one-time main release reset uses `scripts/reset-foundation.mjs` and
-`seeds/foundation.sql`. It preserves administrator login credentials, staff identities and migration history,
-clears business records and installs editable reference masters without TEST labels or sample people.
-Classes 1–12 and 27 guardian relationships are included; add further relationships through Academic Setup.
-Programmes and subjects are starting points; configure actual offerings, batches and prices before admission.
+1. Provision `sohojac_dev` using Cloudflare D1 Console or the supported Cloudflare CLI. Capture the **new** real ID and keep branch→Worker→DB name/ID mappings explicit in Worker config, `lib/database-target.ts` and GitHub Actions. Never guess or reuse a production database ID.
+2. Apply the complete ordered, versioned schema migrations to `sohojac_dev` **only**. Verify foreign keys, triggers, audit and permission grants. Seed Academic Setup reference masters (Classes 1–12, guardian relationships, subjects/programmes/years) with independent idempotent dev seeds. For end-to-end tests use **synthetic** students/guardians and dummy finance; do not copy real production credentials or personal/financial data. Owner bootstrap/invitation must use the dev hostname, credentials and secret only.
+3. Configure dev-only `Better Auth` URL/secret, Turnstile widget and hostname, staff accounts, SMTP/SMS sandbox or strict recipient allow-list. Confirm production tokens/variables are unavailable in the dev deployment job. Staff accounts and sessions are **not** expected to work interchangeably.
+4. Update and run deployment guard tests: a `dev` build can migrate, seed, restore and deploy **only `sohojac_dev`**; `master` can do so **only `sohojac`**. Unexpected refs, ID mismatch, or missing secret stop release before D1 mutation. Keep separate backups/bookmarks, migrations, monitoring, release logs and optional per-environment concurrency controls; no shared-database lock is required after genuine isolation.
+5. Confirm the dev Worker uses the correct D1 binding by inspection; create a uniquely identifiable **safe dev record**, verify it is absent from production, ensure production row counts remain unchanged, and test staff-auth isolation. Record actual IDs/URLs in protected release logs and non-sensitive proof in the PR. **Do not treat mere docs or successful deploy status as proof of isolation.**
+6. **Release workflow:** Feature branch → PR / tests → merge to `dev` → automatic **dev-only** deployment → owner manually exercises the live dev site on desktop/mobile and checks the required workflows → owner explicitly records **Approve this tested SHA for master** (or returns changes). Only then open/review/merge a PR to `master`; master CI independently validates and deploys to the main Worker and **only `sohojac`**. No automatic dev→master merge, cron promotion or CI-as-approval.
+7. Keep production backups and restore procedures independent. Production changes occur only after owner approval; **never reset `sohojac` from a dev seed or test suite**. Production records may be corrected only through explicitly authorized business workflows and separately approved, reversible data migrations. Dev may be reset or reseeded when authorized, without affecting production.
 
-Deploy dev first, then main. Both Workers must advertise the maintenance gate; a fresh captured D1 recovery
-bookmark is required. PREPARED in `system_maintenance_operations` blocks all mutations during reset or on
-failure. Retry the same main release to use the stored original trigger manifest, or restore the recovery
-bookmark through Cloudflare before resuming. Do not manually mark COMPLETE to bypass failed validation.
-A COMPLETE marker makes future releases preserve all newly entered work. The reset never provisions a DB.
-The Actions recovery artifact is retained seven days; the bookmark itself depends on D1 retention.
+**Historical note:** On 30 October 2026 the owner approved temporarily sharing one D1 and the system executed a one-time foundation reset with `scripts/reset-foundation.mjs` and `seeds/foundation.sql`. That operation preserved then-existing administrator identity and installed reference registers. Previous releases also used `seed-public-catalogue.mjs` on the shared D1, and retired the **old hyphenated `sohojac-dev` database**. Those actions remain historical evidence. Do **not** rerun the foundation reset, old-database retirement, or former shared-D1 seed flow as part of the new environment setup. Existing production seed completion markers must remain in place.
 
-After the verified dev Worker deploy, retirement checks both Worker D1 bindings and captures the former
-dev-only database bookmark before deleting only the exact former `sohojac-dev` resource. A separate
-seven-day Actions artifact records that retirement. Recovery of a deleted database requires Cloudflare
-undelete before its bookmark can be used; this metadata is not a standalone SQL database export.
+**Current risk until implementation:** The checked-in config still references shared `sohojac`. Do not use the live dev Worker for destructive/financial trial writes until the dev-specific D1 exists and strict binding checks pass. Use disposable local D1 for testing during the transition.
 
 ## Public catalogue and batch readiness
 
-`seed-public-catalogue.mjs` runs once on the shared DB after dev upload; main verifies the same seed.
-`public-catalogue-20261030-v1` records completion. Later deployments preserve offering names, visibility,
-fees and batch edits. This is additive and does not repeat the foundation reset.
+`seed-public-catalogue.mjs` was previously applied once to the old shared D1; `public-catalogue-20261030-v1` records the historical completion. In the new design, each database maintains **independent migration and seed state**. Production `sohojac` keeps its existing offerings and marker. Initialize `sohojac_dev` with separately idempotent reference and public catalogue seed steps, reviewed for dev safety; never run dev seeds on production or infer production seed completion from dev. Subsequent deployments preserve legitimate edits in their own environment and do not repeat the production foundation reset.
 The three public Boys Evening Care offerings use Class 8 ৳2,500/month and Classes 9–10 ৳3,000/month,
 with 12-seat batches. Actual schedules and other programmes' fees must be configured by staff.
 
@@ -118,3 +108,11 @@ Create an offering draft → publish today's Fee Plan to activate it → configu
 → create a batch. Batch choices disable offerings missing active context/current fees. A disabled submit
 button is no longer used to conceal validation errors: submit shows the fields that need attention.
 Academic years are managed within Academic Setup; old separate-year bookmarks redirect there.
+
+## New implementation branch and CI checklist
+
+The feature branch `feature/operator-first-erp` replaces the previous combined CI with `.github/workflows/erp-ci.yml`. Its `quality` job executes the existing substantive local-only security/domain/integration checks and the extracted authenticated smoke script. Its `development` job can create the **new** `sohojac_dev` D1 through the Cloudflare API and verifies exact name/ID before migration, and Worker `DB` binding after deployment. Its `production` job is **manual dispatch only** on `master`, requires the typed confirmation `APPROVE_SOHOJAC_PRODUCTION` and a matching reviewed master SHA; `master` pushes alone will not deploy.
+
+Required before first dev deployment: `CLOUDFLARE_API_TOKEN` with D1 Create/Edit and Workers Edit/Read, `CLOUDFLARE_ACCOUNT_ID`, separate `DEV_BETTER_AUTH_SECRET` (32+ characters), `DEV_TURNSTILE_SECRET_KEY`, and `DEV_TURNSTILE_SITE_KEY`. The dev Worker creates test accounts independently through its own owner/invitation workflow. Do not configure real guardian SMS recipients in dev. The pipeline fails closed when secrets or DB identity are unavailable. To apply the new pipeline, merge the reviewed feature PR into `dev`; **do not merge or promote to `master`** before the owner tests the deployed dev version.
+
+The fresh development seed is `seeds/dev-reference.sql`, not the old reset tool. It is only applied once, to a verified new dev database without business records. Production's historical migration and seed markers are never reset. Keep existing migration history for production upgrades; schema consolidation requires later reviewed forward migrations. Do not claim production or dev isolation complete based solely on this document.
