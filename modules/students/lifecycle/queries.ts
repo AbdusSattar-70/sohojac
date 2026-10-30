@@ -29,6 +29,8 @@ type BatchRow = { id:string; name:string; offering_id:string; offering_name:stri
 type TransferRow = { id:string; from_batch:string; to_batch:string; transferred_on:string; authorized_by:string };
 type InvoiceRow = { id:string; student_id:string; student_no:string; invoice_no:string; issue_on:string; due_on:string|null; amount_paisa:number; paid_paisa:number; status:string; invoice_count:number; total_amount_paisa:number; total_paid_paisa:number };
 const historyIds = "SELECT id FROM academy_students WHERE id=? OR merged_into_id=?";
+const yearLabel = "COALESCE(y.title,NULLIF(o.academic_year_name,''),CASE WHEN o.operation_kind='TRAINING' THEN 'Not applicable' ELSE 'Not recorded' END)";
+const classLabel = "COALESCE(NULLIF(o.class_name,''),CASE WHEN o.operation_kind='TRAINING' THEN 'Not applicable' ELSE 'Not recorded' END)";
 
 export async function getStudentProfile(studentId:string):Promise<StudentProfile|null> {
   const context = await requirePermission("students.view");
@@ -57,8 +59,8 @@ export async function getStudentProfile(studentId:string):Promise<StudentProfile
         ].join(" ")).bind(...history).all<AdmissionRow>()
       : Promise.resolve({results:[] as AdmissionRow[]}),
     env.DB.prepare([
-      "SELECT e.id,e.student_id,COALESCE(y.title,o.academic_year_name) AS year_name,",
-      "o.class_name,b.name AS batch_name,e.enrolled_at,e.ended_on,e.status",
+      "SELECT e.id,e.student_id,", yearLabel, "AS year_name,", classLabel,
+      "AS class_name,b.name AS batch_name,e.enrolled_at,e.ended_on,e.status",
       "FROM academy_enrollments e JOIN academy_batches b ON b.id=e.batch_id",
       "JOIN public_programme_offerings o ON o.id=b.offering_id",
       "LEFT JOIN academic_years y ON y.id=COALESCE(b.year_id,o.academic_year_id)",
@@ -76,8 +78,8 @@ export async function getStudentProfile(studentId:string):Promise<StudentProfile
       : Promise.resolve({results:[] as InvoiceRow[]}),
     canPlace
       ? env.DB.prepare([
-          "SELECT b.id,b.name,b.offering_id,o.name AS offering_name,COALESCE(y.title,o.academic_year_name) AS year_name,",
-          "o.class_name,b.capacity,(SELECT COUNT(*) FROM academy_enrollments e WHERE e.batch_id=b.id AND e.status='ACTIVE') AS occupied",
+          "SELECT b.id,b.name,b.offering_id,o.name AS offering_name,", yearLabel, "AS year_name,", classLabel,
+          "AS class_name,min(b.capacity,12) AS capacity,(SELECT COUNT(*) FROM academy_enrollments e WHERE e.batch_id=b.id AND e.status='ACTIVE') AS occupied",
           "FROM academy_batches b JOIN public_programme_offerings o ON o.id=b.offering_id",
           "LEFT JOIN academic_years y ON y.id=COALESCE(b.year_id,o.academic_year_id)",
           "WHERE b.status='ACTIVE' AND o.is_active=1 AND (o.offering_status IS NULL OR o.offering_status='ACTIVE') ORDER BY b.name,b.id",

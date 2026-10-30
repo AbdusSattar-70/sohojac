@@ -18,6 +18,7 @@ export const commandSchema = z
       "SAVE_DISCOUNT",
     ]),
     requestId: uuid,
+    expectedVersion: z.number().int().min(1).optional(),
     reason: z
       .string()
       .trim()
@@ -119,6 +120,7 @@ export const workspaceSchema = z.object({
       branchName: z.string().nullable(),
       capacity: z.number(),
       occupied: z.number(),
+      version: z.number().int().min(1).optional(),
       isActive: z.boolean(),
       scheduleSummary: z.string().nullable().default(null),
     }),

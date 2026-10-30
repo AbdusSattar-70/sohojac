@@ -28,7 +28,7 @@ db.exec(`
   );
   CREATE TABLE public_programme_offerings (
     id TEXT PRIMARY KEY, name TEXT, academic_year_name TEXT, class_name TEXT,
-    academic_year_id TEXT, is_active INTEGER DEFAULT 1, offering_status TEXT DEFAULT 'ACTIVE'
+    academic_year_id TEXT, is_active INTEGER DEFAULT 1, offering_status TEXT DEFAULT 'ACTIVE', operation_kind TEXT
   );
   CREATE TABLE academic_years (id TEXT PRIMARY KEY, title TEXT);
   CREATE TABLE academy_batches (

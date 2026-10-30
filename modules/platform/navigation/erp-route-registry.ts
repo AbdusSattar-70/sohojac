@@ -383,7 +383,7 @@ export const implementedErpRoutes = [
  "/dashboard/academics/routine", "/dashboard/academics/assessments",
  "/dashboard/attendance", "/dashboard/teacher",
  "/dashboard/finance/fee-plans", "/dashboard/finance/collections",
- "/dashboard/finance/billing", "/dashboard/finance/expenses",
+ "/dashboard/finance/billing", "/dashboard/finance/receivables", "/dashboard/finance/expenses",
  "/dashboard/finance/reports", "/dashboard/staff/access",
  "/dashboard/staff/directory", "/dashboard/staff/teachers"
 ] as const;

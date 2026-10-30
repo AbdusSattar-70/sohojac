@@ -12,6 +12,7 @@ import {
   type AdmissionCommandFormData,
 } from "../schema";
 import { runAdmissionCommand } from "../actions";
+import { runAcademicBatchCommand } from "@/modules/academics/batches/actions";
 const REASON_PRESETS: Partial<Record<AdmissionCommand["action"], string[]>> = {
   FINALIZE: [
     "Reviewed verified details, placement, fees, referral and signed consent",
@@ -61,7 +62,7 @@ export function AdmissionCommandForm({
   maxAmount?: number;
   identity?: { name: string; guardian: string; mobile: string };
   defaultProspectId?: string;
-  initialBatch?: { id: string; code: string; name: string; capacity: number };
+  initialBatch?: { id: string; code: string; name: string; capacity: number; version?: number };
   onSuccess?: () => void;
   onCancel?: () => void;
 }) {
@@ -100,6 +101,7 @@ export function AdmissionCommandForm({
       ...(action === "EDIT_BATCH" && initialBatch
         ? {
             batchId: initialBatch.id,
+            expectedVersion: initialBatch.version,
             code: initialBatch.code,
             name: initialBatch.name,
             capacity: initialBatch.capacity,
@@ -261,7 +263,8 @@ export function AdmissionCommandForm({
             return;
           }
         }
-        const result = await runAdmissionCommand(payload).catch(() => ({
+        const execute = action === "CREATE_BATCH" || action === "EDIT_BATCH" ? runAcademicBatchCommand : runAdmissionCommand;
+        const result = await execute(payload).catch(() => ({
           ok: false as const,
           message:
             "Could not confirm the result. Your entries remain; retry the same values safely.",

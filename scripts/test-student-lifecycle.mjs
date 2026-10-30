@@ -1,3 +1,4 @@
+import {z} from "zod";
 import assert from "node:assert/strict";
 import { readFile, readdir, access } from "node:fs/promises";
 import { stripTypeScriptTypes } from "node:module";
@@ -150,6 +151,7 @@ test("0029 preserves populated canonical ledgers and all financial/attendance/gr
   assert.equal(db.prepare("SELECT COUNT(*) AS n FROM academy_student_lifecycle_migration_checks WHERE passed=1").get().n, 4);
   assert.throws(() => db.exec("UPDATE academy_students_pre_0029 SET full_name='Overwritten'"), /immutable/);
   assert.throws(() => db.exec("DELETE FROM academy_enrollments_pre_0029"), /immutable/);
+  assert.throws(() => db.exec("INSERT INTO academy_students_pre_0029 SELECT * FROM academy_students_pre_0029 LIMIT 1"), /immutable/);
   assert.throws(() => db.prepare("UPDATE academy_enrollments SET batch_id=? WHERE id=?").run(ids.destination, ids.enrollment), /Historical enrollment placement/);
   assert.throws(() => db.exec("UPDATE academy_assessment_results SET obtained_marks=82 WHERE id='grade-preserve'"), /Assessment is not ready/);
 });
@@ -275,6 +277,19 @@ test("ordinary state changes require the enrollment predicate and cannot erase h
   assert.equal(db.prepare("SELECT COUNT(*) AS n FROM academy_students").get().n, 3);
 });
 
+test("an enrollment starting on a future Dhaka day cannot be closed", async () => {
+  const future = new Date(Date.now() + 2 * 86400000).toISOString();
+  db.prepare("UPDATE academy_enrollments SET enrolled_at=? WHERE id=?").run(future, ids.enrollment);
+  migrate();
+  const result = await executeEnrollmentClosure({
+    student_id: ids.student, enrollment_id: ids.enrollment,
+    mode: "WITHDRAWN", reason: "Future start must use admission cancellation instead",
+  }, "actor");
+  assert.equal(result.ok, false);
+  assert.equal(db.prepare("SELECT status FROM academy_enrollments WHERE id=?").get(ids.enrollment).status, "ACTIVE");
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM academy_student_enrollment_closures").get().n, 0);
+});
+
 test("a verified canonical profile includes original linked identities and their exact financial/enrollment histories", async () => {
   migrate();
   assert.equal((await executeStudentCommand(command("MERGE", {
@@ -319,4 +334,78 @@ test("student command actor rechecks named permissions and the exact configured 
   }
   h = new Headers({ host: "staff.example.test", origin: "https://staff.example.test", "sec-fetch-site": "cross-site" });
   assert.equal(await actor("students.manage", false), null);
+});
+
+test("legacy oversized batches still obey the current twelve-seat policy in commands, profile and database guard", async () => {
+  db.prepare("UPDATE academy_batches SET capacity=100 WHERE id=?").run(ids.destination);
+  for (let n = 0; n < 12; n++) {
+    const sid = id(), aid = id();
+    db.prepare("INSERT INTO academy_students(id,student_no,full_name,guardian_name,guardian_mobile,status) VALUES (?,?,?,?,?,'ACTIVE')")
+      .run(sid, `SA-${String(n + 4).padStart(6, "0")}`, `Capacity student ${n}`, "Capacity guardian", "01700000009");
+    db.prepare("INSERT INTO academy_admissions(id,application_no,offering_id,student_id,status,prepared_by,batch_id) VALUES (?,?,?,?,'ENROLLED','actor',?)")
+      .run(aid, `CAP-${n}`, "student-offering", sid, ids.destination);
+    db.prepare("INSERT INTO academy_enrollments(id,student_id,batch_id,admission_id,status) VALUES (?,?,?,?,'ACTIVE')")
+      .run(id(), sid, ids.destination, aid);
+  }
+  migrate();
+  const before = JSON.stringify(rows("academy_enrollments"));
+  assert.equal((await executeStudentCommand(command("TRANSFER", { admission_id: ids.admission, batch_id: ids.destination }), "actor")).ok, false);
+  assert.equal((await executeStudentCommand(command("CREATE_EXISTING", { student_id: ids.other, batch_id: ids.destination }), "actor")).ok, false);
+  assert.equal(JSON.stringify(rows("academy_enrollments")), before);
+  const profile = await getStudentProfile(ids.student);
+  const option = profile.batches.find((batch) => batch.id === ids.destination);
+  assert.equal(option.capacity, 12);
+  assert.equal(option.occupied, 12);
+  const aid = id();
+  db.prepare("INSERT INTO academy_admissions(id,application_no,offering_id,student_id,status,prepared_by,batch_id,existing_student) VALUES (?,?,?,?,'ENROLLED','actor',?,1)")
+    .run(aid, "CAP-GUARD", "student-offering", ids.other, ids.destination);
+  assert.throws(() => db.prepare("INSERT INTO academy_enrollments(id,student_id,batch_id,admission_id,status) VALUES (?,?,?,?,'ACTIVE')")
+    .run(id(), ids.other, ids.destination, aid), /Batch capacity exceeded/);
+});
+
+test("independent yearless training courses do not collapse into one academic-year identity", async () => {
+  migrate();
+  const courses = [];
+  for (let n = 0; n < 2; n++) {
+    const offeringId = `training-course-${n}`, batchId = id();
+    db.prepare("INSERT INTO public_programme_offerings(id,code,name,academic_year_name,class_name,operation_kind,is_active,offering_status) VALUES (?,?,?,'','','TRAINING',1,'ACTIVE')")
+      .run(offeringId, `TRAIN-${n}`, `Independent training course ${n}`);
+    db.prepare("INSERT INTO academy_batches(id,code,name,offering_id,capacity,status) VALUES (?,?,?,?,12,'ACTIVE')")
+      .run(batchId, `TRAIN-BATCH-${n}`, `Training batch ${n}`, offeringId);
+    db.prepare("INSERT INTO academy_fee_plans(id,offering_id,title,monthly_amount_paisa,admission_amount_paisa,active) VALUES (?,?,?,500,0,1)")
+      .run(id(), offeringId, `Training fee ${n}`);
+    const response = await executeStudentCommand(command("CREATE_EXISTING", { student_id: ids.other, batch_id: batchId }), "actor");
+    assert.equal(response.ok, true, response.message);
+    courses.push({ batchId, admissionId: response.admissionId });
+  }
+  for (const course of courses) {
+    db.prepare("UPDATE academy_admissions SET status='ENROLLED' WHERE id=?").run(course.admissionId);
+    db.prepare("INSERT INTO academy_enrollments(id,student_id,batch_id,admission_id,status) VALUES (?,?,?,?,'ACTIVE')")
+      .run(id(), ids.other, course.batchId, course.admissionId);
+  }
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM academy_enrollments WHERE student_id=? AND status='ACTIVE'").get(ids.other).n, 2);
+  const profile = await getStudentProfile(ids.other);
+  assert.ok(profile.enrollments.every((enrollment) => enrollment.year === "Not applicable" && enrollment.class === "Not applicable"));
+});
+
+const admissionCode=stripTypeScriptTypes(await readFile(new URL("modules/admissions/lifecycle.ts",root),"utf8"),{mode:"strip"}).replace(/^import .*;\r?\n/gm,"").replace(/\bexport (?=async function)/g,"");
+const admissions=new Function("env","z","revalidatePath","getErpContext","requirePermission",admissionCode+";return {receivePhysicalConsent,finalizeAdmission,collectAdmissionPayment,activateAdmission}")(env,z,()=>{},async()=>({profileId:"actor",permissions:["admissions.create","admissions.view","finance.billing.manage","finance.payments.post"]}),async()=>({permissions:["admissions.view"]}));
+test("existing-student reviewed admission receives consent, bills, collects and activates on populated migrated ledgers",async()=>{
+ migrate();const originalStudents=rows("academy_students");const priorSequence=db.prepare("SELECT COUNT(*) n FROM academy_student_number_sequence").get().n;
+ const result=await executeStudentCommand(command("CREATE_EXISTING",{batch_id:ids.nextBatch}),"actor");assert.equal(result.ok,true,result.message);
+ const admissionId=result.admissionId;
+ // The staff has verified the returning student's application and address.
+ db.prepare("UPDATE academy_admissions SET status='REVIEW',version=version+1 WHERE id=?").run(admissionId);
+ db.prepare("INSERT INTO academy_admission_referrals(admission_id,source,recorded_by,reason) VALUES (?,'ORGANIC','actor','Verified returning student source')").run(admissionId);
+ const consent=await admissions.receivePhysicalConsent({admissionId,requestId:id(),guardianSignedOn:new Date().toISOString().slice(0,10),studentSigned:true,physicalCopyReference:"Synthetic signed paper",reason:"Staff verified returning guardian signature"});assert.equal(consent.ok,true,consent.message);
+ const finalized=await admissions.finalizeAdmission({admissionId,requestId:id(),reason:"Verified returning student bill"});assert.equal(finalized.ok,true,finalized.message);
+ assert.deepEqual(rows("academy_students"),originalStudents);assert.equal(db.prepare("SELECT COUNT(*) n FROM academy_student_number_sequence").get().n,priorSequence);
+ const invoice=db.prepare("SELECT * FROM finance_invoices WHERE admission_id=?").get(admissionId);assert.equal(invoice.student_id,ids.student);assert.equal(invoice.amount_paisa,10502);
+ assert.equal((await admissions.activateAdmission({admissionId,requestId:id(),reason:"Must reject an unpaid existing admission"})).ok,false);
+ const paymentInput={admissionId,requestId:id(),amount:105.02,method:"CASH",reference:"Synthetic integration receipt",reason:"Received actual returning student tuition"};
+ const payment=await admissions.collectAdmissionPayment(paymentInput);assert.equal(payment.ok,true,payment.message);assert.equal((await admissions.collectAdmissionPayment(paymentInput)).ok,true);
+ const activated=await admissions.activateAdmission({admissionId,requestId:id(),reason:"Verified paid returning admission"});assert.equal(activated.ok,true,activated.message);
+ assert.equal(db.prepare("SELECT student_id FROM academy_enrollments WHERE admission_id=? AND status='ACTIVE'").get(admissionId).student_id,ids.student);
+ assert.equal(db.prepare("SELECT COUNT(*) n FROM academy_students").get().n,originalStudents.length);
+ assert.equal(db.prepare("SELECT amount_paisa FROM finance_invoices WHERE id='invoice-preserve'").get().amount_paisa,10502);
 });

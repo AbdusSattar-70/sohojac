@@ -110,7 +110,7 @@ CREATE TABLE academy_enrollment_transfers (
  id TEXT PRIMARY KEY NOT NULL,
  student_id TEXT NOT NULL REFERENCES academy_students(id) ON DELETE RESTRICT,
  admission_id TEXT NOT NULL REFERENCES academy_admissions(id) ON DELETE RESTRICT,
- from_enrollment_id TEXT NOT NULL REFERENCES academy_enrollments(id) ON DELETE RESTRICT,
+ from_enrollment_id TEXT NOT NULL UNIQUE REFERENCES academy_enrollments(id) ON DELETE RESTRICT,
  to_enrollment_id TEXT NOT NULL UNIQUE REFERENCES academy_enrollments(id) ON DELETE RESTRICT,
  from_batch_id TEXT NOT NULL REFERENCES academy_batches(id) ON DELETE RESTRICT,
  to_batch_id TEXT NOT NULL REFERENCES academy_batches(id) ON DELETE RESTRICT,
@@ -143,7 +143,7 @@ BEGIN
    AND a.student_id=NEW.student_id AND s.merged_into_id IS NULL AND s.status<>'ARCHIVED'
  ) THEN RAISE(ABORT,'Invalid canonical student or active offering-linked batch') END;
  SELECT CASE WHEN (SELECT COUNT(*) FROM academy_enrollments WHERE batch_id=NEW.batch_id AND status='ACTIVE')
-  >=(SELECT capacity FROM academy_batches WHERE id=NEW.batch_id)
+  >=(SELECT min(capacity,12) FROM academy_batches WHERE id=NEW.batch_id)
   THEN RAISE(ABORT,'Batch capacity exceeded') END;
  SELECT CASE WHEN EXISTS(
   SELECT 1 FROM academy_enrollments e JOIN academy_batches b ON b.id=e.batch_id
@@ -151,8 +151,8 @@ BEGIN
   JOIN academy_batches nb ON nb.id=NEW.batch_id
   JOIN public_programme_offerings no ON no.id=nb.offering_id
   WHERE e.student_id=NEW.student_id AND e.status='ACTIVE'
-   AND COALESCE(b.year_id,o.academic_year_id,'name:'||o.academic_year_name)
-    =COALESCE(nb.year_id,no.academic_year_id,'name:'||no.academic_year_name)
+   AND COALESCE(b.year_id,o.academic_year_id,CASE WHEN o.operation_kind='TRAINING' OR length(trim(o.academic_year_name))=0 THEN 'offering:'||o.id ELSE 'name:'||o.academic_year_name END)
+    =COALESCE(nb.year_id,no.academic_year_id,CASE WHEN no.operation_kind='TRAINING' OR length(trim(no.academic_year_name))=0 THEN 'offering:'||no.id ELSE 'name:'||no.academic_year_name END)
  ) THEN RAISE(ABORT,'An active enrollment already exists in this academic year') END;
 END;
 CREATE TRIGGER guard_enrollment_history_placement
@@ -258,4 +258,13 @@ BEGIN SELECT RAISE(ABORT,'Pre-migration admission snapshot is immutable'); END;
 CREATE TRIGGER guard_enrollments_pre_0029_update BEFORE UPDATE ON academy_enrollments_pre_0029
 BEGIN SELECT RAISE(ABORT,'Pre-migration enrollment snapshot is immutable'); END;
 CREATE TRIGGER guard_enrollments_pre_0029_delete BEFORE DELETE ON academy_enrollments_pre_0029
+BEGIN SELECT RAISE(ABORT,'Pre-migration enrollment snapshot is immutable'); END;
+
+CREATE TRIGGER guard_academy_students_pre_0029_insert BEFORE INSERT ON academy_students_pre_0029
+BEGIN SELECT RAISE(ABORT,'Pre-migration student snapshot is immutable'); END;
+
+CREATE TRIGGER guard_academy_admissions_pre_0029_insert BEFORE INSERT ON academy_admissions_pre_0029
+BEGIN SELECT RAISE(ABORT,'Pre-migration admission snapshot is immutable'); END;
+
+CREATE TRIGGER guard_academy_enrollments_pre_0029_insert BEFORE INSERT ON academy_enrollments_pre_0029
 BEGIN SELECT RAISE(ABORT,'Pre-migration enrollment snapshot is immutable'); END;

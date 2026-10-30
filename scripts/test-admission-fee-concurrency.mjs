@@ -17,7 +17,7 @@ db.exec(`
     id TEXT PRIMARY KEY, status TEXT, version INTEGER, offering_id TEXT,
     batch_id TEXT, student_id TEXT, student_full_name TEXT, guardian_full_name TEXT,
     guardian_mobile TEXT, class_grade INTEGER, school_name TEXT, fee_plan_id TEXT,
-    consent_verified INTEGER, approved_by TEXT, verified_by TEXT, updated_at TEXT
+    consent_verified INTEGER, approved_by TEXT, verified_by TEXT, updated_at TEXT, existing_student INTEGER DEFAULT 0
   );
   CREATE TABLE academy_batches (id TEXT PRIMARY KEY, offering_id TEXT, status TEXT, capacity INTEGER);
   CREATE TABLE academy_enrollments (id TEXT PRIMARY KEY, batch_id TEXT, status TEXT);
@@ -36,7 +36,7 @@ db.exec(`
     recorded_by TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
   CREATE TABLE academy_student_number_sequence (seq INTEGER PRIMARY KEY AUTOINCREMENT, admission_id TEXT UNIQUE);
   CREATE TABLE academy_students (id TEXT PRIMARY KEY, student_no TEXT UNIQUE, full_name TEXT,
-    class_grade INTEGER, guardian_name TEXT, guardian_mobile TEXT, school_name TEXT, status TEXT);
+    class_grade INTEGER, guardian_name TEXT, guardian_mobile TEXT, school_name TEXT, status TEXT, merged_into_id TEXT);
   CREATE TABLE academy_admission_bills (id TEXT PRIMARY KEY, admission_id TEXT UNIQUE, reference TEXT,
     monthly_amount_paisa INTEGER, admission_amount_paisa INTEGER, amount_paisa INTEGER, issue_on TEXT, issued_by TEXT);
   CREATE TABLE finance_invoices (id TEXT PRIMARY KEY, invoice_no TEXT, student_id TEXT, admission_id TEXT,
@@ -108,7 +108,7 @@ beforeEach(() => {
     "academy_admission_referrals", "public_programme_offerings", "academy_fee_plans", "academy_admission_discounts",
     "academy_admission_extra_charges", "academy_student_number_sequence", "academy_students", "academy_admission_bills",
     "finance_invoices", "erp_audit_events"]) db.exec(`DELETE FROM ${table}`);
-  db.prepare("INSERT INTO academy_admissions VALUES (?, 'REVIEW', 2, 'offering', 'batch', NULL, 'Student', 'Guardian', '01700000000', 10, 'School', NULL, 1, NULL, NULL, NULL)").run(admissionId);
+  db.prepare("INSERT INTO academy_admissions VALUES (?, 'REVIEW', 2, 'offering', 'batch', NULL, 'Student', 'Guardian', '01700000000', 10, 'School', NULL, 1, NULL, NULL, NULL, 0)").run(admissionId);
   db.exec(`INSERT INTO academy_batches VALUES ('batch', 'offering', 'ACTIVE', 12);
     INSERT INTO public_programme_offerings VALUES ('offering', '[10,20]');
     INSERT INTO academy_fee_plans VALUES ('plan', 'offering', 'Standard', 100000, 20000, 1);`);
@@ -239,4 +239,23 @@ test("a ledger constraint failure rolls back the complete finalization transacti
   } finally {
     db.exec("DROP TRIGGER test_invoice_failure");
   }
+});
+
+function existingStudent(){
+ db.prepare("INSERT INTO academy_students(id,student_no,full_name,guardian_name,guardian_mobile,status) VALUES ('permanent-student','SA-000099','Student','Guardian','01700000000','ACTIVE')").run();
+ db.prepare("UPDATE academy_admissions SET student_id='permanent-student',existing_student=1 WHERE id=?").run(admissionId);
+}
+test("existing-student finalization retains permanent ID and number without allocating another student",async()=>{
+ existingStudent();const result=await finalize();assert.equal(result.ok,true,result.message);
+ assert.equal(count('academy_students'),1);assert.equal(count('academy_student_number_sequence'),0);
+ assert.equal(db.prepare('SELECT student_id FROM finance_invoices').get().student_id,'permanent-student');
+ assert.equal(db.prepare('SELECT student_no FROM academy_students').get().student_no,'SA-000099');
+ assert.equal((await finalize()).ok,true);assert.equal(count('finance_invoices'),1);
+});
+test("existing student fee races and unverified or archived identities cannot bill",async()=>{
+ existingStudent();beforeBatch=()=>db.exec("UPDATE academy_fee_plans SET monthly_amount_paisa=99999");
+ assert.equal((await finalize()).ok,false);assert.equal(count('finance_invoices'),0);assert.equal(count('academy_students'),1);
+ db.exec("UPDATE academy_admissions SET existing_student=0");assert.equal((await finalize()).ok,false);
+ db.exec("UPDATE academy_admissions SET existing_student=1; UPDATE academy_students SET status='ARCHIVED'");
+ assert.equal((await finalize()).ok,false);assert.equal(count('finance_invoices'),0);
 });

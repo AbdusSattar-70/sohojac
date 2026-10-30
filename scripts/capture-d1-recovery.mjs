@@ -1,0 +1,11 @@
+import fs from 'node:fs';
+import path from 'node:path';
+const databaseId=process.argv[2];
+const account=process.env.CLOUDFLARE_ACCOUNT_ID,token=process.env.CLOUDFLARE_API_TOKEN;
+if(!/^[a-f0-9-]{36}$/i.test(databaseId??'')||!account||!token||!process.env.RUNNER_TEMP)throw Error('Recovery capture requires configured D1 and CI credentials');
+const response=await fetch(`https://api.cloudflare.com/client/v4/accounts/${account}/d1/database/${databaseId}/time_travel/bookmark`,{headers:{Authorization:`Bearer ${token}`}});
+if(!response.ok)throw Error(`D1 recovery bookmark unavailable: HTTP ${response.status}`);
+const data=await response.json();
+if(data.success!==true||typeof data.result?.bookmark!=='string'||!data.result.bookmark)throw Error('D1 did not confirm a recovery bookmark; migrations blocked');
+fs.writeFileSync(path.join(process.env.RUNNER_TEMP,'sohojac-d1-recovery.json'),JSON.stringify({databaseId,bookmark:data.result.bookmark,commit:process.env.GITHUB_SHA,capturedAt:new Date().toISOString()},null,2),{mode:0o600});
+console.log('D1 recovery bookmark verified and recorded before migration.');
