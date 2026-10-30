@@ -53,10 +53,14 @@ on the final pushed commit.
 
 ## Setup prerequisite and remaining scope
 
-Real offering creation requires a verified branch record. The target currently
-has branch schema but has not yet restored the original academy setup/branch
-management UI. No branch is fabricated or auto-seeded. Deploy that prerequisite
-before accepting real new-offering creation.
+Real offering creation requires a verified branch record. Academic settings now
+includes the byte-exact original AcademyIdentityForm. Staff with
+`system.settings.manage` confirm academy and main-campus names; the D1 adapter
+creates the MAIN branch only on that explicit action, retains its permanent ID
+on rename, and commits identity, branch, linked display names and audit together.
+No identity or campus is seeded. Four SQLite tests cover authorization, origin,
+validation, permanent identity/retries and audit-failure rollback. This restores
+the offering prerequisite; the full source setup checklist is separate work.
 
 This feature is not the full academic migration. Original batches, planning,
 curriculum, timetable, sessions, homework, assessment and progress/document
