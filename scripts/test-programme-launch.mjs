@@ -61,6 +61,17 @@ test("retired offerings must be reactivated and cannot be reported live",()=>{
   assert.equal(state.publishReady,false);
   assert(state.blockers.some(x=>x.includes("retired")));
 });
+test("final Review check is true only for a fully open and live programme",()=>{
+  const live = ready({ is_website_visible: true, is_accepting_applications: true }, [batch], true);
+  const missingFees = ready({ is_website_visible: true, is_accepting_applications: true }, [batch], false);
+  const noSeats = ready({ is_website_visible: true, is_accepting_applications: true }, [{ ...batch, occupied: 12 }], true);
+  const hidden = ready({ is_website_visible: false, is_accepting_applications: true }, [batch], true);
+  const outsideWindow = ready({ is_website_visible: true, is_accepting_applications: true, applications_open_on: "2026-11-01" }, [batch], true);
+  assert.equal(live.publishReady, true);
+  for (const state of [missingFees, noSeats, hidden, outsideWindow]) {
+    assert.equal(state.publishReady, false);
+  }
+});
 test("multiple teaching batches contribute only their remaining seats",()=>{
   const state=ready({is_website_visible:true,is_accepting_applications:true},
     [{...batch,occupied:11},{...batch,id:"batch-2",occupied:4}],true);
@@ -84,6 +95,12 @@ test("guided launch is permission-scoped, non-destructive and connected to the r
   assert(forms.includes("subjectIds: linkedSubjectIds"));
   assert(forms.includes('disabled={!visible || (!canOpen && !accepting)}'));
   assert(component.includes('inactiveLabel="Activate batch"'));
+  // The fifth review step must be checked for a ready, live offering; it
+  // must never be checked merely because the operator visited the step.
+  assert(component.includes('const done = index === 4 ? readiness?.publishReady === true : completed[index];'));
+  assert(component.includes('description: "Publication status"'));
+  assert(component.includes('"Live & accepting applications"'));
+  assert(!component.includes('description: "Ready to launch?"'));
   assert(component.includes("RecordStateButton"));
   assert(component.includes('selectedBatches'));
   assert(!component.includes("env.DB"));
