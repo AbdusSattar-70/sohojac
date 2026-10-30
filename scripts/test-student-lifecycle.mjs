@@ -34,11 +34,11 @@ const executable = stripTypeScriptTypes(source, { mode: "strip" })
   .replace(/\bexport (?=(?:async function|function|const))/g, "");
 let db;
 let beforeBatch;
+let profilePermissions;
 const env = {
   DB: {
     prepare(sql) {
-      return {
-        bind(...values) {
+      const bind = (...values) => {
           const execute = () => {
             const results = db.prepare(sql).all(...values);
             const changes = /^\s*SELECT\b/i.test(sql) ? 0 : Number(db.prepare("SELECT changes() AS n").get().n);
@@ -49,8 +49,8 @@ const env = {
             async first() { return execute().results[0] ?? null; },
             async all() { return execute(); },
           };
-        },
       };
+      return { bind, async all() { return bind().all(); } };
     },
     async batch(statements) {
       if (beforeBatch) { const hook = beforeBatch; beforeBatch = null; hook(); }
@@ -69,6 +69,16 @@ const env = {
 const { executeStudentCommand, executeEnrollmentClosure, executeStudentState } = new Function(
   "env", `${executable}\nreturn {executeStudentCommand,executeEnrollmentClosure,executeStudentState};`,
 )(env);
+const profileSource = await readFile(new URL("modules/students/lifecycle/queries.ts", root), "utf8");
+const profileExecutable = stripTypeScriptTypes(profileSource, { mode: "strip" })
+  .replace(/^import .*;\r?\n/gm, "").replace(/\bexport (?=async function)/g, "");
+const getStudentProfile = new Function("env", "z", "requirePermission", `${profileExecutable}\nreturn getStudentProfile;`)(
+  env, { string: () => ({ uuid: () => ({ safeParse: (value) => ({ success: /^[0-9a-f-]{36}$/i.test(value) }) }) }) },
+  async (permission) => {
+    if (!profilePermissions.includes(permission)) throw new Error("Permission denied");
+    return { permissions: profilePermissions };
+  },
+);
 const command = (action, overrides = {}) => ({
   action, request_id: id(), student_id: ids.student,
   reason: "Verified source lifecycle integration test", ...overrides,
@@ -119,6 +129,7 @@ beforeEach(() => {
   for (const sql of baselineSql) db.exec(sql);
   seedLegacy();
   beforeBatch = null;
+  profilePermissions = ["students.view", "admissions.view", "finance.view", "students.manage", "admissions.create"];
 });
 afterEach(() => db.close());
 function migrate() {
@@ -262,4 +273,50 @@ test("ordinary state changes require the enrollment predicate and cannot erase h
   assert.equal((await executeStudentState({ id: ids.other, active: false, reason: "Verified no active enrollment" }, "actor")).ok, true);
   assert.equal(db.prepare("SELECT status FROM academy_students WHERE id=?").get(ids.other).status, "INACTIVE");
   assert.equal(db.prepare("SELECT COUNT(*) AS n FROM academy_students").get().n, 3);
+});
+
+test("a verified canonical profile includes original linked identities and their exact financial/enrollment histories", async () => {
+  migrate();
+  assert.equal((await executeStudentCommand(command("MERGE", {
+    student_id: ids.duplicate, target_id: ids.student, confirmed_same_person: true,
+  }), "actor")).ok, true);
+  const canonical = await getStudentProfile(ids.student);
+  assert.equal(canonical.student.canonicalId, ids.student);
+  assert.deepEqual(canonical.identities.map((identity) => identity.id).sort(), [ids.student, ids.duplicate].sort());
+  assert.equal(canonical.guardianContacts.length, 2);
+  assert.equal(canonical.admissions.length, 2);
+  assert.equal(canonical.enrollments.length, 2);
+  assert.equal(canonical.invoices.length, 1);
+  assert.equal(canonical.invoices[0].studentId, ids.duplicate);
+  assert.equal(canonical.invoices[0].studentNumber, "SA-000002");
+  assert.deepEqual(canonical.financeTotals, { gross: 105.02, paid: 5.02, due: 100 });
+  const duplicate = await getStudentProfile(ids.duplicate);
+  assert.equal(duplicate.student.status, "ARCHIVED");
+  assert.equal(duplicate.student.canonicalNumber, "SA-000001");
+  assert.deepEqual(duplicate.invoices, canonical.invoices);
+  assert.equal(duplicate.identities.some((identity) => identity.id === ids.other), false);
+});
+
+test("student command actor rechecks named permissions and the exact configured staff origin", async () => {
+  const contextSource = await readFile(new URL("modules/students/lifecycle/command-context.ts", root), "utf8");
+  const code = stripTypeScriptTypes(contextSource, { mode: "strip" })
+    .replace(/^import .*;\r?\n/gm, "").replace(/\bexport (?=async function)/g, "");
+  let context = { profileId: "actor", permissions: ["students.view", "admissions.create"] };
+  let h = new Headers({ host: "staff.example.test", origin: "https://staff.example.test" });
+  const actor = new Function("env", "headers", "getErpContext", `${code}\nreturn studentCommandActor;`)(
+    { BETTER_AUTH_URL: "https://staff.example.test" }, async () => h, async () => context,
+  );
+  assert.equal(await actor("admissions.create"), "actor");
+  assert.equal(await actor("students.manage"), null);
+  context = { profileId: "actor", permissions: ["admissions.create"] };
+  assert.equal(await actor("admissions.create"), null);
+  context = { profileId: "actor", permissions: ["students.manage"] };
+  assert.equal(await actor("students.manage", false), "actor");
+  for (const origin of [null, "https://unrelated.example", "http://staff.example.test"]) {
+    h = new Headers({ host: "staff.example.test" });
+    if (origin) h.set("origin", origin);
+    assert.equal(await actor("students.manage", false), null);
+  }
+  h = new Headers({ host: "staff.example.test", origin: "https://staff.example.test", "sec-fetch-site": "cross-site" });
+  assert.equal(await actor("students.manage", false), null);
 });
