@@ -31,6 +31,7 @@ export async function GET(request:Request){
 export async function POST(request:Request) {
   const staff = await getStaffAccess(request.url, request.headers);
   if (!staff) return privateJson({error:"Authentication required"},401);
+  if (!["OWNER","ADMIN"].includes(staff.role)) return privateJson({error:"Access denied"},403);
   return privateJson({
     error:"Class-specific subject creation is retired. Create the subject once under Academic Settings → Subjects.",
     action:"/dashboard/academics/settings",
