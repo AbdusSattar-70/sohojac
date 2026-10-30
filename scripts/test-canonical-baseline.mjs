@@ -20,7 +20,7 @@ test("fresh canonical database has final domain schema and no historical records
     db.exec("PRAGMA foreign_keys=ON");
     for (const file of names) db.exec(readFileSync("migrations/"+file,"utf8"));
     const tables=db.prepare("SELECT name FROM sqlite_schema WHERE type='table'").all().map(x=>x.name);
-    for(const required of ["user","account","staff_memberships","staff_owner_setup","academy_students","academy_admissions","academy_batches","academy_subjects","academic_subjects","finance_invoices","finance_payments","finance_operating_expenses","finance_journals","finance_payment_command_keys","finance_expense_command_keys"])
+    for(const required of ["user","account","staff_memberships","staff_owner_setup","academy_students","academy_admissions","academy_batches","academy_subjects","academic_subjects","finance_invoices","finance_payments","finance_operating_expenses","finance_journals","finance_payment_commands","finance_expense_command_keys"])
       assert(tables.includes(required),required);
     assert.equal(tables.filter(name=>/_pre_0029$/.test(name)).length,0,"no old student lifecycle snapshots");
     assert.equal(db.prepare("SELECT count(*) n FROM public_programme_offerings").get().n,0);
