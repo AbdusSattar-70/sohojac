@@ -39,6 +39,7 @@ export function OperatorProgrammeForm({
   data: OfferingOverview;
   onCreated: (id: string) => void;
 }) {
+  const router = useRouter();
   const [branchId, setBranch] = useState(data.branches.length === 1 ? data.branches[0].id : "");
   const [yearId, setYear] = useState(data.years.find((y) => y.is_active)?.id ?? "");
   const [classId, setClass] = useState("");
@@ -86,6 +87,7 @@ export function OperatorProgrammeForm({
       request.current = null;
       setMessage({ ok: true, text: "Programme draft created. Continue with its standard fees." });
       onCreated(result.reference);
+      router.refresh();
     });
   };
   return (
