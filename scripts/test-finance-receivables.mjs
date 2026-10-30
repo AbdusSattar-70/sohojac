@@ -5,7 +5,7 @@ import {DatabaseSync} from "node:sqlite";
 import {beforeEach,after,test} from "node:test";
 
 const root=new URL("../",import.meta.url);
-let baseline=new URL("migrations/",root);
+let baseline=new URL("migrations/history/",root);
 try{await access(new URL("0001_public_website.sql",baseline));}
 catch{baseline=new URL("scratch/ci-migrations/",root);}
 const names=(await readdir(baseline)).filter(name=>/^00(0[1-9]|1[0-9]|2[0-8])_.*\.sql$/.test(name)).sort();
