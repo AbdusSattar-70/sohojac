@@ -345,7 +345,7 @@ Before defining uptime or response-time SLOs, instrument actual request latency,
 - **ADR-006 — Transactional outbox for external notifications.** Benefit: retry without duplicate business mutation; implement when SMS is operational.
 - **ADR-007 — Isolated, writable development D1.** Dev may run approved synthetic end-to-end tests only in `sohojac_dev`; production uses `sohojac` exclusively. Separate auth, Turnstile, secrets, notifications and backup scope. **Owner manually approves each promotion from tested dev to master.**
 - **ADR-008 — Permission-scoped task navigation and reusable form primitives.** Benefit: lower training burden; retain administrative advanced paths.
-- **ADR-009 — Expand/contract migrations and measured recovery.** Benefit: both Workers compatible with one database.
+- **ADR-009 — Expand/contract migrations and measured recovery.** Each environment applies forward migrations and retains its **own** recovery point. Compatibility is required across rolling releases **within that environment**, not through a shared dev/production database.
 
 **Decision owner:** Academy operator/owner for product policies; engineering reviewer for data/permission invariants. **Change control:** small PR with an ADR impact section; no one-shot rewrite.
 
