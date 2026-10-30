@@ -125,8 +125,8 @@ export default async function DashboardPage({
           ],
           [
             "academics.manage",
-            "/dashboard/academics/offerings",
-            "Manage offerings",
+            "/dashboard/academics/launch",
+            "Launch programme",
           ],
           [
             "system.users.manage",

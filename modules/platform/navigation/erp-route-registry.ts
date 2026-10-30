@@ -311,6 +311,15 @@ export const erpRouteRegistry: ErpRouteDefinition[] = [
     icon: "settings",
   },
   {
+    id: "programme-launch",
+    title: "Programme Launch",
+    eyebrow: "Academy Setup",
+    href: "/dashboard/academics/launch",
+    navGroup: "Academy Setup",
+    permission: "academics.view",
+    icon: "offerings",
+  },
+  {
     id: "programme-offerings",
     title: "Programme Offerings",
     eyebrow: "Academy Setup",
@@ -378,6 +387,7 @@ export const implementedErpRoutes = [
  "/dashboard/admissions", "/dashboard/students", "/dashboard/crm/prospects",
  "/dashboard/crm/manage", "/dashboard/academics/settings",
  "/dashboard/staff", "/dashboard/governance/audit",
+ "/dashboard/academics/launch",
  "/dashboard/academics/offerings",
  "/dashboard/academics/subjects", "/dashboard/academics/batches",
  "/dashboard/academics/routine", "/dashboard/academics/assessments",
