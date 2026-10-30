@@ -93,6 +93,8 @@ jobs:
         run: node scripts/test-retired-admission-mutations.mjs
       - name: Verify admission fee snapshot concurrency
         run: node scripts/test-admission-fee-concurrency.mjs
+      - name: Verify source receivables isolation and follow-up integrity
+        run: node scripts/test-finance-receivables.mjs
 
       - name: Build Cloudflare Worker
         run: pnpm run build
@@ -730,6 +732,46 @@ jobs:
           test "$teacher_students" = "403"
           student_page=$(curl -sS -o /tmp/ci-student-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/students")
           test "$student_page" = "200"
+
+          # Source receivables reads authentic historical balances and protects
+          # contact and financial information with named finance permissions.
+          receivables_page=$(curl -sS -o /tmp/ci-receivables.html -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/finance/receivables")
+          test "$receivables_page" = "200"
+          grep -q 'Receivables &amp; collection follow-up' /tmp/ci-receivables.html
+          grep -q 'SA-STD-CI-HISTORICAL' /tmp/ci-receivables.html
+          statement_student=$(node -p 'require("/tmp/ci-enrolled.json").studentId')
+          guardian_statement=$(curl -sS -o /tmp/ci-guardian-statement.html -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/finance/receivables/$statement_student/print")
+          test "$guardian_statement" = "200"
+          grep -q 'STUDENT ACCOUNT STATEMENT' /tmp/ci-guardian-statement.html
+          grep -q 'SA-BILL-CI-HISTORICAL' /tmp/ci-guardian-statement.html
+          grep -q '4000.00' /tmp/ci-guardian-statement.html
+          for finance_path in /dashboard/finance/receivables "/dashboard/finance/receivables/$statement_student/print"; do
+            anonymous_receivables=$(curl -sS -o /dev/null -w '%{http_code}' "http://localhost:4173$finance_path")
+            test "$anonymous_receivables" != "200"
+            teacher_receivables=$(curl -sS -o /dev/null -w '%{http_code}' \
+              -b /tmp/teacher-ci-cookies "http://localhost:4173$finance_path")
+            test "$teacher_receivables" != "200"
+          done
+          missing_statement=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/finance/receivables/99999999-9999-4999-8999-999999999999/print")
+          test "$missing_statement" = "404"
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
+            --sql "INSERT INTO erp_permission_grants(user_id,permission) SELECT id,'finance.view' FROM \"user\" WHERE email='applicant-ci@example.invalid'" > /tmp/ci-finance-grant.json
+          finance_reader=$(curl -sS -o /tmp/ci-finance-reader.html -w '%{http_code}' \
+            -b /tmp/teacher-ci-cookies "http://localhost:4173/dashboard/finance/receivables")
+          test "$finance_reader" = "200"
+          grep -q 'SA-STD-CI-HISTORICAL' /tmp/ci-finance-reader.html
+          if grep -q 'Record contact' /tmp/ci-finance-reader.html; then
+            echo "View-only finance grant exposed collection mutations"; exit 1
+          fi
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
+            --sql "DELETE FROM erp_permission_grants WHERE permission='finance.view' AND user_id IN (SELECT id FROM \"user\" WHERE email='applicant-ci@example.invalid')" > /tmp/ci-finance-revoke.json
+          finance_revoked=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -b /tmp/teacher-ci-cookies "http://localhost:4173/dashboard/finance/receivables")
+          test "$finance_revoked" != "200"
+
           # Original Admissions register and two source intake modes.
           for source_route in /dashboard/admissions /dashboard/admissions?start=staff /dashboard/admissions?start=enquiry; do
             source_admission_code=$(curl -sS -o /tmp/ci-original-admissions.html -w '%{http_code}' \
