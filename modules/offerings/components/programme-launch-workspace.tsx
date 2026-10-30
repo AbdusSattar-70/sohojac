@@ -262,7 +262,8 @@ export function ProgrammeLaunchWorkspace({
                           <h3 className="font-semibold">{batch.name}</h3>
                           <p className="text-xs text-muted-foreground">{batch.code} · {batch.occupied}/{batch.capacity} students · {batch.isActive ? "Active" : "Planned"}</p>
                         </div>
-                        {canManage && <RecordStateButton entity="batch" id={batch.id} active={batch.isActive} expectedVersion={batch.version}/>}
+                        {canManage && <RecordStateButton entity="batch" id={batch.id} active={batch.isActive}
+                          expectedVersion={batch.version} inactiveLabel="Activate batch"/>}
                       </article>
                     ))}
                   </div>}
