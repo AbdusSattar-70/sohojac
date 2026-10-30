@@ -1,10 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import {
-  offeringSubjectOptions,
-  subjectOptionLabel,
-} from "@/lib/offering-subject-options";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -40,20 +36,18 @@ const ICON_LABELS: Record<(typeof SHOWCASE_ICON_VALUES)[number], string> = {
 
 export function PublicControlsForm({
   offering,
-  subjects,
   linkedSubjectIds,
   onSuccess,
-  allowSubjectEditing = true,
 }: {
   offering: OfferingRow;
-  subjects: OfferingOverview["subjects"];
+  /** Accepted during component migration; subject assignments are not edited here. */
+  subjects?: OfferingOverview["subjects"];
+  allowSubjectEditing?: boolean;
   linkedSubjectIds: string[];
   onSuccess?: () => void;
-  allowSubjectEditing?: boolean;
 }) {
   const router = useRouter();
   const [blockedMessage, setBlockedMessage] = useState<string | null>(null);
-  const [subjectSearch, setSubjectSearch] = useState("");
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(
     null,
@@ -106,12 +100,6 @@ export function PublicControlsForm({
     control,
     name: "isAcceptingApplications",
   });
-  const selectedSubjects = useWatch({ control, name: "subjectIds" }) ?? [];
-  const choices = offeringSubjectOptions(subjects, offering, selectedSubjects);
-  const matches = (subject: (typeof subjects)[number]) =>
-    subjectOptionLabel(subject)
-      .toLowerCase()
-      .includes(subjectSearch.trim().toLowerCase());
   const blockedReason =
     offering.status === "DRAFT"
       ? "This offering is a draft. Publish its Fee Plan to activate it before enabling website visibility or opening applications."
@@ -555,107 +543,9 @@ export function PublicControlsForm({
               />
             )}
           </ErpFormField>
-          {allowSubjectEditing && (
-            <ErpFormField
-              id={`${offering.id}-subjects`}
-              label="Subjects on this offering"
-              className="sm:col-span-2"
-              hint="Choose subjects using the checkboxes. Choices match this offering’s class and group; every row identifies its class and group."
-              error={errors.subjectIds?.message}
-            >
-              {({ id, describedBy, invalid }) => (
-                <div
-                  id={id}
-                  aria-describedby={describedBy}
-                  aria-invalid={invalid}
-                >
-                  <input
-                    type="search"
-                    aria-label="Search offering subjects"
-                    placeholder="Search subjects"
-                    value={subjectSearch}
-                    onChange={(event) => setSubjectSearch(event.target.value)}
-                    className={controlClass}
-                  />
-                  <div
-                    role="group"
-                    aria-label="Subjects on this offering"
-                    className="mt-2 max-h-64 space-y-1 overflow-y-auto rounded-xl border p-2"
-                  >
-                    {choices.eligible.filter(matches).map((subject) => (
-                      <label
-                        key={subject.id}
-                        className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-2 hover:bg-muted"
-                      >
-                        <input
-                          type="checkbox"
-                          value={subject.id}
-                          checked={selectedSubjects.includes(subject.id)}
-                          disabled={pending}
-                          onChange={(event) =>
-                            setValue(
-                              "subjectIds",
-                              event.target.checked
-                                ? [...selectedSubjects, subject.id]
-                                : selectedSubjects.filter(
-                                    (id) => id !== subject.id,
-                                  ),
-                              { shouldDirty: true, shouldValidate: true },
-                            )
-                          }
-                        />
-                        <span className="text-sm">
-                          {subjectOptionLabel(subject)}
-                        </span>
-                      </label>
-                    ))}
-                    {choices.eligible.filter(matches).length === 0 && (
-                      <p className="p-2 text-sm text-muted-foreground">
-                        No matching subjects. Add subjects for this class and
-                        group in the Subjects register.
-                      </p>
-                    )}
-                  </div>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    {selectedSubjects.length} selected
-                  </p>
-                  {choices.retained.length > 0 && (
-                    <div className="mt-3 rounded-xl border border-amber-500/40 p-3">
-                      <p className="text-sm">
-                        Previously linked subjects outside this class/group are
-                        retained below. Review them and uncheck any incorrect
-                        assignments.
-                      </p>
-                      {choices.retained.map((subject) => (
-                        <label
-                          key={subject.id}
-                          className="mt-2 flex min-h-11 items-center gap-3"
-                        >
-                          <input
-                            type="checkbox"
-                            checked
-                            disabled={pending}
-                            onChange={() =>
-                              setValue(
-                                "subjectIds",
-                                selectedSubjects.filter(
-                                  (id) => id !== subject.id,
-                                ),
-                                { shouldDirty: true, shouldValidate: true },
-                              )
-                            }
-                          />
-                          <span className="text-sm">
-                            {subjectOptionLabel(subject)}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </ErpFormField>
-          )}
+          {/* Subject/curriculum assignments are deliberately not edited here.
+             The current linked IDs are retained in the submitted payload so
+             changing public copy cannot silently remove teaching associations. */}
           <ErpFormField
             id={`${offering.id}-reason`}
             label="Reason"

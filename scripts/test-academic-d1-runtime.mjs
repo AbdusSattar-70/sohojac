@@ -5,7 +5,8 @@ import fs from "node:fs";
 import { createRequire, stripTypeScriptTypes } from "node:module";
 import { test } from "node:test";
 import { z } from "zod";
-import { resetPlan, operationId } from "./foundation-reset-plan.mjs";
+import { freshDevBootstrapSql } from "./canonical-dev-bootstrap.mjs";
+import { historicalPublicCataloguePrerequisiteSql } from "./fixtures/historical-public-catalogue.mjs";
 const local = createRequire(import.meta.url);
 const { Miniflare, convertV4MiniflareOptions } = createRequire(
   local.resolve("cf"),
@@ -61,15 +62,8 @@ test("actual D1 binding supports draft → fee publication → public controls �
     )
       .bind(uid)
       .run();
-    const schema = (
-      await DB.prepare(
-        "SELECT type,name,sql FROM sqlite_schema WHERE type IN ('table','trigger')",
-      ).all()
-    ).results;
-    await DB.prepare("INSERT INTO system_maintenance_operations(id,status,manifest_json) VALUES (?,'PREPARED','[]')").bind(operationId).run();
-    await DB.prepare(
-      resetPlan(schema, fs.readFileSync("seeds/foundation.sql", "utf8")),
-    ).run();
+    // Start the test with the exact clean reference state used for fresh dev D1.
+    await DB.prepare(freshDevBootstrapSql()).run();
     const deps = {
       batchOfferingReadySql,
       env: { DB },
@@ -97,6 +91,8 @@ test("actual D1 binding supports draft → fee publication → public controls �
       "publishFeePlan",
       "updateProgrammeOfferingPublicControls",
     ]);
+    Object.assign(deps, load("lib/erp-batches.ts", ["batchCommandSchema"]));
+    Object.assign(deps, load("modules/academics/batches/commands.ts", ["runBatchCommand"]));
     const batches = load("modules/academics/batches/actions.ts", [
       "runAcademicBatchCommand",
     ]);
@@ -209,6 +205,14 @@ test("actual D1 binding supports draft → fee publication → public controls �
       ).n,
       0,
     );
+    await assert.rejects(
+      seedPublicCatalogue(async (sql) => [await DB.prepare(sql).all()]),
+      /completed foundation reset/,
+    );
+    assert.equal((await DB.prepare("SELECT COUNT(*) n FROM system_maintenance_operations WHERE id='foundation-reset-20261030-v1'").first()).n,0);
+    // Historical public-catalogue tests use explicit disposable prerequisites.
+    // The actual fresh dev bootstrap deliberately has no such reset marker.
+    await DB.prepare(historicalPublicCataloguePrerequisiteSql).run();
     assert.equal(
       (await seedPublicCatalogue(async (sql) => [await DB.prepare(sql).all()]))
         .applied,
@@ -223,3 +227,4 @@ test("actual D1 binding supports draft → fee publication → public controls �
     await mf.dispose();
   }
 });
+

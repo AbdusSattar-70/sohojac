@@ -3,6 +3,7 @@ import {env} from "cloudflare:workers";
 import {revalidatePath} from "next/cache";
 import {z} from "zod";
 import {getErpContext,requirePermission} from "@/modules/platform/auth/erp-context";
+import {recordStudentPayment} from "@/modules/finance/payments/record-payment";
 
 type Outcome={ok:boolean;message:string};
 const uuid=z.string().uuid();
@@ -326,39 +327,15 @@ const payInput=z.object({admissionId:uuid,requestId:uuid,amount:z.number().posit
  method:z.enum(["CASH","BANK","MFS"]),reference:z.string().trim().max(160),reason:note});
 export async function collectAdmissionPayment(input:unknown):Promise<Outcome>{
  const p=payInput.safeParse(input);if(!p.success)return {ok:false,message:"Check payment method, amount and note."};
- const user=await actor("finance.payments.post");if(!user)return {ok:false,message:"Payment posting permission required."};
- const v=p.data,amount=Math.round(v.amount*100);if(amount<1||!Number.isSafeInteger(amount))return {ok:false,message:"Invalid amount."};
- const replay=await env.DB.prepare("SELECT payment_id FROM academy_admission_collection_keys WHERE request_id=? AND actor_id=?").bind(v.requestId,user).first<{payment_id:string}>();
- if(replay)return {ok:true,message:"Previously saved payment found. No duplicate receipt was created."};
- const invoice=await env.DB.prepare("SELECT id FROM finance_invoices WHERE admission_id=? AND status IN ('ISSUED','PARTIAL') AND amount_paisa-paid_paisa>=? ORDER BY created_at LIMIT 1").bind(v.admissionId,amount).first<{id:string}>();
- if(!invoice)return {ok:false,message:"No matching unpaid invoice or amount exceeds the outstanding balance."};
- const paymentId=crypto.randomUUID(),allocationId=crypto.randomUUID();
- const receiptNo="SA-RCPT-"+crypto.randomUUID().replaceAll("-","").slice(0,12).toUpperCase();
- try{
-  const tx=await env.DB.batch([
-   env.DB.prepare([
-    "INSERT INTO finance_payments(id,receipt_no,student_id,amount_paisa,payment_method,received_by,reference)",
-    "SELECT ?,?,i.student_id,?,?,?,? FROM finance_invoices i",
-    "WHERE i.id=? AND i.admission_id=? AND i.status IN ('ISSUED','PARTIAL')",
-    "AND i.amount_paisa-i.paid_paisa>=? RETURNING id"
-   ].join(" ")).bind(paymentId,receiptNo,amount,v.method,user,v.reference||null,invoice.id,v.admissionId,amount),
-   env.DB.prepare("INSERT INTO finance_allocations(id,payment_id,invoice_id,amount_paisa) SELECT ?,?,?,? WHERE changes()=1 RETURNING id")
-    .bind(allocationId,paymentId,invoice.id,amount),
-   env.DB.prepare([
-    "INSERT INTO erp_audit_events(id,entity_type,entity_id,action,actor_id,reason,after_json)",
-    "VALUES(?,'finance_payment',(SELECT id FROM finance_payments WHERE id=? AND receipt_no=?),",
-    "'RECEIVED_AND_ALLOCATED',?,?,?) RETURNING id"
-   ].join(" ")).bind(crypto.randomUUID(),paymentId,receiptNo,user,v.reason,
-    JSON.stringify({admissionId:v.admissionId,receiptNo,invoiceId:invoice.id,amountPaisa:amount,method:v.method})),
-   env.DB.prepare("INSERT INTO academy_admission_collection_keys(request_id,payment_id,admission_id,actor_id) VALUES(?,?,?,?) RETURNING request_id")
-    .bind(v.requestId,paymentId,v.admissionId,user)
-  ]);
-  if(tx.some(r=>(r.results?.length??0)!==1))return {ok:false,message:"Payment not confirmed. Reload invoice before retrying."};
-  refresh(v.admissionId);return {ok:true,message:"Receipt "+receiptNo+" posted and allocated against the invoice."};
- }catch{
-  const existing=await env.DB.prepare("SELECT payment_id FROM academy_admission_collection_keys WHERE request_id=? AND actor_id=?").bind(v.requestId,user).first<{payment_id:string}>();
-  return existing?{ok:true,message:"Previously posted payment verified."}:{ok:false,message:"Payment not posted. Check invoice and retry the same request."};
- }
+ const context=await getErpContext();
+ if(!context?.permissions.includes("finance.payments.post"))return {ok:false,message:"Payment posting permission required."};
+ const v=p.data,amount=Math.round(v.amount*100);
+ if(!Number.isSafeInteger(amount)||amount<1||v.amount!==amount/100)return {ok:false,message:"Enter a positive amount in whole paisa."};
+ const result=await recordStudentPayment(env.DB,context,{requestId:v.requestId,admissionId:v.admissionId,
+  amountPaisa:amount,method:v.method,reference:v.reference,reason:v.reason});
+ if(!result.ok)return {ok:false,message:result.message};
+ refresh(v.admissionId);
+ return {ok:true,message:"Receipt "+result.receiptNo+" posted and allocated against the invoice."};
 }
 export async function activateAdmission(input:unknown):Promise<Outcome>{
  const p=finalizeInput.safeParse(input);if(!p.success)return {ok:false,message:"Check enrollment reason."};
@@ -399,4 +376,3 @@ export async function activateAdmission(input:unknown):Promise<Outcome>{
   refresh(v.admissionId);return {ok:true,message:"Student enrollment activated and recorded in the batch."};
  }catch{return {ok:false,message:"Could not activate. All initial fees must be settled and an active seat available."};}
 }
-

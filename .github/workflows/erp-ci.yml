@@ -1,0 +1,261 @@
+name: Sohojac — isolated quality and releases
+
+on:
+  pull_request:
+    branches: [dev]
+  push:
+    branches: [dev, master]
+  workflow_dispatch:
+    inputs:
+      deploy_confirmation:
+        description: "Type APPROVE_SOHOJAC_PRODUCTION after owner approval and dev review"
+        required: true
+        type: string
+      approved_sha:
+        description: "Exact reviewed master commit SHA to deploy"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Typecheck, D1 invariants and authenticated regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      BETTER_AUTH_URL: http://localhost:4173
+      BETTER_AUTH_SECRET: ci-not-a-production-secret-0123456789-abcdefgh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "12.15.0"
+          run_install: false
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Local auth configuration (never a deployed secret)
+        run: |
+          printf '%s\n' 'BETTER_AUTH_URL=http://localhost:4173' 'BETTER_AUTH_SECRET=ci-not-a-production-secret-0123456789-abcdefgh' > .env
+          chmod 600 .env
+      - name: Generate binding types
+        run: pnpm run cf-typegen
+      - name: Environment isolation and non-destructive migrations
+        run: |
+          node --test scripts/test-environment-isolation.mjs scripts/test-dev-reference-bootstrap.mjs
+          node scripts/check-d1-migrations.mjs
+      - name: Business logic and security regressions
+        run: |
+          node --test scripts/test-request-protection.mjs scripts/test-academic-d1-runtime.mjs scripts/test-public-catalogue.mjs scripts/test-offering-subject-options.mjs
+          node --test scripts/test-academy-identity.mjs scripts/test-student-lifecycle.mjs scripts/test-student-profile.mjs
+          node --test scripts/test-source-offerings.mjs scripts/test-source-batches.mjs scripts/test-admission-fee-concurrency.mjs scripts/test-finance-receivables.mjs scripts/test-retired-admission-mutations.mjs
+          node --test scripts/test-payment-commands.mjs scripts/test-collection-retry-ui.mjs scripts/test-expense-commands.mjs scripts/test-batch-command-adapters.mjs
+          node --test scripts/test-finance-theme.mjs
+          node --test scripts/test-batch-operator-ui.mjs
+      - name: Route and identity contracts
+        run: |
+          node scripts/check-staff-number-parity.mjs
+          node scripts/check-dashboard-navigation.mjs
+      - name: TypeScript
+        run: pnpm exec tsc --noEmit
+      - name: Apply schema to disposable local D1
+        run: |
+          set -euo pipefail
+          DB=d6f3e4e9-2190-43bf-bc90-969687f6db78
+          pnpm exec cf d1 migrations apply "$DB" --local --persist-to .cloudflare/state
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "INSERT INTO staff_owner_setup (id,email,display_name,token,expires_at) VALUES ('first-owner','staff-ci@example.invalid','Synthetic Staff Owner','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',strftime('%Y-%m-%dT%H:%M:%fZ','now','+30 minutes'))" >/tmp/sohojac-setup.json
+      - name: Build and validate Cloudflare Worker
+        run: |
+          pnpm run build
+          pnpm exec cf deploy --prebuilt --mode production --dry-run
+      - name: Authenticated local ERP smoke suite
+        shell: bash
+        run: bash scripts/ci-authenticated-smoke.sh
+
+  development:
+    name: Deploy dev to NEW sohojac_dev D1
+    needs: quality
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    concurrency:
+      group: sohojac-dev-d1-release
+      cancel-in-progress: false
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      DEV_BETTER_AUTH_SECRET: ${{ secrets.DEV_BETTER_AUTH_SECRET }}
+      DEV_TURNSTILE_SECRET_KEY: ${{ secrets.DEV_TURNSTILE_SECRET_KEY }}
+      TURNSTILE_SITE_KEY: ${{ vars.DEV_TURNSTILE_SITE_KEY }}
+      STAFF_EMAIL_FROM: ""
+      CF_SEND_TELEMETRY: "false"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "12.15.0"
+          run_install: false
+      - name: Require isolated development credentials and latest tested commit
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/dev"
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          test "${#DEV_BETTER_AUTH_SECRET}" -ge 32
+          test -n "$DEV_TURNSTILE_SECRET_KEY"
+          test -n "$TURNSTILE_SITE_KEY"
+          latest=$(git ls-remote https://github.com/AbdusSattar-70/sohojac.git refs/heads/dev | cut -f1)
+          test "$latest" = "$GITHUB_SHA"
+      - run: pnpm install --frozen-lockfile
+      - name: Create or confirm independent dev D1
+        run: node scripts/prepare-dev-deployment.mjs
+      - name: Verify dev database identity before any migration
+        run: node scripts/verify-release-target.mjs development
+      - name: Capture dev-only recovery bookmark
+        run: node scripts/capture-d1-recovery.mjs "$SOHOJAC_DEV_D1_ID"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sohojac-dev-d1-recovery-${{ github.sha }}
+          path: ${{ runner.temp }}/sohojac-d1-recovery.json
+          retention-days: 7
+      - name: Migrate fresh dev DB only
+        run: |
+          set -euo pipefail
+          node scripts/check-d1-migrations.mjs
+          printf 'y\n' | pnpm exec cf d1 migrations apply "$SOHOJAC_DEV_D1_ID" --mode staging
+      - name: Seed canonical development references only
+        run: node scripts/seed-dev-reference.mjs
+      - name: Build and inspect staging Worker
+        run: |
+          pnpm run cf-typegen
+          pnpm exec tsc --noEmit
+          pnpm exec vite build --mode staging
+          pnpm exec cf deploy --prebuilt --mode staging --dry-run
+      - name: Deploy dev Worker with DEV-ONLY auth and Turnstile
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          import path from "node:path";
+          fs.writeFileSync(path.join(process.env.RUNNER_TEMP,"sohojac-dev-secrets.json"),
+            JSON.stringify({
+              BETTER_AUTH_SECRET: process.env.DEV_BETTER_AUTH_SECRET,
+              TURNSTILE_SECRET_KEY: process.env.DEV_TURNSTILE_SECRET_KEY,
+            }),{mode:0o600});
+          NODE
+          trap 'rm -f "$RUNNER_TEMP/sohojac-dev-secrets.json"' EXIT
+          pnpm exec cf deploy --prebuilt --mode staging --secrets-file "$RUNNER_TEMP/sohojac-dev-secrets.json"
+      - name: Activate only dev Worker hostname
+        run: node scripts/enable-dev-worker.mjs
+      - name: Verify actual deployed Worker D1 binding
+        run: node scripts/verify-release-target.mjs development --worker
+      - name: Smoke-check dev without logging in or creating real financial data
+        run: |
+          set -euo pipefail
+          for path in / /sign-in /interest; do
+            curl --fail --silent --show-error --retry 4 --retry-delay 3 --max-time 20 "$BETTER_AUTH_URL$path" >/dev/null
+          done
+          code=$(curl --silent --show-error -o /dev/null -w '%{http_code}' "$BETTER_AUTH_URL/api/staff/students")
+          test "$code" = "401"
+          echo "Isolated dev release verified for manual owner review. No master promotion performed."
+
+  production:
+    name: Manually approved production release — sohojac only
+    needs: quality
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && inputs.deploy_confirmation == 'APPROVE_SOHOJAC_PRODUCTION'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: production
+    concurrency:
+      group: sohojac-production-d1-release
+      cancel-in-progress: false
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+      TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
+      TURNSTILE_SITE_KEY: ${{ vars.TURNSTILE_SITE_KEY }}
+      BETTER_AUTH_URL: https://sohojac.com
+      STAFF_EMAIL_FROM: ${{ vars.STAFF_EMAIL_FROM || '' }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      SOHOJAC_D1_ID: d6f3e4e9-2190-43bf-bc90-969687f6db78
+      CF_SEND_TELEMETRY: "false"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "12.15.0"
+          run_install: false
+      - name: Verify owner-approved master revision and production secrets
+        env:
+          APPROVED_SHA: ${{ inputs.approved_sha }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/master"
+          test "$GITHUB_SHA" = "$APPROVED_SHA"
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          test "${#BETTER_AUTH_SECRET}" -ge 32
+          test -n "$TURNSTILE_SECRET_KEY"
+          test -n "$TURNSTILE_SITE_KEY"
+          latest=$(git ls-remote https://github.com/AbdusSattar-70/sohojac.git refs/heads/master | cut -f1)
+          test "$latest" = "$GITHUB_SHA"
+      - run: pnpm install --frozen-lockfile
+      - name: Verify production database identity before migration
+        run: node scripts/verify-release-target.mjs production
+      - name: Capture production-only recovery bookmark
+        run: node scripts/capture-d1-recovery.mjs "$SOHOJAC_D1_ID"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sohojac-production-d1-recovery-${{ github.sha }}
+          path: ${{ runner.temp }}/sohojac-d1-recovery.json
+          retention-days: 7
+      - name: Apply reviewed production migrations — NO RESET OR SEED
+        run: |
+          set -euo pipefail
+          node scripts/check-d1-migrations.mjs
+          printf 'y\n' | pnpm exec cf d1 migrations apply "$SOHOJAC_D1_ID" --mode production
+      - name: Build production Worker
+        run: |
+          pnpm run cf-typegen
+          pnpm exec tsc --noEmit
+          pnpm run build
+          pnpm exec cf deploy --prebuilt --mode production --dry-run
+      - name: Deploy Worker with production-only secrets
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          import path from "node:path";
+          const x={BETTER_AUTH_SECRET:process.env.BETTER_AUTH_SECRET,TURNSTILE_SECRET_KEY:process.env.TURNSTILE_SECRET_KEY};
+          if(process.env.STAFF_EMAIL_FROM&&process.env.RESEND_API_KEY)x.RESEND_API_KEY=process.env.RESEND_API_KEY;
+          fs.writeFileSync(path.join(process.env.RUNNER_TEMP,"sohojac-production-secrets.json"),JSON.stringify(x),{mode:0o600});
+          NODE
+          trap 'rm -f "$RUNNER_TEMP/sohojac-production-secrets.json"' EXIT
+          pnpm exec cf deploy --prebuilt --mode production --secrets-file "$RUNNER_TEMP/sohojac-production-secrets.json"
+      - name: Verify actual production Worker binding and public/private health
+        run: |
+          set -euo pipefail
+          node scripts/verify-release-target.mjs production --worker
+          for path in / /sign-in /interest; do
+            curl --fail --silent --show-error --retry 4 --retry-delay 3 --max-time 20 "https://sohojac.com$path" >/dev/null
+          done
+          status=$(curl --silent --show-error -o /dev/null -w '%{http_code}' https://sohojac.com/api/staff/students)
+          test "$status" = "401"
+          echo "Manually approved production release verified; sohojac D1 preserved."

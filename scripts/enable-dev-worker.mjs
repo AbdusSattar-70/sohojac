@@ -1,11 +1,12 @@
-import { sharedD1 } from "../lib/database-target.ts";
-/** Enable only the dev Worker; its D1 is intentionally shared. */
+import { databaseTargets, requireDevelopmentDatabaseId } from "../lib/database-target.ts";
+/** Activate only the isolated dev Worker; never target production D1. */
 const account = process.env.CLOUDFLARE_ACCOUNT_ID;
 const token = process.env.CLOUDFLARE_API_TOKEN;
-if (!account || !token || !process.env.SOHOJAC_D1_ID)
-  throw Error("Missing shared database deployment context.");
-if (process.env.SOHOJAC_D1_ID !== sharedD1.id)
-  throw Error("Unexpected database target; refusing route activation.");
+if (!account || !token || process.env.GITHUB_REF !== databaseTargets.development.branch)
+  throw Error("Dev Worker activation requires a verified dev release.");
+const databaseId = requireDevelopmentDatabaseId(process.env.SOHOJAC_DEV_D1_ID);
+if (process.env.SOHOJAC_D1_ID !== databaseId)
+  throw Error("Unexpected dev database target; refusing route activation.");
 const endpoint =
   "https://api.cloudflare.com/client/v4/accounts/" +
   encodeURIComponent(account) +

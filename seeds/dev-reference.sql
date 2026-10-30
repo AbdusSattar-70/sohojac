@@ -1,3 +1,8 @@
+-- Canonical fresh-development reference seed (no sample people or payments).
+-- Academic subjects are a single global catalogue. Do NOT pre-create duplicate
+-- grade-specific academy_subjects rows; the legacy table remains for migration
+-- compatibility until the curriculum model is replaced.
+-- Reentrant INSERT OR IGNORE statements preserve staff edits.
 -- Editable reference data. No invented people, applications, prices or transactions.
 INSERT OR IGNORE INTO academy_classes(id,code,name,sort_order) VALUES ('4d521c63-9dc5-5651-b2d3-9e787510040a','CLASS1','Class 1',1);
 INSERT OR IGNORE INTO academy_classes(id,code,name,sort_order) VALUES ('9a859e31-9b3b-51df-8bce-5bfd8a6efce9','CLASS2','Class 2',2);
@@ -94,50 +99,5 @@ INSERT OR IGNORE INTO finance_accounts(id,code,name,kind) VALUES
  ('sohoj-asset-mfs','1020','Mobile financial services','ASSET'),
  ('sohoj-asset-ar','1100','Student receivables','ASSET'),
  ('sohoj-liab-deferred','2200','Deferred tuition and admission fees','LIABILITY');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('181dab61-d996-5774-8a7d-293662efceaa','BAN','Bangla',4,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('1bce4aa0-64d6-5e1d-b2ff-e8826550ede6','ENG','English',4,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('dd9caac3-e5af-5e1c-a47c-03902a3f92cf','MAT','Mathematics',4,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('4423626a-0bb9-5694-8b9a-798e66dc7b3a','SCI','General Science',4,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('2de312d4-2f0e-58f5-98a9-0b854d0ecd06','ICT','ICT',4,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('c585d15f-f184-5e0f-b3c2-39c21b373b2c','BAN','Bangla',5,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('038b26ab-1937-5e63-9a8f-16d0052a2e64','ENG','English',5,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('908c5ff1-cd16-5d5f-a2ad-cbdfc23b818d','MAT','Mathematics',5,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('a0f5cd80-11c8-5891-bb89-c578a0e893a6','SCI','General Science',5,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('c05dffcb-b482-5612-9c8b-89b86c60bf43','ICT','ICT',5,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('ca325b66-4baa-5d53-96ac-d7e288b11cd3','BAN','Bangla',6,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('668e2bd6-801d-52c5-b43a-f2d357a6e1b3','ENG','English',6,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('edece82d-7661-53d5-911c-9ab7c1e30b53','MAT','Mathematics',6,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('719e249e-2e8b-55b9-9465-548be344e341','SCI','General Science',6,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('7b988bdc-9562-566b-8e84-53897ea9f770','ICT','ICT',6,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('63145883-00af-55c3-bfa8-a807cb90b8ed','BAN','Bangla',7,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('bca29f85-288e-59a5-8ff7-e7f39045c63a','ENG','English',7,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('c7a2b39f-3485-5df9-a092-ff61106eaa19','MAT','Mathematics',7,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('adee8365-2b50-575b-ba95-dc5d69be98c5','SCI','General Science',7,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('5379071e-fa9d-5c41-8951-562129bdecd3','ICT','ICT',7,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('a0b5855e-2cf3-57a5-92cf-7ae0c69a5bf4','BAN','Bangla',8,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('82791978-728b-503a-97e3-af29e3e5bc2e','ENG','English',8,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('faeaf2ca-e71a-55bf-93c1-1c83a7daee3b','MAT','Mathematics',8,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('7cc5b99d-cde8-5acf-a06b-5c7983de2e1a','SCI','General Science',8,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('b187df41-6078-5261-ac7e-49e89b4d9cc6','ICT','ICT',8,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('9de861c9-ff61-588c-8e88-ca24f9b90d70','BAN','Bangla',9,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('8f2867b9-5829-5ab2-9420-08f652262b0d','ENG','English',9,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('0cd27644-d591-5270-9b80-9a1712190dca','MAT','Mathematics',9,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('76ffc7bc-dbde-557f-ba17-e9985789561d','SCI','General Science',9,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('b3f014f2-ce60-5288-9c13-b9462a1895bc','ICT','ICT',9,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('da260b02-cd0a-563a-9dca-9829c18a8fab','BAN','Bangla',10,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('15d81268-e9a8-53d7-aaf7-45a14a44cc27','ENG','English',10,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('473c6f12-033e-58b0-8c77-95b03d1f03b9','MAT','Mathematics',10,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('cce3d328-2c51-518d-abcd-d7936adfb0dc','SCI','General Science',10,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('0246319c-ef7b-5a86-942a-a1b59408f2f5','ICT','ICT',10,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('71ab31ac-c607-5407-8bd1-3980d862b314','BAN','Bangla',11,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('f9271287-5111-53cc-ac1b-13388172813c','ENG','English',11,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('042a7b38-e392-5c93-b582-6770b4d5f2bb','MAT','Mathematics',11,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('143d27f2-066c-5ba6-aa20-68b8300313a7','SCI','General Science',11,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('407662e7-39b0-504d-aa2a-d04b6cc8bae1','ICT','ICT',11,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('2199450f-463a-5fae-8a41-4aa056154f87','BAN','Bangla',12,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('068b12ba-ef85-572b-9078-87dae75eca2a','ENG','English',12,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('33640b99-0921-5c6d-8a99-a49bfd2a393a','MAT','Mathematics',12,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('da52bd69-62f9-55a9-978c-f33e87aea5d8','SCI','General Science',12,'GENERAL');
-INSERT OR IGNORE INTO academy_subjects(id,code,name,class_grade,group_name) VALUES ('494a420a-e6ca-5a3e-852e-f3f2682b34a5','ICT','ICT',12,'GENERAL');
 INSERT OR IGNORE INTO finance_accounts(id,code,name,kind)
 VALUES ('sohoj-expense-operating','5100','Operating expenses','EXPENSE');
