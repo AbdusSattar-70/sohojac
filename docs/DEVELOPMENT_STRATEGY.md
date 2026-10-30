@@ -1,6 +1,6 @@
 # Sohojac development strategy
 
-> **UX review pending decision (31 October 2026):** [Operator-first ERP pinpoint audit and redesign blueprint](./OPERATOR_FIRST_ERP_BLUEPRINT.md). This is a proposal, not a completed implementation or a replacement for the current data-integrity roadmap.
+> **Architecture and UX redesign proposal (31 October 2026):** [Target modular architecture and phase gates](./ERP_TARGET_ARCHITECTURE.md) · [Operator-first pinpoint audit and workflow blueprint](./OPERATOR_FIRST_ERP_BLUEPRINT.md). Both are design proposals, **not deployed features**. Phase 2 financial/permission hardening remains the prerequisite; these documents do not replace verified phase statuses.
 
 Updated: 30 October 2026. This is the single current roadmap and phase-status register.
 Source parity: `sohoj-academy@f46b61611edce0a82f69e349bb89269329233b62`.
