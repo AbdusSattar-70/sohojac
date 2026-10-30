@@ -76,8 +76,12 @@ const report = {sourceMigrations:names.length, canonicalFiles:Object.keys(files)
   canonicalBytes:Object.values(files).reduce((a,s)=>a+s.length,0)};
 console.log("Canonical baseline generated and validated:",JSON.stringify(report));
 if (process.env.EMIT_CANONICAL_TO_LOGS === "1") {
-  console.log("CANONICAL_JSON_START");
-  console.log(JSON.stringify(files));
-  console.log("CANONICAL_JSON_END");
+  // Keep each log line short enough to survive GitHub Actions log limits.
+  for (const [name,sql] of Object.entries(files)) {
+    const chunkSize = 1800, count = Math.ceil(sql.length / chunkSize);
+    for (let i=0;i<count;i++)
+      console.log("CANONICAL_CHUNK " + name + " " + (i+1) + "/" + count + " " +
+        JSON.stringify(sql.slice(i*chunkSize,(i+1)*chunkSize)));
+  }
 }
 db.close();fresh.close();
