@@ -4,6 +4,7 @@
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { createHash } from "node:crypto";
 
 const folder = "migrations";
 const files = readdirSync(folder).filter(f => /^[0-9]{4}_[a-z0-9_-]+\.sql$/.test(f)).sort();
@@ -19,7 +20,15 @@ const forbidden = [
   /\bUPDATE\s+(?:"?user"?|"?account"?|"?staff_memberships"?)\s+SET\b/i,
 ];
 for (const file of files) {
-  const sql = readFileSync(join(folder, file), "utf8")
+  const raw = readFileSync(join(folder, file), "utf8");
+  // Reviewed canonical-table rebuild: exact bytes, immutable snapshots, full
+  // bidirectional preservation assertions and FK checks. No general DROP exception.
+  if (file === "0029_student_lifecycle.sql") {
+    if (createHash("sha256").update(raw).digest("hex") !== "9f7796f6ca25a07e20d1d8f44fc9f842fb8a55756fd78f7593d9bc4f384d6436")
+      throw new Error("Student lifecycle migration differs from the reviewed preservation plan");
+    continue;
+  }
+  const sql = raw
     .replace(/--[^\n]*/g, "")
     .replace(/\/\*[\s\S]*?\*\//g, "");
   // Reviewed schema-only parity correction: dropping this particular

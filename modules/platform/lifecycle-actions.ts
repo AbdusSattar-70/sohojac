@@ -1,4 +1,5 @@
 "use server";
+import { changeStudentRecordState } from "@/modules/students/lifecycle/state-actions";
 import {z} from "zod";
 import {env} from "cloudflare:workers";
 import {headers} from "next/headers";
@@ -13,6 +14,7 @@ export async function changeRecordState(input:unknown){
  const parsed=schema.safeParse(input);
  if(!parsed.success)return {ok:false,message:"Check the record and change reason."};
  const value=parsed.data;
+ if(value.entity==="student") return changeStudentRecordState(value);
  // Do not imply that unported lifecycle workflows work.
  if(value.entity!=="staff")
   return {ok:false,message:"This record's original lifecycle workflow has not yet migrated."};

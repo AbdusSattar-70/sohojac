@@ -1,61 +1,36 @@
-/**
- * Delete only explicitly allowlisted historical branches whose EXACT observed SHA
- * is already an ancestor of dev. Never delete master, dev, public rollback,
- * a protected branch, the Admissions working branch, an open-PR head or anything with new commits.
- *
- * Runs after a green dev deployment. Requires GITHUB_TOKEN contents:write.
+/** User policy: keep master, dev and the current feature; remove only merged heads
+ * after a successful dev deployment. Open PRs, protected refs and unique work stay.
  */
-const repo=process.env.GITHUB_REPOSITORY;
-const token=process.env.GITHUB_TOKEN;
-if(repo!=="AbdusSattar-70/sohojac"||!token||
- process.env.GITHUB_REF!=="refs/heads/dev")throw Error("Not authorized dev cleanup");
-const names={
- "feature/erp-dark-only-staff-mail-setup": "d66af6f3804dd5e912a4cbc5f3d432ed9f6c64d5",
- "feature/legacy-staff-number-parity-20261029": "bb63bc2f2c14aa58d51ee088bd2791cabf5d0a70",
- "feature/public_site_port": "47463eb81e85020f230b18b1065c751eabd9cc16",
- "fix/manual-master-email-deploy-20261029": "124cddce4fc52037b1858521b089e04bb0f92b43",
- "fix/master-optional-staff-mail-20261029": "70e870f171f1ef79252ec36bca08cf8cac9d801c",
- "refactor/original-erp-architecture-20261029": "4aab163e6c800197d07d4ab53ffa85ad61078afb",
- "release/academic-years-20261029": "755908154e9bd5f80edc3f88b75bc2594e45b355",
- "release/batches-20261029": "d82934343aa189b4da41c66ad1f5e38f5ba3eae3",
- "release/programme-offerings-20261029": "ecdcebc7cef0d6072255e07a3a787d6786a728d9"
-};
-const base="https://api.github.com/repos/"+repo;
-async function github(path,method="GET"){
- const response=await fetch(base+path,{
-  method,headers:{
-   Authorization:"Bearer "+token,Accept:"application/vnd.github+json",
-   "X-GitHub-Api-Version":"2022-11-28"
-  }
- });
- if(method==="DELETE"&&response.status===204)return null;
- if(!response.ok)throw Error("GitHub "+method+" "+path+" returned "+response.status);
+const repo=process.env.GITHUB_REPOSITORY,token=process.env.GITHUB_TOKEN;
+if(repo!=='AbdusSattar-70/sohojac'||!token||process.env.GITHUB_REF!=='refs/heads/dev')throw Error('Not authorized dev cleanup');
+const current='feature/student-lifecycle-source-workflow';
+const keep=new Set(['master','dev',current]);
+const base='https://api.github.com/repos/'+repo;
+async function github(path,method='GET'){
+ const response=await fetch(base+path,{method,headers:{Authorization:'Bearer '+token,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'}});
+ if(method==='DELETE'&&response.status===204)return null;
+ if(!response.ok)throw Error(`GitHub ${method} ${path} returned ${response.status}`);
  return response.json();
 }
-const dev=await github("/branches/dev");
-if(dev?.commit?.sha!==process.env.GITHUB_SHA)throw Error("dev moved after green CI: skip cleanup");
-const open=await github("/pulls?state=open&per_page=100");
-if(open.length>=100)throw Error("Too many open PRs to verify safely");
-let deleted=0;
-for(const [branch,observedSha] of Object.entries(names)){
- if(["dev","master","feature/admissions-source-parity"].includes(branch))throw Error("Unsafe cleanup candidate");
- const url=encodeURIComponent(branch);
- const entry=await github("/branches/"+url).catch(e=>{
-  if(String(e).includes("404"))return null;throw e;
- });
- if(!entry){console.log("Already deleted: "+branch);continue;}
- if(entry.protected||entry.commit.sha!==observedSha){
-  console.log("Retained updated/protected branch "+branch);continue;
- }
- if(open.some(p=>p.head?.repo?.full_name===repo&&p.head?.ref===branch)){
-  console.log("Retained open PR branch "+branch);continue;
- }
- const compare=await github("/compare/dev..."+url);
- if(compare.ahead_by!==0){
-  console.log("Retained branch with unique work "+branch);continue;
- }
- await github("/git/refs/heads/"+url,"DELETE");
- console.log("Deleted integrated branch: "+branch);
- deleted++;
+async function unchangedDev(){const dev=await github('/branches/dev');if(dev.commit.sha!==process.env.GITHUB_SHA)throw Error('Dev moved after tested deployment; cleanup stopped');}
+await unchangedDev();
+const open=await github('/pulls?state=open&per_page=100');
+if(open.length>=100)throw Error('Open PR inventory requires pagination before cleanup');
+const branches=[];
+for(let page=1;;page++){
+ const batch=await github('/branches?per_page=100&page='+page);branches.push(...batch);if(batch.length<100)break;
 }
-console.log("Development branch cleanup completed; "+deleted+" merged-only branches pruned.");
+let deleted=0;
+for(const observed of branches){
+ const name=observed.name;
+ if(keep.has(name)||observed.protected||open.some(p=>p.head?.repo?.full_name===repo&&p.head.ref===name))continue;
+ const encoded=encodeURIComponent(name),sha=observed.commit.sha;
+ const compare=await github('/compare/'+process.env.GITHUB_SHA+'...'+sha);
+ if(compare.ahead_by!==0){console.log('Retained unique work: '+name);continue;}
+ await unchangedDev();
+ const latest=await github('/branches/'+encoded);
+ if(latest.protected||latest.commit.sha!==sha){console.log('Retained changed/protected ref: '+name);continue;}
+ // GitHub has no conditional branch-delete endpoint; recheck immediately above.
+ await github('/git/refs/heads/'+encoded,'DELETE');deleted++;console.log('Deleted integrated branch: '+name);
+}
+console.log(`Removed ${deleted} merged branches; master, dev and ${current} retained.`);

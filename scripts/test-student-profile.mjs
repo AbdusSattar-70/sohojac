@@ -24,47 +24,54 @@ const missingStudent = "44444444-4444-4444-8444-444444444444";
 db.exec(`
   CREATE TABLE academy_students (
     id TEXT PRIMARY KEY, student_no TEXT, full_name TEXT, school_name TEXT,
-    status TEXT, created_at TEXT, guardian_name TEXT, guardian_mobile TEXT
+    status TEXT, created_at TEXT, guardian_name TEXT, guardian_mobile TEXT, merged_into_id TEXT
   );
   CREATE TABLE public_programme_offerings (
-    id TEXT PRIMARY KEY, name TEXT, academic_year_name TEXT, class_name TEXT
+    id TEXT PRIMARY KEY, name TEXT, academic_year_name TEXT, class_name TEXT,
+    academic_year_id TEXT, is_active INTEGER DEFAULT 1, offering_status TEXT DEFAULT 'ACTIVE', operation_kind TEXT
   );
   CREATE TABLE academic_years (id TEXT PRIMARY KEY, title TEXT);
   CREATE TABLE academy_batches (
-    id TEXT PRIMARY KEY, name TEXT, offering_id TEXT, year_id TEXT
+    id TEXT PRIMARY KEY, name TEXT, offering_id TEXT, year_id TEXT,
+    capacity INTEGER DEFAULT 12, status TEXT DEFAULT 'ACTIVE'
   );
   CREATE TABLE academy_admissions (
     id TEXT PRIMARY KEY, application_no TEXT, status TEXT, created_at TEXT,
-    batch_id TEXT, offering_id TEXT, student_id TEXT
+    batch_id TEXT, offering_id TEXT, student_id TEXT, fee_plan_id TEXT
   );
   CREATE TABLE academy_enrollments (
     id TEXT PRIMARY KEY, student_id TEXT, batch_id TEXT, enrolled_at TEXT,
-    status TEXT
+    status TEXT, ended_on TEXT
   );
   CREATE TABLE finance_invoices (
     id TEXT PRIMARY KEY, invoice_no TEXT, student_id TEXT, issue_on TEXT,
     due_on TEXT, amount_paisa INTEGER, paid_paisa INTEGER,
     status TEXT, created_at TEXT
   );
+  CREATE TABLE academy_fee_plans (id TEXT PRIMARY KEY, source_version INTEGER);
+  CREATE TABLE academy_enrollment_transfers (
+    id TEXT PRIMARY KEY, student_id TEXT, from_batch_id TEXT, to_batch_id TEXT,
+    transferred_on TEXT, authorized_by TEXT, created_at TEXT
+  );
 `);
 
-const addStudent = db.prepare("INSERT INTO academy_students VALUES (?,?,?,?,?,?,?,?)");
+const addStudent = db.prepare("INSERT INTO academy_students(id,student_no,full_name,school_name,status,created_at,guardian_name,guardian_mobile) VALUES (?,?,?,?,?,?,?,?)");
 addStudent.run(studentA, "SA-000001", "Student Alpha", "Alpha School", "ACTIVE", "2026-10-01T10:00:00Z", "Guardian Alpha", "01700000001");
 addStudent.run(studentB, "SA-000002", "Student Beta", "Beta School", "ACTIVE", "2026-10-02T10:00:00Z", "Guardian Beta", "01700000002");
 addStudent.run(studentEmpty, "SA-000003", "Student Empty", null, "ACTIVE", "2026-10-03T10:00:00Z", "Guardian Empty", "01700000003");
 db.exec(`
-  INSERT INTO public_programme_offerings VALUES
+  INSERT INTO public_programme_offerings(id,name,academic_year_name,class_name) VALUES
     ('offering-a','Programme Alpha','Offering Year Alpha','Class 10'),
     ('offering-b','Programme Beta','Offering Year Beta','Class 9');
   INSERT INTO academic_years VALUES ('year-a','Academic Year Alpha');
-  INSERT INTO academy_batches VALUES
+  INSERT INTO academy_batches(id,name,offering_id,year_id) VALUES
     ('batch-a','Batch Alpha','offering-a','year-a'),
     ('batch-b','Batch Beta','offering-b',NULL);
 `);
-const addAdmission = db.prepare("INSERT INTO academy_admissions VALUES (?,?,?,?,?,?,?)");
+const addAdmission = db.prepare("INSERT INTO academy_admissions(id,application_no,status,created_at,batch_id,offering_id,student_id) VALUES (?,?,?,?,?,?,?)");
 addAdmission.run("admission-a", "APP-ALPHA", "ENROLLED", "2026-10-01T11:00:00Z", "batch-a", "offering-a", studentA);
 addAdmission.run("admission-b", "APP-BETA", "REJECTED", "2026-10-02T11:00:00Z", "batch-b", "offering-b", studentB);
-const addEnrollment = db.prepare("INSERT INTO academy_enrollments VALUES (?,?,?,?,?)");
+const addEnrollment = db.prepare("INSERT INTO academy_enrollments(id,student_id,batch_id,enrolled_at,status) VALUES (?,?,?,?,?)");
 addEnrollment.run("enrollment-a", studentA, "batch-a", "2026-10-01T12:00:00Z", "ACTIVE");
 addEnrollment.run("enrollment-b", studentB, "batch-b", "2026-10-02T12:00:00Z", "COMPLETED");
 
@@ -84,15 +91,14 @@ const env = {
     prepare(sql) {
       assert.match(sql, /^SELECT\b/, "Profile queries must remain read-only");
       const statement = db.prepare(sql);
-      return {
-        bind(...values) {
-          queries.push({ sql, values });
-          return {
-            async first() { return statement.get(...values) ?? null; },
-            async all() { return { results: statement.all(...values) }; },
-          };
-        },
+      const bind = (...values) => {
+        queries.push({ sql, values });
+        return {
+          async first() { return statement.get(...values) ?? null; },
+          async all() { return { results: statement.all(...values) }; },
+        };
       };
+      return { bind, async all() { return bind().all(); } };
     },
   },
 };
@@ -144,8 +150,8 @@ test("student-only permission reads the selected identity and enrollment without
   assert.equal(profile.student.number, "SA-000001");
   assert.deepEqual(profile.guardian, { name: "Guardian Alpha", mobile: "01700000001" });
   assert.deepEqual(profile.enrollments, [{
-    id: "enrollment-a", year: "Academic Year Alpha", class: "Class 10",
-    batch: "Batch Alpha", startsOn: "2026-10-01T12:00:00Z", status: "ACTIVE",
+    id: "enrollment-a", studentId: studentA, year: "Academic Year Alpha", class: "Class 10",
+    batch: "Batch Alpha", startsOn: "2026-10-01T12:00:00Z", endsOn: null, status: "ACTIVE",
   }]);
   assert.equal(profile.admissionsVisible, false);
   assert.deepEqual(profile.admissions, []);
@@ -154,7 +160,7 @@ test("student-only permission reads the selected identity and enrollment without
   assert.equal(profile.financeTotals, null);
   assert.equal(profile.financeInvoiceCount, 0);
   assert.ok(queries.every(({ sql }) => !/FROM (academy_admissions|finance_invoices)\b/.test(sql)));
-  assert.ok(queries.every(({ values }) => values.length === 1 && values[0] === studentA));
+  assert.ok(queries.every(({ values }) => values.length > 0 && values.every((value) => value === studentA)));
 });
 
 test("admission permission adds only that student's cases without enabling finance", async () => {
@@ -162,8 +168,9 @@ test("admission permission adds only that student's cases without enabling finan
   const profile = await getStudentProfile(studentA);
   assert.equal(profile.admissionsVisible, true);
   assert.deepEqual(profile.admissions, [{
-    id: "admission-a", number: "APP-ALPHA", status: "ENROLLED",
-    createdAt: "2026-10-01T11:00:00Z", batch: "Batch Alpha", offering: "Programme Alpha",
+    id: "admission-a", number: "APP-ALPHA", studentId: studentA, status: "ENROLLED",
+    createdAt: "2026-10-01T11:00:00Z", batch: "Batch Alpha", batchId: "batch-a",
+    offering: "Programme Alpha", offeringId: "offering-a", feeVersion: null,
   }]);
   assert.equal(profile.financeVisible, false);
   assert.ok(queries.every(({ sql }) => !/FROM finance_invoices\b/.test(sql)));
