@@ -215,7 +215,7 @@ launch_status=$(curl -sS --max-time 20 -o /tmp/ci-programme-launch.html -w '%{ht
 echo "operator-first programme launch HTTP: $launch_status"
 test "$launch_status" = "200"
 grep -q "Programme Launch" /tmp/ci-programme-launch.html
-grep -q "Approve standard fees" /tmp/ci-programme-launch.html
+grep -q "Working on" /tmp/ci-programme-launch.html
 anonymous_launch=$(curl -sS --max-time 20 -o /dev/null -w '%{http_code}' \
   "http://localhost:4173/dashboard/academics/launch")
 test "$anonymous_launch" != "200"
