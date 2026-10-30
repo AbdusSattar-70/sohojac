@@ -30,7 +30,7 @@ for(const [path,expected] of [
  const actual=crypto.createHash("sha1").update("blob "+source.length+"\0").update(source).digest("hex");
  if(actual!==expected)throw Error("Original source offering screen drifted: "+path);
 }
-const sql=fs.readFileSync("migrations/0025_offering_relationships.sql","utf8");
+const sql=fs.readFileSync("migrations/history/0025_offering_relationships.sql","utf8");
 for(const field of ["branch_id","academic_year_id","class_id","program_id","group_id","operation_kind"]){
  if(!sql.includes("ADD COLUMN "+field+" "))throw new Error("Missing source relationship "+field);
 }
