@@ -27,13 +27,22 @@ if (current?.status === "COMPLETE") {
   console.log("Dev reference catalogue already initialized; preserving developer changes.");
   process.exit(0);
 }
+// Historical schema migrations include two 2026 marketing showcase rows and
+// four grade-specific subject examples. Retire only those exact legacy fixtures
+// while bootstrapping a brand-new DEV D1, never on production or a used DB.
+const baseline = (await query("SELECT (SELECT count(*) FROM public_programme_offerings WHERE id NOT IN ('sa-annual-2026','sa-ssc-science')) other_offerings,(SELECT count(*) FROM academy_students) students,(SELECT count(*) FROM academy_admissions) admissions,(SELECT count(*) FROM academy_batches) batches,(SELECT count(*) FROM academy_fee_plans) fee_plans,(SELECT count(*) FROM finance_payments) payments,(SELECT count(*) FROM public_programme_offerings) offerings"))[0].results[0];
+if (Object.values(baseline).some(value => value !== 0))
+  throw Error("Refusing fresh dev bootstrap because the target contains business records. Never reset a populated database.");
+await query("DELETE FROM academy_offering_subjects WHERE offering_id IN ('sa-annual-2026','sa-ssc-science')");
+await query("DELETE FROM academy_subjects WHERE id IN ('physics','chemistry','biology','higher-maths')");
+await query("DELETE FROM public_programme_offerings WHERE id IN ('sa-annual-2026','sa-ssc-science')");
 const sql = fs.readFileSync(new URL("../seeds/dev-reference.sql", import.meta.url), "utf8");
 if (/\bDELETE\s+FROM\b|\bDROP\s+(?:TABLE|TRIGGER|INDEX)\b|\bTRUNCATE\b/i.test(sql))
   throw Error("Dev reference seed must be strictly additive.");
 await query(sql);
 const row = (await query("SELECT (SELECT count(*) FROM academy_classes) classes,(SELECT count(*) FROM academy_guardian_relationships) relationships,(SELECT count(*) FROM academic_subjects) subjects,(SELECT count(*) FROM academy_subjects) legacy_grade_subjects,(SELECT count(*) FROM academy_students) students,(SELECT count(*) FROM finance_payments) payments"))[0].results[0];
 if (row.classes < 12 || row.relationships < 27 || row.subjects < 20 ||
-    row.legacy_grade_subjects !== 0 || row.students !== 0 || row.payments !== 0)
+    row.legacy_grade_subjects !== 0 || row.students !== 0 || row.payments !== 0 || row.offerings !== 0)
   throw Error("Fresh-development reference validation failed; no completion marker written.");
 await query("INSERT INTO system_maintenance_operations(id,status,manifest_json,completed_at) VALUES ('dev-reference-seed-v1','COMPLETE','{}',strftime('%Y-%m-%dT%H:%M:%fZ','now'))");
 console.log("New dev D1 seeded with Classes 1–12, guardian relationships and one global subject master; no people or financial records.");
