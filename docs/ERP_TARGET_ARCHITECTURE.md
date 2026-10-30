@@ -8,7 +8,7 @@
 
 ## 1. Decision in one paragraph
 
-**Redesign the application's boundaries and operator workflow incrementally, but do not rewrite the platform.** Keep the Cloudflare Worker/React/TypeScript stack, the **single `sohojac` D1 database**, staff-only authentication, existing immutable student and staff IDs, audited commands, financial double-entry data and source-parity history. Transform the current collection of database-driven screens into a **task-first modular monolith**: one authoritative command for each business operation, one canonical subject master, one guided programme launch, one admission journey, one financial ledger and shared error/permission/audit primitives. A Fortune 500-grade result is measured by traceability, correctness, accessibility, safe releases and recoverability—not by the number of services, pages, status switches or dashboards.
+**Redesign the application's boundaries and operator workflow incrementally, but do not rewrite the platform.** Keep the Cloudflare Worker/React/TypeScript stack, **separate environment-specific Cloudflare D1 databases** (`dev` → `sohojac_dev`; `master` → `sohojac`), staff-only authentication, existing immutable student and staff IDs, audited commands, financial double-entry data and source-parity history. Transform the current collection of database-driven screens into a **task-first modular monolith**: one authoritative command for each business operation, one canonical subject master, one guided programme launch, one admission journey, one financial ledger and shared error/permission/audit primitives. A Fortune 500-grade result is measured by traceability, correctness, accessibility, safe releases and recoverability—not by the number of services, pages, status switches or dashboards.
 
 This RFC proposes actual architecture changes; implementation needs phased, reversible migrations and acceptance evidence. **No live schema, UI, privileges or production data were changed by this document.**
 
@@ -16,14 +16,14 @@ This RFC proposes actual architecture changes; implementation needs phased, reve
 
 | Decision / invariant | Target behavior |
 |---|---|
-| One DB | **One Cloudflare D1, named `sohojac`**, shared by dev/main by current owner decision; do not provision a second persistent D1 automatically. Ephemeral local SQLite/D1 tests are permitted and are not another cloud DB. |
+| Separate D1 environments | **Two Cloudflare D1 databases:** `sohojac_dev` is mandatory for the `dev` Worker and `sohojac` is mandatory for the `master` production Worker. Never use one DB across both. Keep development accounts, test records, auth secrets and Turnstile hostname separate. This **31 October 2026 decision supersedes** the previous one-D1 policy. |
 | Privacy | Students and guardians never sign in; staff authenticate. Guardian SMS uses verified contact and an approved template. Protect minors' data and minimize field exposure. |
 | Product | English-only dark ERP; public site may have Bengali/English content. Default to coaching-center operations, not a generalized K-12 school administration system. |
 | Capacity | A batch may hold at most 12 active students; enrollment and transfers enforce the limit atomically. |
 | Identity | Preserve original students/staff and `SA-STF-00001` staff number shape. Never mint another canonical student record during returning-student enrollment. |
 | Accounting | Financial postings must be money-integer, authorized, idempotent, balanced, attributable and reversible by compensating entries. An invoice does not prove payment. |
 | Parity | Existing valuable source behaviors are a contract; UX simplification is allowed when business invariants and history remain. Keep a measurable source parity matrix. |
-| Deployment | Feature branch → tested dev → tested master; both Workers share a DB so migrations must be backward-compatible and releases serialized. |
+| Deployment & manual authorization | Feature PR → `dev` with `sohojac_dev` → **manual owner review of the deployed dev build** → explicit approval of a particular revision → reviewed PR to `master` → main Worker with `sohojac`. Never automatically promote `dev` to `master`. Separate environment migrations and backups. |
 
 ## 3. Architecture diagram
 
@@ -36,7 +36,8 @@ flowchart TB
   AUTH["Staff identity + named permissions<br/>Campus scope / same-origin checks"]
   CMD["Application command handlers<br/>One use case = one write path"]
   DOM["Domain modules<br/>Catalog · Admission · Students · Teaching · Finance"]
-  D1[("ONE sohojac D1<br/>records + audit + outbox")]
+  DEVDB[("DEV D1<br/>sohojac_dev")]
+  PRODDB[("PRODUCTION D1<br/>sohojac")]
   JOB["Outbox processor<br/>retry, dedupe, delivery status"]
   SMS["SMS provider<br/>Guardian notifications"]
   EMAIL["Staff mail provider<br/>Invitations / recovery"]
@@ -46,13 +47,15 @@ flowchart TB
   UI --> AUTH
   AUTH --> CMD
   CMD --> DOM
-  DOM --> D1
-  D1 --> JOB
+  DOM -- "dev deployment only" --> DEVDB
+  DOM -- "master deployment only" --> PRODDB
+  DEVDB -. "sandbox notifications" .-> JOB
+  PRODDB --> JOB
   JOB --> SMS
   JOB --> EMAIL
 ```
 
-**Not recommended now:** microservices, an event-sourced rewrite, separate databases per function, Kafka, a new large ERP framework, or separate account portals for students/guardians. They add operating burden without solving current correctness defects. Optional Cloudflare R2 for signed documents is **object storage, not a second DB**, and should be introduced only if electronic documents truly need storage. Physical A4 consent remains valid.
+**Not recommended now:** microservices, an event-sourced rewrite, separate databases per business function (distinct dev/production databases **are required**), Kafka, a new large ERP framework, or separate account portals for students/guardians. They add operating burden without solving current correctness defects. Optional Cloudflare R2 for signed documents is **object storage, not a second DB**, and should be introduced only if electronic documents truly need storage. Physical A4 consent remains valid.
 
 ### Dependency rule
 
@@ -197,19 +200,33 @@ Do **not** automatically introduce an asynchronous queue for financial posting: 
 
 **Compliance note:** No claim of legal compliance or security certification is made by having Turnstile, dark UI or audit logs. Commission privacy/security review before real student records become mission-critical. Relevant baseline: [OWASP ASVS 5.0](https://asvs.owasp.org/), [OWASP Logging Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html), and [WCAG 2.2](https://www.w3.org/TR/WCAG22/).
 
-## 7. Single-D1 development and release safety
+## 7. Strict development/production separation and manual promotion
 
-**Owner constraint retained:** Only one persistent D1. **Architectural warning:** letting two independently deployed application versions write to one live database means a dev bug or dev-only script can corrupt main records. That is not enterprise-grade isolation, regardless of successful CI. The safest one-D1 operating policy is:
+**Owner decision, 31 October 2026:** Provision **two independent, persistent Cloudflare D1 databases**:
 
-- **Local development:** `wrangler dev` / Cloudflare local D1 emulator with disposable synthetic fixtures (not a second provisioned cloud DB); run all state-changing integration and destructive migration tests locally.
-- **Dev Worker:** read-only by default against the shared `sohojac` DB; exercise real UI and auth only through safe fixtures, or use owner-controlled, tightly scoped non-financial trial writes if essential while the environment is explicitly development-only. Once real minors/payment data exists, turn off remote dev writes by default. No test students/payments mixed into genuine ledgers.
-- **Main Worker:** only the audited release creates real business writes. `dev` and `master` migrations must be **expand → migrate/backfill → switch readers → contract** compatible; no direct destructive schema change on one deployment while the other still runs old code.
-- **Release serialization:** maintain shared D1 concurrency lock; check migration compatibility with both deployed Workers; capture bookmark, apply forward migration, deploy tested Worker, verify auth/security/readiness and monitor write/error signals; rollback **application first**, only restore DB if a documented restore drill shows it is safe.
-- **Restore and retention:** Cloudflare D1 currently lists **500 MB maximum per Free database** and **7 days Time Travel on Workers Free** (30 days on Paid). Check current plan before depending on a bookmark. Restore is a database-wide event and can remove legitimate writes made after the bookmark; define a documented reconciliation plan.
-- **Read replication:** not currently required for a single-center ERP. If enabled later, use D1 Sessions API/bookmarks to guarantee a staff member sees their own just-saved data; otherwise replica lag can make a successful save appear missing.
-- **Cloudflare operating costs:** monitor DB size, D1 rows read/written, request quotas, worker build health, and failed migrations. Rate limits and efficient indexed queries matter more than prematurely adding distributed services.
+| Git branch | Worker / hostname | D1 binding | Data isolation | Release rule |
+|---|---|---|---|---|
+| `dev` | Dev Worker on its distinct dev hostname | **`sohojac_dev`**, a **new database** with an independently assigned database ID | Development-only staff auth, fixture records, migrations, encryption/secret variables and sandboxed notifications | Auto-deploy tested dev changes to dev **only**, then require owner's hands-on acceptance |
+| `master` | Production Worker on `sohojac.com` | **`sohojac`**, the existing production database and ID | Real staff, student, guardian, finance and audit records; no dev test data | **No merge/promotion without owner's explicit approval** of the specific tested dev revision; master release runs its own CI and deploy verification |
 
-**Hard decision gate:** Before accepting real payments/records in earnest, either accept the documented risk of shared writable dev/main with compensating controls, or reconsider environment isolation. Do not claim dev/main are independently safe when they share storage.
+### Mandatory implementation plan — not yet executed by this RFC
+
+1. **Create `sohojac_dev` in Cloudflare D1** and record its returned database ID securely. Do not reuse, rename, reset or delete `sohojac` or the previously retired `sohojac-dev` resource. The underscore name `sohojac_dev` is intentional.
+2. **Rewire configs:** remove the shared-target assumption from `lib/database-target.ts`; use explicit per-environment mapping. Dev and main Worker D1 binding IDs must differ. Add a fail-closed check before migration, seeding and deployment to verify Git ref, Worker name, D1 ID and expected DB name. An unexpected binding is a blocking release failure.
+3. **Initialize only dev:** run the existing versioned migrations on `sohojac_dev`, apply approved reference seeds for academic years, Classes 1–12, guardian relationships and programme definitions, and use clearly identifiable **synthetic** students/guardians/finance only for controlled tests. Never import live student, guardian, payment, credential or consent data from production. Do not run the historical one-time production reset against either DB.
+4. **Separate identity and external effects:** dev has distinct Better Auth URL and stable secret, staff test accounts (created through the normal controlled onboarding), Turnstile widget/keys and allowed hostname; SMS/email providers must be sandboxed, disabled or allow-listed to prevent sending trial messages to real guardians. Production secrets must never be present in dev workflow context.
+5. **Isolated CI/CD:** PR checks use ephemeral local D1; `dev` push deploys the dev Worker against only `sohojac_dev`; a `dev` green check creates **no** merge to `master`. After owner manual review, a deliberately opened/reviewed PR may merge the approved revision to `master`. Production job must check the correct production D1 ID and a recorded approval, apply production migrations only to `sohojac`, capture its own recovery point, deploy and verify health/access/security. Neither database receives the other's seed or migration operation.
+6. **Prove separation before using dev:** inspect both deployed Worker bindings and GitHub release logs, write a safe unique dev test record, verify it is absent from production, confirm production record counts unchanged, and test auth/session isolation. Record evidence in the phase PR and operations runbook. Until this is confirmed, **the current dev deployment still shares the production DB**; do not run destructive tests in remote dev.
+7. **Manual acceptance is binding:** owner checks visible UX, mobile/desktop behavior, onboarding, batches/fees, access control and real end-to-end acceptance against `sohojac_dev`. Capture reviewed commit SHA, environment URL, test checklist, accepted defects and explicit "approve promotion to master" decision. **No bot or automatic workflow may decide acceptance.** A later dev change requires renewed approval.
+8. **Independent recoverability:** backup/Time Travel operations, migration status, row-count validations, D1 quotas and alerts are separate for each DB. Never restore a dev bookmark to production. Verify plan-specific retention and rehearse production restoration without losing later legitimate writes.
+
+### Migration and release discipline
+
+Build `dev` changes against a forward migration sequence; test the full chain and dev data preservation. Promote **the same reviewed code revision** after explicit owner approval, but apply necessary migrations separately in production. Prefer expand → backfill → switch → contract for schema transitions so rollout/rollback is safe. Reconcile code SHA and release artifacts; do not rely on a green dev build as evidence that a different master merge was tested. Release skips for docs-only commits are permitted only with robust change detection.
+
+**Historic state vs. target:** At the reviewed repository baseline `lib/database-target.ts` still uses one shared D1. This document records an **approved configuration direction**, not proof that new D1 was created or that pipelines were changed. The old production reset and old dev-database retirement are historical release events; do not re-execute them.
+
+**Cloudflare considerations:** D1 Free quotas and Time Travel retention are per plan; assess the storage and row-write usage of **each** database. If using read replication later, preserve read-after-write consistency with Sessions/bookmarks. Restore may remove writes after the chosen bookmark, so an explicit reconciliation plan is required.
 
 ## 8. Accessible interface and interaction architecture
 
@@ -246,7 +263,7 @@ Avoid visually expensive but operationally useless animation and giant table col
 | P1 | Complex offering/fee/public/batch setup | Separate pages and multiple confusing statuses | Guided launch on existing commands first, canonical data redesign only as needed |
 | P1 | Mutable master lost updates | Updates by ID without expected version | Add version/revision validation and conflict UX |
 | P1 | Uncertain financial totals | Billing cards reflect latest 200 invoices | Server-side aggregate + pagination, query budget and reconciliation |
-| P2 | Shared writable dev and main | Both Worker configs point to one D1 | Local write-tests + read-only dev policy; future separate environments require owner decision |
+| P0 | Shared dev/main database until isolation is implemented | Existing configs point both Workers to `sohojac`, contrary to the new owner decision | **Provision `sohojac_dev`**, rebind dev, separate secrets/seed/migrations and prove cross-environment isolation **before further dev release testing** |
 | P2 | Help/dashboard promises unimplemented routes | Route registry filters sidebar; guides/quick cards use hardcoded links | One capability registry for navigation/search/help/action links |
 | P2 | Overlong GitHub workflow and latest/beta versions | 1,681-line CI file; unpinned packages | Extract test scripts; pin versions; docs-only changes skip deployment, **keep safety checks** |
 | P3 | Monitoring/retention/restore unproven | Runbook and recovery capture exist, no acceptance proof in this review | Recovery exercise, D1 capacity watch, PII-safe error telemetry and regular release evidence |
@@ -312,7 +329,7 @@ This is a targeted evidence-based assessment, **not** a complete security certif
 | Accessibility | WCAG 2.2 AA core paths tested, not self-declared certification |
 | Response clarity | Every blocked action has cause, fix action and retained input; statuses are plain language |
 | Reporting | All financial headline totals server-computed and reconciled; show scope/as-of |
-| Deployment safety | Rehearsed rollback, reviewed migration plan, release provenance, safe shared-D1 writes |
+| Deployment safety | Independent dev/production D1s and recovery points, tested promotion SHA, explicit owner approval before master merge, no cross-environment writes |
 | Operations | Explicit on-call owner, response/escalation procedure and restoration decision log |
 | Maintainability | One domain owner per write, traceable schema migrations, segmented CI, pinned release dependencies |
 
@@ -320,13 +337,13 @@ Before defining uptime or response-time SLOs, instrument actual request latency,
 
 ## 12. Architecture Decision Records (proposed)
 
-- **ADR-001 — Keep one modular monolith and one D1.** Benefit: simple and economical; trade-off: shared DB and limited independent isolation. **Accepted current product constraint; risk must be explicitly managed.**
+- **ADR-001 — Keep one modular monolith, with separate environment databases.** Cloudflare D1 `sohojac_dev` for `dev`; `sohojac` for `master`. **New owner decision accepted 31 October 2026; deployment reconfiguration pending.**
 - **ADR-002 — One canonical command per business mutation.** Benefit: same permissions/invariants for Server Actions and REST; high priority.
 - **ADR-003 — Canonical global subjects + programme curriculum.** Benefit: no duplicate grade-based subject names; needs careful ID migration.
 - **ADR-004 — Programme Intake owns eligibility, price versions and batches.** Benefit: beginner-friendly configuration; implement incrementally through current offering IDs.
 - **ADR-005 — Transactional financial posting + idempotency.** Benefit: money correctness, no double receipt; P0.
 - **ADR-006 — Transactional outbox for external notifications.** Benefit: retry without duplicate business mutation; implement when SMS is operational.
-- **ADR-007 — Read-only remote dev by default once real records exist.** Benefit: protect main while respecting one DB; requires owner acceptance because dev write testing shifts local.
+- **ADR-007 — Isolated, writable development D1.** Dev may run approved synthetic end-to-end tests only in `sohojac_dev`; production uses `sohojac` exclusively. Separate auth, Turnstile, secrets, notifications and backup scope. **Owner manually approves each promotion from tested dev to master.**
 - **ADR-008 — Permission-scoped task navigation and reusable form primitives.** Benefit: lower training burden; retain administrative advanced paths.
 - **ADR-009 — Expand/contract migrations and measured recovery.** Benefit: both Workers compatible with one database.
 
