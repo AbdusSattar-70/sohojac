@@ -11,7 +11,7 @@ const blank=():FormData=>({category:"RENT",payee:"",description:"",
   spentOn:businessDate(),amount:"",method:"CASH",reason:""});
 type ExpenseSubmission=Omit<FormData,"amount">&{requestId:string;amountPaisa:number};
 const pendingStorageKey=(actorId:string)=>"sohojac.operating-expense.pending.v1:"+actorId;
-const field="mt-1 block min-h-10 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-blue-700";
+const field="mt-1 block min-h-10 w-full rounded-lg border border-input bg-background text-foreground px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-ring";
 const taka=(n:number)=>"৳"+(n/100).toFixed(2);
 function parseTaka(s:string):number|null{
   if(!/^(0|[1-9]\d{0,6})(\.\d{1,2})?$/.test(s.trim()))return null;
@@ -94,15 +94,15 @@ export function ExpensesRegister(){
     finally{setBusy(false);}
   }
   return <div className="space-y-6">
-    <header className="border-b border-slate-200 pb-5">
-      <p className="text-xs font-extrabold uppercase tracking-widest text-blue-700">Finance operations</p>
+    <header className="border-b border-border pb-5">
+      <p className="text-xs font-extrabold uppercase tracking-widest text-primary">Finance operations</p>
       <h1 className="mt-1 text-2xl font-extrabold">Operating expenses</h1>
-      <p className="mt-2 text-sm text-slate-600">Only post payments that have actually occurred. An expense generates a balanced, immutable accounting journal. Corrections will require a separate reversal workflow.</p>
+      <p className="mt-2 text-sm text-muted-foreground">Only post payments that have actually occurred. An expense generates a balanced, immutable accounting journal. Corrections will require a separate reversal workflow.</p>
     </header>
-    {message&&<p role="status" className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">{message}</p>}
-    {canPost&&<form onSubmit={submit} className="rounded-xl border border-slate-200 bg-white p-5">
+    {message&&<p role="status" className="rounded-lg border border-border bg-muted p-4 text-sm text-foreground">{message}</p>}
+    {canPost&&<form onSubmit={submit} className="rounded-xl border border-border bg-card p-5">
       <h2 className="font-bold">Record approved operating expense</h2>
-      {unconfirmed&&<p className="mt-3 text-sm text-amber-800" role="status">The posting outcome is unconfirmed. Keep these details and retry to recover the same expense.</p>}
+      {unconfirmed&&<p className="mt-3 text-sm text-amber-400" role="status">The posting outcome is unconfirmed. Keep these details and retry to recover the same expense.</p>}
       <fieldset disabled={busy||unconfirmed}>
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <label className="text-xs font-bold">Category<select className={field} value={form.category} onChange={e=>setForm(x=>({...x,category:e.target.value as Category}))}>
@@ -118,21 +118,21 @@ export function ExpensesRegister(){
         <label className="text-xs font-bold sm:col-span-2 lg:col-span-3">Posting reason<input className={field} required minLength={8} maxLength={500} value={form.reason} onChange={e=>setForm(x=>({...x,reason:e.target.value}))}/></label>
       </div>
       </fieldset>
-      <button className="mt-4 min-h-10 rounded-lg bg-blue-700 px-4 text-xs font-bold text-white disabled:opacity-50" type="submit" disabled={busy}>{busy?"Posting…":unconfirmed?"Retry expense":"Post expense"}</button>
+      <button className="mt-4 min-h-10 rounded-lg bg-primary px-4 text-xs font-bold text-primary-foreground disabled:opacity-50" type="submit" disabled={busy}>{busy?"Posting…":unconfirmed?"Retry expense":"Post expense"}</button>
     </form>}
-    {!loading&&!canPost&&<p className="text-sm text-slate-500">Expense posting permission is required to record a payment.</p>}
+    {!loading&&!canPost&&<p className="text-sm text-muted-foreground">Expense posting permission is required to record a payment.</p>}
     <section className="space-y-3">
       <h2 className="font-bold">Expense totals by category</h2>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {totals.length?totals.map(t=><div className="rounded-xl border border-slate-200 bg-white p-4" key={t.category}>
-          <p className="text-xs font-bold text-slate-500">{t.category.replaceAll("_"," ")}</p>
+        {totals.length?totals.map(t=><div className="rounded-xl border border-border bg-card p-4" key={t.category}>
+          <p className="text-xs font-bold text-muted-foreground">{t.category.replaceAll("_"," ")}</p>
           <p className="mt-2 text-xl font-extrabold">{taka(t.amount_paisa)}</p>
-        </div>):<p className="text-sm text-slate-500">No expenses recorded.</p>}
+        </div>):<p className="text-sm text-muted-foreground">No expenses recorded.</p>}
       </div>
       <h2 className="pt-3 font-bold">Recent expense records</h2>
-      {loading?<p className="text-sm text-slate-500">Loading…</p>:items.map(e=><article key={e.id} className="flex flex-wrap justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4">
-        <div><p className="text-sm font-bold">{e.description}</p><p className="mt-1 text-xs text-slate-600">{e.reference} · {e.category} · {e.spent_on}</p>
-          <p className="text-xs text-slate-500">{e.payee} · {e.payment_method} · Approved by {e.approved_name||"Staff"}</p></div>
+      {loading?<p className="text-sm text-muted-foreground">Loading…</p>:items.map(e=><article key={e.id} className="flex flex-wrap justify-between gap-3 rounded-xl border border-border bg-card p-4">
+        <div><p className="text-sm font-bold">{e.description}</p><p className="mt-1 text-xs text-muted-foreground">{e.reference} · {e.category} · {e.spent_on}</p>
+          <p className="text-xs text-muted-foreground">{e.payee} · {e.payment_method} · Approved by {e.approved_name||"Staff"}</p></div>
         <strong className="text-sm">{taka(e.amount_paisa)}</strong>
       </article>)}
     </section>
