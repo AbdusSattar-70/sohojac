@@ -1,4 +1,5 @@
 import { databaseTargets } from "../lib/database-target.ts";
+import { appendFileSync } from "node:fs";
 
 /**
  * ONE-TIME, explicit reset of the isolated 31 Oct 2026 development D1 only.
@@ -54,5 +55,6 @@ const exact=await request("/d1/database/"+OLD_DEV_ID);
 if(exact?.name!==databaseTargets.development.name||exact?.uuid!==OLD_DEV_ID)
   throw Error("Failed to verify the EXACT old development D1 before reset.");
 await request("/d1/database/"+OLD_DEV_ID,{method:"DELETE"});
+if(process.env.GITHUB_ENV)appendFileSync(process.env.GITHUB_ENV,"RESET_DEV_BASELINE_WAS_RECREATED=1\n");
 console.log("Deleted ONLY the original dev database UUID. Production sohojac D1 was not changed.");
 console.log("The existing dev provisioning step will create the clean replacement sohojac_dev.");
