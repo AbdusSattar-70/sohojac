@@ -828,8 +828,8 @@ jobs:
           assert(fs.readFileSync("/tmp/ci-student-page.html","utf8").includes("/dashboard/students/"+studentId));
           for(const value of [studentNo,"Student Identity","Guardian Contacts","Enrollment History","Admission Cases","Financial History"])
             assert(html.includes(value),"Profile missing "+value);
-          for(const value of ["Submit Transfer for Approval","Create Enrollment Draft","Confirm Duplicate Resolution"])
-            assert(!html.includes(value),"Unsupported lifecycle command exposed");
+          for(const value of ["Create Enrollment Draft","Confirm Batch Transfer","Duplicate Identity Review"])
+            assert(html.includes(value),"Authorized lifecycle control missing: "+value);
           NODE
           for invalid_student in not-a-student 99999999-9999-4999-8999-999999999999; do
             profile_missing=$(curl -sS -o /tmp/ci-student-missing.html -w '%{http_code}' \
@@ -855,6 +855,8 @@ jobs:
           const html=fs.readFileSync("/tmp/ci-student-viewer.html","utf8");
           assert(html.includes("Guardian Contacts") && html.includes("Enrollment History"));
           assert(!html.includes("Financial History") && !html.includes("Admission Cases"));
+          for(const value of ["Create Enrollment Draft","Confirm Batch Transfer","Confirm Duplicate Resolution"])
+            assert(!html.includes(value),"Read-only viewer exposed a mutation control: "+value);
           NODE
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
             --sql "DELETE FROM erp_permission_grants WHERE permission='students.view' AND user_id IN (SELECT id FROM \"user\" WHERE email='applicant-ci@example.invalid')" > /tmp/ci-student-revoke.json
