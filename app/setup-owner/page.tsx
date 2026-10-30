@@ -1,4 +1,5 @@
 "use client";
+import { TurnstileChallenge } from "@/components/security/turnstile-challenge";
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
@@ -11,8 +12,12 @@ export default function OwnerSetupPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
+  const [securityToken, setSecurityToken] = useState("");
+  const [securityReset, setSecurityReset] = useState(0);
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (busy || !securityToken) return;
     if (password.length < 8 || password.length > 128) {
       setError("Use a password of 8–128 characters.");
       return;
@@ -28,7 +33,7 @@ export default function OwnerSetupPage() {
         method: "POST",
         credentials: "same-origin",
         cache: "no-store",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-turnstile-token": securityToken },
         body: JSON.stringify({ token: token.trim(), password }),
       });
       const result = await response.json() as { ok?: boolean; error?: string };
@@ -44,6 +49,7 @@ export default function OwnerSetupPage() {
     } catch {
       setError("Could not connect. Check the website and try again.");
     } finally {
+      setSecurityReset(value => value + 1);
       setBusy(false);
     }
   }
@@ -80,7 +86,8 @@ export default function OwnerSetupPage() {
               className="mt-1 w-full rounded-lg border border-slate-600 bg-slate-950 px-3 py-3 text-white" />
           </label>
           {error && <p role="alert" className="rounded-lg border border-red-800 bg-red-950/60 p-3 text-sm text-red-200">{error}</p>}
-          <button disabled={busy || token.trim().length !== 64 || password.length < 8 || password !== confirmPassword}
+          <TurnstileChallenge action="staff-owner-setup" onToken={setSecurityToken} resetKey={securityReset} />
+          <button disabled={busy || !securityToken || token.trim().length !== 64 || password.length < 8 || password !== confirmPassword}
             className="w-full rounded-lg bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50">
             {busy ? "Setting up…" : "Create owner account"}
           </button>

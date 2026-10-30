@@ -1,5 +1,8 @@
 # Original Sohoj Academy permanent staff identities
 
+Historical mapping/identity contract. Current implementation and release status are in [the development strategy](DEVELOPMENT_STRATEGY.md).
+
+
 ## Source contract
 The original `supabase/migrations/01_platform_identity_access.sql`
 defines `staff_no_seq` and `generate_staff_no()`:

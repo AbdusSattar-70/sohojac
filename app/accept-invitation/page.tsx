@@ -1,4 +1,5 @@
 "use client";
+import { TurnstileChallenge } from "@/components/security/turnstile-challenge";
 
 import {Suspense,useState,type FormEvent} from "react";
 import {useSearchParams} from "next/navigation";
@@ -21,8 +22,12 @@ function ActivateAccount(){
   const [complete,setComplete]=useState(false);
   const [error,setError]=useState("");
 
+  const [securityToken, setSecurityToken] = useState("");
+  const [securityReset, setSecurityReset] = useState(0);
+
   async function submit(event:FormEvent<HTMLFormElement>){
     event.preventDefault();
+    if (busy || !securityToken) return;
     if(!valid||busy)return;
     if(password.length<8||password.length>128||password!==confirm){
       setError("Enter matching passwords of 8–128 characters.");return;
@@ -31,7 +36,7 @@ function ActivateAccount(){
     try{
       const result=await fetch("/api/staff/accept-invitation",{
         method:"POST",credentials:"same-origin",cache:"no-store",
-        headers:{"Content-Type":"application/json"},
+        headers:{"Content-Type":"application/json", "x-turnstile-token":securityToken},
         body:JSON.stringify({token,password}),
       });
       const body=await result.json() as {ok?:boolean;error?:string};
@@ -39,7 +44,7 @@ function ActivateAccount(){
       setComplete(true);setPassword("");setConfirm("");
       window.history.replaceState(null,"","/accept-invitation");
     }catch(error){setError(error instanceof Error?error.message:"Could not activate account");}
-    finally{setBusy(false);}
+    finally{setSecurityReset(value => value + 1);setBusy(false);}
   }
 
   return <main lang="en" className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10 text-slate-900">
@@ -72,7 +77,8 @@ function ActivateAccount(){
             className="mt-1.5 block min-h-11 w-full rounded-lg border border-slate-300 px-3 text-sm focus-visible:outline-2 focus-visible:outline-blue-700"/>
         </label>
         {error&&<p role="alert" className="text-sm text-red-700">{error}</p>}
-        <button type="submit" disabled={busy||password!==confirm}
+        <TurnstileChallenge action="staff-invitation" onToken={setSecurityToken} resetKey={securityReset} />
+        <button type="submit" disabled={busy||!securityToken||password!==confirm}
           className="min-h-11 w-full rounded-lg bg-blue-700 px-4 text-sm font-bold text-white hover:bg-blue-800 disabled:opacity-50">
           {busy?"Activating…":"Activate account"}
         </button>

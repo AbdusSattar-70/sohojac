@@ -1,0 +1,266 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import { DatabaseSync } from "node:sqlite";
+import { stripTypeScriptTypes } from "node:module";
+import { test, beforeEach, after } from "node:test";
+let db, verification, fetches, broken;
+const bindings = {
+  BETTER_AUTH_URL: "https://academy.invalid",
+  TURNSTILE_SECRET_KEY: "synthetic-secret",
+};
+const env = {
+  ...bindings,
+  DB: {
+    prepare(sql) {
+      return {
+        bind(...args) {
+          return { sql, args };
+        },
+      };
+    },
+    async batch(statements) {
+      if (broken) throw Error("D1 unavailable");
+      db.exec("BEGIN");
+      try {
+        const results = statements.map((s) => ({
+          results: /RETURNING/i.test(s.sql)
+            ? db.prepare(s.sql).all(...s.args)
+            : (db.prepare(s.sql).run(...s.args), []),
+        }));
+        db.exec("COMMIT");
+        return results;
+      } catch (e) {
+        db.exec("ROLLBACK");
+        throw e;
+      }
+    },
+  },
+};
+const code = stripTypeScriptTypes(
+  fs.readFileSync("lib/security/request-protection.ts", "utf8"),
+  { mode: "strip" },
+)
+  .replace(/^import .*;\r?\n/gm, "")
+  .replace(/\bexport (?=(?:async function|function))/g, "");
+const api = new Function(
+  "env",
+  "fetch",
+  code +
+    ";return {protectRequest,verifyTurnstile,policyFor,localSecurityRequest}",
+)(env, async () => {
+  fetches++;
+  if (verification instanceof Error) throw verification;
+  return Response.json(verification);
+});
+const now = Date.UTC(2026, 9, 30, 12);
+function request(path = "/api/auth/sign-in/email", options = {}) {
+  return new Request("https://academy.invalid" + path, {
+    method: "POST",
+    headers: {
+      origin: "https://academy.invalid",
+      "cf-connecting-ip": "192.0.2.1",
+      "x-turnstile-token": "synthetic-token",
+      ...options.headers,
+    },
+    ...options,
+    ...(options.headers
+      ? {
+          headers: {
+            origin: "https://academy.invalid",
+            "cf-connecting-ip": "192.0.2.1",
+            "x-turnstile-token": "synthetic-token",
+            ...options.headers,
+          },
+        }
+      : {}),
+  });
+}
+beforeEach(() => {
+  db?.close();
+  db = new DatabaseSync(":memory:");
+  db.exec(fs.readFileSync("migrations/0034_request_protection.sql", "utf8"));
+  Object.assign(env, bindings);
+  verification = {
+    success: true,
+    hostname: "academy.invalid",
+    action: "staff-sign-in",
+  };
+  fetches = 0;
+  broken = false;
+});
+after(() => db?.close());
+test("read-only requests and unrelated pages are not challenged or counted", async () => {
+  assert.equal(
+    await api.protectRequest(
+      request("/api/security/challenge", { method: "GET" }),
+      now,
+    ),
+    null,
+  );
+  assert.equal(
+    await api.protectRequest(request("/about", { method: "GET" }), now),
+    null,
+  );
+  assert.equal(fetches, 0);
+});
+test("auth, bootstrap, public and server-action mutations have explicit shared policies", () => {
+  for (const p of [
+    "/api/auth/sign-in/email",
+    "/api/auth/request-password-reset",
+    "/api/auth/reset-password",
+    "/api/setup-owner",
+    "/api/staff/accept-invitation",
+  ])
+    assert.ok(api.policyFor(request(p)).action);
+  for (const p of [
+    "/api/enquiries",
+    "/api/staff/access-request",
+    "/api/staff/collections",
+    "/dashboard/admissions/case",
+    "/about",
+  ])
+    assert.ok(api.policyFor(request(p)));
+  assert.equal(
+    api.policyFor(request("/api/auth/%73ign-in/email/")).action,
+    "staff-sign-in",
+  );
+});
+test("production requests cannot disable protection with a localhost request or CI header", async () => {
+  const local = new Request("http://localhost:4173/api/auth/sign-in/email", {
+    method: "POST",
+  });
+  assert.equal(api.localSecurityRequest(local), false);
+  assert.equal(
+    (
+      await api.protectRequest(
+        request(undefined, {
+          headers: { "x-ci": "true", "x-turnstile-token": "" },
+        }),
+        now,
+      )
+    ).status,
+    403,
+  );
+  env.BETTER_AUTH_URL = "http://localhost:4173";
+  assert.equal(await api.protectRequest(local, now), null);
+  assert.equal(api.localSecurityRequest(request()), false);
+});
+test("missing, failed, wrong-host, wrong-action and replayed challenge tokens are rejected", async () => {
+  assert.equal(
+    (
+      await api.protectRequest(
+        request(undefined, { headers: { "x-turnstile-token": "" } }),
+        now,
+      )
+    ).status,
+    403,
+  );
+  for (const value of [
+    { success: false },
+    { success: true, hostname: "other.invalid", action: "staff-sign-in" },
+    { success: true, hostname: "academy.invalid", action: "other-action" },
+    { success: false, "error-codes": ["timeout-or-duplicate"] },
+  ]) {
+    verification = value;
+    assert.equal(
+      (await api.verifyTurnstile(request(), "token", "staff-sign-in")).status,
+      403,
+    );
+  }
+});
+test("valid action-bound challenge permits auth while outages fail closed", async () => {
+  assert.equal(await api.protectRequest(request(), now), null);
+  verification = new Error("network outage");
+  assert.equal((await api.protectRequest(request(), now)).status, 503);
+  delete env.TURNSTILE_SECRET_KEY;
+  assert.equal(
+    (await api.verifyTurnstile(request(), "token", "staff-sign-in")).status,
+    503,
+  );
+});
+test("atomic login quota rejects the eleventh attempt before another verification and resets by window", async () => {
+  for (let i = 0; i < 10; i++)
+    assert.equal(await api.protectRequest(request(), now), null);
+  const response = await api.protectRequest(request(), now);
+  assert.equal(response.status, 429);
+  assert.ok(Number(response.headers.get("retry-after")) > 0);
+  assert.equal(fetches, 10);
+  assert.equal(await api.protectRequest(request(), now + 300000), null);
+  const stored = db.prepare("SELECT key FROM security_request_limits").all();
+  assert.ok(stored.every((r) => /^[a-f0-9]{64}$/.test(r.key)));
+});
+test("ERP server-action and API mutations share a bounded quota without routine CAPTCHA", async () => {
+  for (let i = 0; i < 240; i++)
+    assert.equal(
+      await api.protectRequest(
+        request(
+          i % 2 ? "/api/staff/collections" : "/dashboard/admissions/case",
+        ),
+        now,
+      ),
+      null,
+    );
+  assert.equal(
+    (await api.protectRequest(request("/dashboard/students"), now)).status,
+    429,
+  );
+  assert.equal(fetches, 0);
+});
+test("password recovery and public submissions have separate smaller quotas", async () => {
+  verification.action = "staff-password-recovery";
+  for (let i = 0; i < 3; i++)
+    assert.equal(
+      await api.protectRequest(
+        request("/api/auth/request-password-reset"),
+        now,
+      ),
+      null,
+    );
+  assert.equal(
+    (await api.protectRequest(request("/api/auth/request-password-reset"), now))
+      .status,
+    429,
+  );
+  for (let i = 0; i < 10; i++)
+    assert.equal(
+      await api.protectRequest(request("/api/enquiries"), now),
+      null,
+    );
+  assert.equal(
+    (await api.protectRequest(request("/api/staff/access-request"), now))
+      .status,
+    429,
+  );
+});
+test("missing trusted IP, forged origin, cross-site requests and D1 outages fail closed", async () => {
+  assert.equal(
+    (
+      await api.protectRequest(
+        request(undefined, { headers: { "cf-connecting-ip": "" } }),
+        now,
+      )
+    ).status,
+    503,
+  );
+  assert.equal(
+    (
+      await api.protectRequest(
+        request(undefined, { headers: { origin: "https://evil.invalid" } }),
+        now,
+      )
+    ).status,
+    403,
+  );
+  assert.equal(
+    (
+      await api.protectRequest(
+        request(undefined, { headers: { "sec-fetch-site": "cross-site" } }),
+        now,
+      )
+    ).status,
+    403,
+  );
+  broken = true;
+  assert.equal((await api.protectRequest(request(), now)).status, 503);
+  assert.equal(fetches, 0);
+});
