@@ -6,9 +6,10 @@ import {POST_OPERATING_EXPENSE_PERMISSION,recordOperatingExpense} from "@/module
 
 export const dynamic="force-dynamic";
 export async function GET(request:Request){
-  const staff=await getCommandAccess(request);
+  let staff;
+  try{staff=await getCommandAccess(request);}catch{return privateJson({error:"Expense access unavailable"},503);}
   if(!staff)return privateJson({error:"Authentication required"},401);
-  if(!staff.permissions.includes(POST_OPERATING_EXPENSE_PERMISSION))return privateJson({error:"Access denied"},403);
+  if(!staff.permissions.includes("accounting.view"))return privateJson({error:"Access denied"},403);
   try{
     const result=await env.DB.prepare([
       "SELECT e.id,e.reference,e.category,e.payee,e.description,e.spent_on,",
@@ -20,11 +21,14 @@ export async function GET(request:Request){
       "SELECT category,SUM(amount_paisa) AS amount_paisa",
       "FROM finance_operating_expenses GROUP BY category ORDER BY category"
     ].join(" ")).all<{category:string;amount_paisa:number}>();
-    return privateJson({items:result.results??[],totals:totals.results??[]});
+    return privateJson({items:result.results??[],totals:totals.results??[],
+      actorId:staff.profileId,
+      canPost:staff.permissions.includes(POST_OPERATING_EXPENSE_PERMISSION)});
   }catch{return privateJson({error:"Expense register unavailable"},503);}
 }
 export async function POST(request:Request){
-  const staff=await getCommandAccess(request);
+  let staff;
+  try{staff=await getCommandAccess(request);}catch{return privateJson({error:"Expense access unavailable"},503);}
   if(!staff)return privateJson({error:"Authentication required"},401);
   if(!staff.permissions.includes(POST_OPERATING_EXPENSE_PERMISSION))return privateJson({error:"Expense posting permission required"},403);
   if(!sameOrigin(request))return privateJson({error:"Invalid request origin"},403);
@@ -37,6 +41,13 @@ export async function POST(request:Request){
     if(raw.length>3000)return privateJson({error:"Request too large"},413);
     body=JSON.parse(raw);
   }catch{return privateJson({error:"Invalid JSON"},400);}
+  const key=request.headers.get("idempotency-key");
+  if(key){
+    if(!body||typeof body!=="object"||Array.isArray(body))return privateJson({error:"Expense object required"},400);
+    const data=body as Record<string,unknown>;
+    if(data.requestId!==undefined&&data.requestId!==key)return privateJson({error:"Request identity mismatch"},400);
+    body={...data,requestId:key};
+  }
   const result=await recordOperatingExpense(env.DB,staff,body);
   if(!result.ok)return privateJson({error:result.error},result.status);
   return privateJson(result,result.replayed?200:201);

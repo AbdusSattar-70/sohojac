@@ -30,7 +30,58 @@ if (current?.status === "COMPLETE") {
 // Historical schema migrations include two 2026 marketing showcase rows and
 // four grade-specific subject examples. Retire only those exact legacy fixtures
 // while bootstrapping a brand-new DEV D1, never on production or a used DB.
-const baseline = (await query("SELECT (SELECT count(*) FROM public_programme_offerings WHERE id NOT IN ('sa-annual-2026','sa-ssc-science')) other_offerings,(SELECT count(*) FROM academy_students) students,(SELECT count(*) FROM academy_admissions) admissions,(SELECT count(*) FROM academy_batches) batches,(SELECT count(*) FROM academy_fee_plans) fee_plans,(SELECT count(*) FROM finance_payments) payments"))[0].results[0];
+// Auth, staff identities and editable reference masters are allowed. Every
+// canonical business ledger and its durable request/history evidence must be
+// empty, including standalone CRM enquiries and expenses without admissions.
+const businessTables = [
+  "public_enquiries",
+  "academy_prospects",
+  "academy_prospect_followups",
+  "staff_prospect_events",
+  "academy_students",
+  "academy_admissions",
+  "academy_enrollments",
+  "academy_batches",
+  "academy_fee_plans",
+  "academy_fee_plan_components",
+  "academy_offering_command_keys",
+  "academy_admission_bills",
+  "academy_admission_intake_details",
+  "academy_admission_request_keys",
+  "academy_referrer_people",
+  "academy_admission_referrals",
+  "academy_admission_consents",
+  "academy_admission_discounts",
+  "academy_admission_extra_charges",
+  "academy_admission_collection_keys",
+  "academy_student_number_sequence",
+  "academy_student_command_keys",
+  "academy_student_merges",
+  "academy_enrollment_transfers",
+  "academy_student_enrollment_closures",
+  "academy_attendance",
+  "academy_class_sessions",
+  "academy_assessments",
+  "academy_assessment_results",
+  "academy_batch_teachers",
+  "finance_invoices",
+  "finance_payments",
+  "finance_allocations",
+  "finance_journals",
+  "finance_journal_lines",
+  "finance_operating_expenses",
+  "finance_collection_promises",
+  "finance_collection_events",
+  "finance_collection_command_keys",
+  "finance_payment_commands",
+  "finance_expense_command_keys",
+  "academy_students_pre_0029",
+  "academy_admissions_pre_0029",
+  "academy_enrollments_pre_0029",
+];
+const baselineSql = "SELECT (SELECT count(*) FROM public_programme_offerings WHERE id NOT IN ('sa-annual-2026','sa-ssc-science')) other_offerings," +
+  businessTables.map(table => `(SELECT count(*) FROM ${table}) ${table}`).join(",");
+const baseline = (await query(baselineSql))[0].results[0];
 if (Object.values(baseline).some(value => value !== 0))
   throw Error("Refusing fresh dev bootstrap because the target contains business records. Never reset a populated database.");
 for (const sql of freshDevLegacyCleanupStatements) await query(sql);
@@ -44,3 +95,4 @@ if (row.classes < 12 || row.relationships < 27 || row.subjects < 20 ||
   throw Error("Fresh-development reference validation failed; no completion marker written.");
 await query("INSERT INTO system_maintenance_operations(id,status,manifest_json,completed_at) VALUES ('dev-reference-seed-v1','COMPLETE','{}',strftime('%Y-%m-%dT%H:%M:%fZ','now'))");
 console.log("New dev D1 seeded with Classes 1–12, guardian relationships and one global subject master; no people or financial records.");
+

@@ -1,6 +1,6 @@
 "use client";
 import {useCallback,useEffect,useRef,useState,type FormEvent} from "react";
-import type {ExpenseRow} from "@/lib/erp-expenses";
+import {expenseInput,type ExpenseRow} from "@/lib/erp-expenses";
 import {businessDate} from "@/modules/platform/business-date";
 
 const categoryCodes=["RENT","UTILITIES","TEACHING_MATERIALS","MARKETING","MAINTENANCE","TRANSPORT","OTHER"] as const;
@@ -10,6 +10,7 @@ type FormData={category:Category;payee:string;description:string;spentOn:string;
 const blank=():FormData=>({category:"RENT",payee:"",description:"",
   spentOn:businessDate(),amount:"",method:"CASH",reason:""});
 type ExpenseSubmission=Omit<FormData,"amount">&{requestId:string;amountPaisa:number};
+const pendingStorageKey=(actorId:string)=>"sohojac.operating-expense.pending.v1:"+actorId;
 const field="mt-1 block min-h-10 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-blue-700";
 const taka=(n:number)=>"৳"+(n/100).toFixed(2);
 function parseTaka(s:string):number|null{
@@ -27,19 +28,38 @@ export function ExpensesRegister(){
   const requestId=useRef(crypto.randomUUID());
   const submission=useRef<ExpenseSubmission|null>(null);
   const [unconfirmed,setUnconfirmed]=useState(false);
+  const [canPost,setCanPost]=useState(false);
+  const [actorId,setActorId]=useState("");
   const refresh=useCallback(async()=>{
     setLoading(true);
     try{
       const r=await fetch("/api/staff/expenses",{credentials:"same-origin",cache:"no-store"});
-      const d=await r.json() as {items?:ExpenseRow[];totals?:Array<{category:string;amount_paisa:number}>;error?:string};
+      const d=await r.json() as {items?:ExpenseRow[];totals?:Array<{category:string;amount_paisa:number}>;canPost?:boolean;actorId?:string;error?:string};
       if(!r.ok)throw new Error(d.error||"Expenses unavailable");
-      setItems(d.items||[]);setTotals(d.totals||[]);
-    }catch(e){setMessage(e instanceof Error?e.message:"Cannot load expenses");}
+      setItems(d.items||[]);setTotals(d.totals||[]);setCanPost(d.canPost===true);setActorId(d.actorId??"");
+    }catch(e){
+      setActorId("");setCanPost(false);setItems([]);setTotals([]);
+      setMessage(e instanceof Error?e.message:"Cannot load expenses");
+    }
     finally{setLoading(false);}
   },[]);
   useEffect(()=>{void refresh();},[refresh]);
+  useEffect(()=>{
+    submission.current=null;requestId.current=crypto.randomUUID();setUnconfirmed(false);setForm(blank());
+    if(!actorId)return;
+    try{
+      const saved=sessionStorage.getItem(pendingStorageKey(actorId));
+      if(!saved)return;
+      const parsed=expenseInput.safeParse(JSON.parse(saved));
+      if(!parsed.success)return;
+      submission.current=parsed.data;requestId.current=parsed.data.requestId;
+      const {amountPaisa,requestId:restoredId,...details}=parsed.data;
+      void restoredId;
+      setForm({...details,amount:(amountPaisa/100).toFixed(2)});setUnconfirmed(true);
+    }catch{}
+  },[actorId]);
   async function submit(e:FormEvent<HTMLFormElement>){
-    e.preventDefault();if(busy)return;
+    e.preventDefault();if(busy||!actorId||!canPost)return;
     if(!submission.current){
       const amountPaisa=parseTaka(form.amount);
       if(amountPaisa===null){setMessage("Enter a valid positive amount, with at most two decimal places.");return;}
@@ -48,6 +68,7 @@ export function ExpensesRegister(){
     }
     setBusy(true);setMessage("");
     try{
+      try{sessionStorage.setItem(pendingStorageKey(actorId),JSON.stringify(submission.current));}catch{}
       const r=await fetch("/api/staff/expenses",{method:"POST",credentials:"same-origin",
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify(submission.current)});
@@ -55,11 +76,15 @@ export function ExpensesRegister(){
       if(!r.ok){
         // Validation/denial is a confirmed rejection. An unknown outcome keeps
         // both the identity and exact payload locked for a safe retry.
-        if(r.status>=400&&r.status<500){submission.current=null;setUnconfirmed(false);}
+        if(!unconfirmed&&r.status>=400&&r.status<500){
+          submission.current=null;setUnconfirmed(false);
+          try{sessionStorage.removeItem(pendingStorageKey(actorId));}catch{}
+        }
         throw new Error(d.error||"Could not confirm expense. Retry to check its outcome.");
       }
       if(d.ok!==true||!d.reference)throw new Error("Could not confirm expense. Retry to check its outcome.");
       submission.current=null;requestId.current=crypto.randomUUID();setUnconfirmed(false);
+      try{sessionStorage.removeItem(pendingStorageKey(actorId));}catch{}
       setForm(blank());await refresh();
       setMessage("Operating expense "+(d.reference||"")+" posted to the ledger.");
     }catch(e){
@@ -75,7 +100,7 @@ export function ExpensesRegister(){
       <p className="mt-2 text-sm text-slate-600">Only post payments that have actually occurred. An expense generates a balanced, immutable accounting journal. Corrections will require a separate reversal workflow.</p>
     </header>
     {message&&<p role="status" className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">{message}</p>}
-    <form onSubmit={submit} className="rounded-xl border border-slate-200 bg-white p-5">
+    {canPost&&<form onSubmit={submit} className="rounded-xl border border-slate-200 bg-white p-5">
       <h2 className="font-bold">Record approved operating expense</h2>
       {unconfirmed&&<p className="mt-3 text-sm text-amber-800" role="status">The posting outcome is unconfirmed. Keep these details and retry to recover the same expense.</p>}
       <fieldset disabled={busy||unconfirmed}>
@@ -94,7 +119,8 @@ export function ExpensesRegister(){
       </div>
       </fieldset>
       <button className="mt-4 min-h-10 rounded-lg bg-blue-700 px-4 text-xs font-bold text-white disabled:opacity-50" type="submit" disabled={busy}>{busy?"Posting…":unconfirmed?"Retry expense":"Post expense"}</button>
-    </form>
+    </form>}
+    {!loading&&!canPost&&<p className="text-sm text-slate-500">Expense posting permission is required to record a payment.</p>}
     <section className="space-y-3">
       <h2 className="font-bold">Expense totals by category</h2>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

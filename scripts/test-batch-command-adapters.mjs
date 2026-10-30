@@ -118,10 +118,11 @@ test("parallel REST retries recover one batch, command key and audit",async()=>{
  assert.equal((await post({...body,name:"Different input"})).status,409);profileId=other;assert.equal((await post(body)).status,409);assert.equal(count("academy_batches"),1);
 });
 test("REST and Server Action guard stale edits and concurrent active occupancy",async()=>{
- const id=await makeRest();beforeBatch=()=>{enrollment(id,1);enrollment(id,2);};assert.equal((await update(id,patch({capacity:1}))).status,409);assert.equal(row(id).capacity,12);
- const input=canonical({action:"EDIT_BATCH",batchId:id,expectedVersion:1,capacity:1});assert.equal((await actions.runAcademicBatchCommand(input)).ok,false);
- const body=patch();assert.equal((await update(id,body)).status,200);assert.equal((await update(id,body)).status,200);assert.equal(row(id).version,2);
- assert.equal((await actions.runAcademicBatchCommand(canonical({action:"EDIT_BATCH",batchId:id,expectedVersion:1}))).ok,false);assert.equal(count("erp_audit_events"),2);
+ const id=await makeRest();assert.equal((await update(id,patch())).status,200);
+ beforeBatch=()=>{enrollment(id,1);enrollment(id,2);};assert.equal((await update(id,patch({capacity:1,expectedVersion:2}))).status,409);assert.equal(row(id).capacity,12);assert.equal(count("academy_enrollments"),2);
+ const input=canonical({action:"EDIT_BATCH",batchId:id,expectedVersion:2,capacity:1});assert.equal((await actions.runAcademicBatchCommand(input)).ok,false);
+ const body=patch({expectedVersion:2});assert.equal((await update(id,body)).status,200);assert.equal((await update(id,body)).status,200);assert.equal(row(id).version,3);
+ assert.equal((await actions.runAcademicBatchCommand(canonical({action:"EDIT_BATCH",batchId:id,expectedVersion:2}))).ok,false);assert.equal(count("erp_audit_events"),3);
 });
 test("exact edit retry recovers when another request commits after its replay lookup",async()=>{
  const id=await makeRest(),body=patch();

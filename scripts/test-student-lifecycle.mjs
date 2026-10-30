@@ -1,4 +1,5 @@
 import {z} from "zod";
+import { recordStudentPayment } from "../modules/finance/payments/record-payment.ts";
 import assert from "node:assert/strict";
 import { readFile, readdir, access } from "node:fs/promises";
 import { stripTypeScriptTypes } from "node:module";
@@ -29,6 +30,7 @@ assert.equal(baselineNames.length, 28, "Replay all 28 actual applied migration f
 const baselineSql = await Promise.all(baselineNames.map((name) => readFile(new URL(name, baselineFolder), "utf8")));
 const migration = await readFile(new URL("migrations/0029_student_lifecycle.sql", root), "utf8");
 const academicMigration = await readFile(new URL("migrations/0030_academic_source_workflows.sql", root), "utf8");
+const paymentMigration = await readFile(new URL("migrations/0036_operator_payment_commands.sql", root), "utf8");
 const source = await readFile(new URL("modules/students/lifecycle/command-store.ts", root), "utf8");
 const executable = stripTypeScriptTypes(source, { mode: "strip" })
   .replace(/^import .*;\r?\n/gm, "")
@@ -95,6 +97,7 @@ function seedLegacy() {
     .run("actor", "Synthetic authorized actor", "actor@example.test", 1, 1, 1);
   db.prepare('INSERT INTO "user"(id,name,email,emailVerified,createdAt,updatedAt) VALUES (?,?,?,?,?,?)')
     .run("other-actor", "Other synthetic actor", "other@example.test", 1, 1, 1);
+  db.prepare("INSERT INTO staff_memberships(user_id,role,active) VALUES ('actor','OWNER',1),('other-actor','OPERATOR',1)").run();
   const offering = db.prepare("INSERT INTO public_programme_offerings(id,code,name,academic_year_name,class_name,is_active,offering_status) VALUES (?,?,?,?,?,1,'ACTIVE')");
   offering.run("student-offering", "STUDENT-2026", "Synthetic current offering", "2026", "Class 10");
   offering.run("student-next-offering", "STUDENT-2027", "Synthetic following offering", "2027", "Class 10");
@@ -389,9 +392,10 @@ test("independent yearless training courses do not collapse into one academic-ye
 });
 
 const admissionCode=stripTypeScriptTypes(await readFile(new URL("modules/admissions/lifecycle.ts",root),"utf8"),{mode:"strip"}).replace(/^import .*;\r?\n/gm,"").replace(/\bexport (?=async function)/g,"");
-const admissions=new Function("env","z","revalidatePath","getErpContext","requirePermission",admissionCode+";return {receivePhysicalConsent,finalizeAdmission,collectAdmissionPayment,activateAdmission}")(env,z,()=>{},async()=>({profileId:"actor",permissions:["admissions.create","admissions.view","finance.billing.manage","finance.payments.post"]}),async()=>({permissions:["admissions.view"]}));
+const admissions=new Function("env","z","revalidatePath","getErpContext","requirePermission","recordStudentPayment",admissionCode+";return {receivePhysicalConsent,finalizeAdmission,collectAdmissionPayment,activateAdmission}")(env,z,()=>{},async()=>({profileId:"actor",permissions:["admissions.create","admissions.view","finance.billing.manage","finance.payments.post"]}),async()=>({permissions:["admissions.view"]}),recordStudentPayment);
 test("existing-student reviewed admission receives consent, bills, collects and activates on populated migrated ledgers",async()=>{
  migrate();const originalStudents=rows("academy_students");const priorSequence=db.prepare("SELECT COUNT(*) n FROM academy_student_number_sequence").get().n;
+ db.exec(paymentMigration);
  const result=await executeStudentCommand(command("CREATE_EXISTING",{batch_id:ids.nextBatch}),"actor");assert.equal(result.ok,true,result.message);
  const admissionId=result.admissionId;
  // The staff has verified the returning student's application and address.

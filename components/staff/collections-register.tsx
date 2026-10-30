@@ -57,6 +57,7 @@ export function CollectionsRegister(){
   async function findReceipt(entry:PendingPayment){
     const r=await fetch("/api/staff/collections?requestId="+encodeURIComponent(entry.requestId),{cache:"no-store",credentials:"same-origin"});
     const d=await r.json() as {ok?:boolean;receiptNo?:string};
+    if(!r.ok)throw new Error("Payment status could not be checked. Keep this entry and retry to confirm its outcome.");
     return r.ok&&d.ok===true?d:null;
   }
   async function confirmed(receiptNo?:string){
@@ -66,10 +67,12 @@ export function CollectionsRegister(){
   async function collect(e:FormEvent<HTMLFormElement>){
     e.preventDefault();if(busy||!canPost)return;
     const sum=paisa(amount);
-    if(sum===null||sum<=0){setMessage("Enter a valid positive taka amount with at most two decimals.");return;}
-    if(!pending.current&&selected&&sum>selected.amount_paisa-selected.paid_paisa){setMessage("Payment exceeds the outstanding invoice amount.");return;}
-    if(reason.trim().length<8){setMessage("Explain the receipt posting reason in at least eight characters.");return;}
-    const entry=pending.current??{requestId:crypto.randomUUID(),invoiceId,amountPaisa:sum,method,reference,reason};
+    if(!pending.current){
+      if(sum===null||sum<=0){setMessage("Enter a valid positive taka amount with at most two decimals.");return;}
+      if(selected&&sum>selected.amount_paisa-selected.paid_paisa){setMessage("Payment exceeds the outstanding invoice amount.");return;}
+      if(reason.trim().length<8){setMessage("Explain the receipt posting reason in at least eight characters.");return;}
+    }
+    const entry=pending.current??{requestId:crypto.randomUUID(),invoiceId,amountPaisa:sum!,method,reference,reason};
     keep(entry);setBusy(true);setMessage("");
     try{
       // A retry first asks for the durable result; absence never creates a new key.
