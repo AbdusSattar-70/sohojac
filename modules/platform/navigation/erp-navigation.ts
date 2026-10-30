@@ -45,7 +45,7 @@ export function getNavigation(context: ErpContext): ErpNavGroup[] {
     )
       continue;
     if (
-      ["batches", "programme-offerings", "fee-plans"].includes(route.id) &&
+      ["batches", "programme-offerings", "programme-launch", "fee-plans"].includes(route.id) &&
       home === "/dashboard/teacher" &&
       !context.permissions.includes("academics.sessions.manage")
     )
