@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AcademyIdentityForm } from "@/modules/platform/setup/identity-form";
 import { getAcademyIdentity } from "@/modules/platform/setup/identity-queries";
 import { PageHeader } from "@/components/erp/page-header";
@@ -20,6 +21,19 @@ export default async function AcademicSettingsPage() {
         title="Academic & registration settings"
         description="Manage classes, subjects, years, programmes and reusable registration lists. Public forms use these lists; they are not website content. Deactivate rather than delete so history stays intact."
       />
+
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4">
+        <div>
+          <p className="font-medium">One global subject catalogue</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Subjects are defined here once. Class and programme applicability belong to teaching plans, not duplicated master records.
+          </p>
+        </div>
+        <Link href="/dashboard/academics/subjects"
+          className="inline-flex min-h-10 items-center rounded-xl border border-border bg-background px-4 text-sm font-medium hover:bg-muted">
+          Review Subject Directory
+        </Link>
+      </div>
 
       {identity && <AcademyIdentityForm {...identity} />}
 
