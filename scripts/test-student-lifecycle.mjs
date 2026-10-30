@@ -23,7 +23,7 @@ const ids = {
   nextFee: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
 };
 const baselineFolder = await access(new URL("migrations/0001_public_website.sql", root))
-  .then(() => new URL("migrations/", root))
+  .then(() => new URL("migrations/history/", root))
   .catch(() => new URL("scratch/student-lifecycle-reference/migrations/", root));
 const baselineNames = (await readdir(baselineFolder)).filter((name) => /^(?:000[1-9]|001\d|002[0-8])_.*\.sql$/.test(name)).sort();
 assert.equal(baselineNames.length, 28, "Replay all 28 actual applied migration files");
