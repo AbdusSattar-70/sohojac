@@ -39,8 +39,8 @@ export function getProgrammeLaunchReadiness(
   const active = offering.status === "ACTIVE";
   const websiteVisible = active && offering.is_website_visible;
   const withinWindow =
-    (!offering.applications_open_on || offering.applications_open_on <= businessDate) &&
-    (!offering.applications_close_on || offering.applications_close_on >= businessDate);
+    (!offering.applications_open_on || offering.applications_open_on.slice(0, 10) <= businessDate) &&
+    (!offering.applications_close_on || offering.applications_close_on.slice(0, 10) >= businessDate);
   const applicationsOpen =
     websiteVisible && offering.is_accepting_applications && withinWindow;
   const blockers: string[] = [];
