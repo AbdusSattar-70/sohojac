@@ -40,10 +40,6 @@ jobs:
           run_install: false
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
-      - name: Preview canonical 4-file SQLite baseline against historical schema
-        env:
-          EMIT_CANONICAL_TO_LOGS: "1"
-        run: node scripts/generate-canonical-migrations.mjs migrations /tmp/sohojac-canonical-preview
       - name: Local auth configuration (never a deployed secret)
         run: |
           printf '%s\n' 'BETTER_AUTH_URL=http://localhost:4173' 'BETTER_AUTH_SECRET=ci-not-a-production-secret-0123456789-abcdefgh' > .env
@@ -52,7 +48,7 @@ jobs:
         run: pnpm run cf-typegen
       - name: Environment isolation and non-destructive migrations
         run: |
-          node --test scripts/test-environment-isolation.mjs scripts/test-dev-reference-bootstrap.mjs
+          node --test scripts/test-canonical-baseline.mjs scripts/test-environment-isolation.mjs scripts/test-dev-reference-bootstrap.mjs
           node scripts/check-d1-migrations.mjs
       - name: Business logic and security regressions
         run: |
@@ -72,7 +68,7 @@ jobs:
         run: |
           set -euo pipefail
           DB=d6f3e4e9-2190-43bf-bc90-969687f6db78
-          pnpm exec cf d1 migrations apply "$DB" --local --persist-to .cloudflare/state
+          pnpm exec cf d1 migrations apply "$DB" --dir migrations/history --local --persist-to .cloudflare/state
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "INSERT INTO staff_owner_setup (id,email,display_name,token,expires_at) VALUES ('first-owner','staff-ci@example.invalid','Synthetic Staff Owner','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',strftime('%Y-%m-%dT%H:%M:%fZ','now','+30 minutes'))" >/tmp/sohojac-setup.json
       - name: Build and validate Cloudflare Worker
         run: |
@@ -122,6 +118,10 @@ jobs:
           latest=$(git ls-remote https://github.com/AbdusSattar-70/sohojac.git refs/heads/dev | cut -f1)
           test "$latest" = "$GITHUB_SHA"
       - run: pnpm install --frozen-lockfile
+      - name: Reset original development D1 exactly once for canonical schema
+        env:
+          CANONICAL_DEV_RESET_APPROVAL: RESET_OLD_SOHOJAC_DEV_ONCE
+        run: node scripts/reset-old-dev-d1-once.mjs
       - name: Create or confirm independent dev D1
         run: node scripts/prepare-dev-deployment.mjs
       - name: Verify dev database identity before any migration
@@ -137,7 +137,7 @@ jobs:
         run: |
           set -euo pipefail
           node scripts/check-d1-migrations.mjs
-          printf 'y\n' | pnpm exec cf d1 migrations apply "$SOHOJAC_DEV_D1_ID" --mode staging
+          printf 'y\n' | pnpm exec cf d1 migrations apply "$SOHOJAC_DEV_D1_ID" --dir migrations --mode staging
       - name: Seed canonical development references only
         run: node scripts/seed-dev-reference.mjs
       - name: Build and inspect staging Worker
@@ -234,7 +234,7 @@ jobs:
         run: |
           set -euo pipefail
           node scripts/check-d1-migrations.mjs
-          printf 'y\n' | pnpm exec cf d1 migrations apply "$SOHOJAC_D1_ID" --mode production
+          printf 'y\n' | pnpm exec cf d1 migrations apply "$SOHOJAC_D1_ID" --dir migrations/history --mode production
       - name: Build production Worker
         run: |
           pnpm run cf-typegen
