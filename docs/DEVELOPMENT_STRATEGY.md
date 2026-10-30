@@ -1,214 +1,64 @@
-# Sohojac development strategy
+# Sohojac — development strategy and verified delivery status
 
-> **Architecture and UX redesign proposal (31 October 2026):** [Target modular architecture and phase gates](./ERP_TARGET_ARCHITECTURE.md) · [Operator-first pinpoint audit and workflow blueprint](./OPERATOR_FIRST_ERP_BLUEPRINT.md). Both are design proposals, **not deployed features**. Phase 2 financial/permission hardening remains the prerequisite; these documents do not replace verified phase statuses.
+Updated: **31 October 2026**. This is the **single current phase tracker**. Historical plans and outdated release descriptions are retained in Git history, not copied into every document. Read the [target architecture](./ERP_TARGET_ARCHITECTURE.md), [operator-first UX blueprint](./OPERATOR_FIRST_ERP_BLUEPRINT.md) and [operations runbook](./OPERATIONS.md) for the design and release rules.
 
-Updated: 31 October 2026. This is the single current roadmap and phase-status register.
-Source parity: `sohoj-academy@f46b61611edce0a82f69e349bb89269329233b62`.
-A deployed slice, a present file or green CI is not proof that the entire original ERP is complete.
+## Non-negotiable product contract
 
-## Product contract
+**Enterprise-grade controls, not an enterprise-sized ERP.** Sohojac is one Cloudflare-native modular monolith built for a small coaching centre and its staff. The ERP is English-only, dark-only, accessible and mobile-friendly, rooted at `/dashboard`. Guardians and students do **not** have accounts; SMS is the intended guardian communication channel. Maintain immutable student/staff IDs, real financial double-entry postings, reliable retries, complete audit history and **12 students maximum per batch**.
 
-- Preserve business invariants, stable IDs, finance/audit history and essential workflows while modernizing fragmented screens into an operator-first English-only ERP on Cloudflare Workers/D1. Exact legacy visual parity is no longer a requirement.
-- English-only dark ERP, canonical `/dashboard`, responsive desktop/mobile navigation.
-- Staff-only accounts; no student/guardian login. Guardian communication is SMS, not email.
-- Preserve permanent identities, historical ledgers and immutable published fee versions.
-- **New owner decision (31 October 2026; supersedes the prior one-D1 deployment policy):** create a separate Cloudflare D1 database named exactly `sohojac_dev` for the `dev` branch and dev Worker. Keep production `master` deployed with the existing `sohojac` D1 and production Worker. No shared application data, staff login sessions, test receipts or migrations across environments.
-- **Manual production promotion:** implement on a feature branch, merge into `dev`, deploy and verify against `sohojac_dev`. **Do not merge/push changes from `dev` into `master` until the owner has manually tested the deployed dev version and explicitly approved the particular release.** After approval, a reviewed PR may merge into `master`; production deployment then requires manual dispatch with `APPROVE_SOHOJAC_PRODUCTION` and the exact approved master SHA. Neither a green CI check nor a scheduled job constitutes owner's approval.
-- **Environment status:** dev isolation was verified by Cloudflare after deployment at commit `0dc4c0e` (dev D1 UUID `f6331cbc-fff5-43be-9588-2269d8942342`; production D1 UUID `d6f3e4e9-2190-43bf-bc90-969687f6db78`). The **four-file canonical dev reset** in [PR #53](https://github.com/AbdusSattar-70/sohojac/pull/53) was verified in [run #41137793638](https://github.com/AbdusSattar-70/sohojac/actions/runs/41137793638); the current dev UUID is `90552767-7eb9-44a1-9505-124acd316cd7`. Production remains untouched.
-- User decision (30 October 2026): reset development business data once and seed clean reference masters without TEST prefixes. Preserve login credentials and staff identities. Subsequent releases preserve newly entered work; never invent people, consent or financial history.
+Operator tasks—not SQL tables—drive navigation: enquiries, admissions, students, batches, payments, programme launch, attendance, and practical help. Management-only finance, subjects, payroll, governance and configuration remain permission-gated. Production data is never reset, copied to dev or silently rekeyed.
 
-## Delivery rule
+## Current environment / production gate
 
-Finish one bounded phase, test it, commit it, merge to `dev`, deploy using **only `sohojac_dev`**, and verify the actual dev application and DB. Submit the dev URL, changed workflows, test cases and release notes for **manual owner acceptance**. Only after explicit owner approval of that version may a reviewed PR merge into `master`, triggering production deployment using **only `sohojac`**. Update this register in each phase PR. Never auto-merge dev to master or deploy dev commits to production.
-A phase may not be labelled released when its migration, Worker upload or health checks were skipped.
-Record release evidence in the PR and GitHub Actions run; keep the current feature branch until the next phase.
-Do not delete migrations, pinned source manifests or regression checks as cleanup.
+| Branch | Cloudflare Worker | D1 | Policy |
+|---|---|---|---|
+| Feature branch | PR tests / disposable local D1 | No remote writes | Review source, migrations, regression and secrets |
+| **`dev`** | `sohojac-dev.a90-sattar.workers.dev` | **`sohojac_dev`**, ID `90552767-7eb9-44a1-9505-124acd316cd7` | Automatic development-only deployment after verified merge, keep dev owner and data |
+| **`master`** | `sohojac.com` | **`sohojac`**, existing protected ID | **Only after owner reviews the actual dev site, explicitly approves the tested revision, and a reviewed PR merges to master**. Deployment requires manual Actions dispatch with `APPROVE_SOHOJAC_PRODUCTION` and exact approved master SHA |
 
-| Phase | Outcome and acceptance | Status |
+The [verified dev deployment on commit `a971a790`](https://github.com/AbdusSattar-70/sohojac/actions/runs/41145393378) passed CI, Worker DB name/ID binding checks and private API denial. It did not trigger production. Environment secrets and Better Auth sessions are independent. The first OWNER was set up in dev with an expiring ticket; there is no factory admin account.
+
+### Database schema rule
+
+- **Active dev migrations:** exactly four files in `migrations/`: `0001_schema_tables.sql`, `0002_schema_indexes.sql`, `0003_domain_guards.sql` and `0004_finance_reference.sql`.
+- **Production compatibility:** preserve the **36 original immutable migration files** under `migrations/history/`. Production already records those filenames in `d1_migrations`. **Do not delete this history or apply the four-file fresh dev baseline to production.**
+- The initial one-time `sohojac_dev` reset was completed and verified in [run #41137793638](https://github.com/AbdusSattar-70/sohojac/actions/runs/41137793638). **That reset is finished, and its destructive command has been retired.** Future dev deployments must preserve existing identities and records; CI checks schema parity, branch/ID guards and separate recovery bookmarks.
+- Schema changes after this baseline must be non-destructive forward migrations with parity/foreign-key tests, backfill audits, idempotency and separately approved production equivalents. The target of 3–5 baseline files does not justify editing production's applied migration history.
+
+## Verified delivery tracker
+
+| Area | Current status | Evidence / next gate |
 |---|---|---|
-| **0E — Environment isolation and owner-controlled promotion** | Separate `sohojac_dev` D1 for dev and `sohojac` for master; secret/Turnstile isolation and binding verification; owner approves production promotion | **Dev deployed and binding verified:** [run #41131303733 attempt 2](https://github.com/AbdusSattar-70/sohojac/actions/runs/41131303733). **Owner's authenticated acceptance and production promotion remain pending.** |
-| **0F — Fresh canonical development baseline (new owner request)** | Replace 36 historical dev migrations with **4 generated final-schema files**, retain 36 unchanged historic files in `migrations/history` for future approved production upgrades, reset ONLY the known original `sohojac_dev` UUID once, re-create dev DB with empty business records, then issue first-owner ticket | **Released to dev in [PR #53](https://github.com/AbdusSattar-70/sohojac/pull/53), run #41137793638**; four migrations, reference-only seed, Worker binding and unauthenticated private-route denial verified. First-owner setup confirmed by owner; no production changes. |
-| 1 — Security foundation and repository hygiene | Turnstile on anonymous forms; durable request limits; single shared sohojac D1; clean foundation reset and editable reference masters (Phase 1B); retire the old dev-only D1 after verified rebinding; consolidate docs and workflows | Implementation verified; environment release evidence is maintained in [phase PR #38](https://github.com/AbdusSattar-70/sohojac/pull/38) |
-| 1B — Clean development foundation | One-time shared DB reset; Classes 1–12; guardian relationships and reference masters; consolidated Academic Setup; public options from active masters | Released and reset verified in [PR #41](https://github.com/AbdusSattar-70/sohojac/pull/41) |
-| 1C — Academic setup workflow corrections | Single year editor; visible submission validation; consistent batch readiness; public Evening Care offerings and 12-seat cohorts | Released and verified in [PR #44](https://github.com/AbdusSattar-70/sohojac/pull/44) and [PR #46](https://github.com/AbdusSattar-70/sohojac/pull/46) |
-| 2 — One authoritative write path | REST and Server Actions call the same domain commands; named permissions; retry-safe collections and expenses; batch readiness parity; exact retry/concurrent/denial regression tests | **Dev code released through PR #52 / run #41131303733**; payment, expense and batch retry/permissions regression suite passed. Owner's full operational acceptance and production release remain pending. |
-| **C1 — Guided Programme Launch (operator-first slice)** | Coaching draft → approved fees → 12-seat batch/activation → public card/intake → read-only readiness review. Reuse canonical permissioned commands; no data reset or subject deletion. | **Feature branch `feature/operator-first-programme-launch`; CI and dev release pending.** |
-| 3 — Canonical data and business rules | Reconcile the two subject masters without losing IDs; version-check master edits; common Asia/Dhaka business date and integer-paisa helpers; explicit fee-plan pinning policy | Planned |
-| 4 — Engineering and operational reliability | Format/lint; split the long CI smoke script into maintainable suites without removing coverage; structured safe diagnostics; recovery drill and immutable rollback target; controlled dependency updates; remove proven unused dependencies | Planned |
-| 5 — Workflow and UI consistency | Shared lifecycle/form primitives; pagination and full-ledger aggregates; accessible errors/loading/empty/conflict states; mobile/keyboard/print/browser tests | Planned |
-| 6 — Original finance completion | Accounting, recurring billing, refunds/adjustments, payables, cash/bank/daily close and cost per student per month; preserve posted ledger history | Planned |
-| 7 — Workforce and academics | Teacher compensation/payroll/referral incentives; planning/curriculum/sessions/results/progress; original workflows and scoped permissions | Planned |
-| 8 — Acceptance and performance | End-to-end operator acceptance, role matrix, representative load, accessibility, restoration and production monitoring evidence | Planned |
+| **0E — Dev/prod isolation** | **Deployed** | Dev Worker binding verified. Production never shares dev D1 or secrets. |
+| **0F — Fresh D1 baseline** | **Deployed** | Four canonical migrations, global reference subjects, Classes 1–12 and guardian relationship masters; independent first OWNER created. |
+| **2 — Payment / expense / batch commands** | **Deployed to dev** | [PR #52](https://github.com/AbdusSattar-70/sohojac/pull/52): stable request identities, permission checks, balanced journals, 12-seat and version guards; full operation acceptance remains owner-led. |
+| **C1 — Guided Programme Launch** | **Deployed to dev** | [PR #54](https://github.com/AbdusSattar-70/sohojac/pull/54): coaching draft → fee plan → batch activation → website/intake → readiness. |
+| **C1a — Correct fifth-step completion** | **Deployed to dev** | [PR #55](https://github.com/AbdusSattar-70/sohojac/pull/55): the Review check is tied to actual live intake, not the first four steps only. |
+| **C2a — Global subject directory and repository cleanup** | **Implementing on `feature/operator-first-subject-catalogue`** | One global `academic_subjects` read model, read-only legacy association audit, retire new class-specific subject creation, remove obsolete reset/UI/hash-parity artifacts and completed PR branches. **CI and deployment still pending.** |
+| **C2b — Subject identity cutover** | **Not implemented** | Inventory every legacy subject ID and teaching/public consumer, explicitly approve crosswalk, forward-migrate and reconcile links. No name-based implicit merges or record deletion. |
+| **C3 — Master-data concurrency** | Planned | Named permissions and optimistic version checks for academic years, subjects, classes, groups and programmes; regression tests for conflicting saves. |
+| **C4 — Operator daily journeys** | Planned | Admission and returning student, due follow-up and receipts, teacher session/attendance/marks, role/desktop/mobile testing. |
+| **C5 — Finance/reports and messages** | Planned | Whole-ledger aggregates rather than latest-200 headlines; reconciled reports, SMS outbox/retries, recovery drill, accessibility/performance checks. |
+| **Production acceptance** | **Not authorized** | Owner must manually test and approve the exact dev revision. No automatic merge or production release. |
 
-## Deployed baseline before this phase
+## C2 — Subject master policy
 
-Master `aeb965f84db043eeaea0cda7c12221cecc0a66ce` released offerings/fee plans, academic
-batches, receivables, student lifecycle and returning-student admission. This is a
-verified deployment baseline, not a claim that the entire original ERP is migrated.
+`academic_subjects` already contains the **global subject directory**. The old `academy_subjects` table stores grade/group-specific historical identities, while `academy_offering_subjects` may still point to those IDs. It is **unsafe to drop, rename or auto-merge these tables** before verifying every public card and teaching/assessment consumer. The first C2 slice:
 
-## Phase 1 scope and limits
+1. Shows the global directory once, separate from class/group curriculum applicability, without duplicate grade-based master creation.
+2. Provides a permission-checked, **read-only audit** of every legacy row and its linked offering count.
+3. Disables new legacy class-scoped subject creation; keeps old identities and approved assignment/update compatibility until cutover.
+4. Preserves the four-file baseline, the current dev D1 and the OWNER's existing account.
+5. Adds actual SQLite regression tests for global subjects, historical links, foreign keys, and denial of legacy creation.
 
-Turnstile is bot verification; rate limiting bounds request frequency. Neither replaces authentication,
-named permissions, transaction integrity or idempotency. The duplicate-payment and legacy-permission
-findings remain open for Phase 2; security challenges do not fix them.
+**Cutover gate:** map explicit original subject IDs to canonical IDs with reviewed evidence. Test bidirectional row/link counts, JSON public cards, teacher sessions, timetable/exams and audit history, then change each reader/writer transactionally. Retire legacy tables **only after** this evidence and independent owner approval. No silent data cleanup is acceptable.
 
-- Anonymous login, password recovery/reset, invitation acceptance and first-owner setup require an
-  action/hostname-bound Turnstile token before their handler runs on deployed hosts.
-- Public interest/admission and staff-access submissions retain challenges through the same verifier.
-- Mutating API calls and Server Actions on every page (including `/dashboard`) share a bounded write quota. Routine authenticated
-  saves do not present a CAPTCHA. Reads/navigation are not challenged by the application guard.
-- D1 counters use atomic increments and bounded expiry cleanup. Only hashed IP/scope/window keys are
-  stored; no raw address, email, password, token or session cookie is recorded in counters.
-- Production cannot use local/CI headers to disable protection. Local bypass requires both actual
-  request hostname and configured auth origin to be loopback. **Historical Phase 1 behavior** used shared data and accounts; the 31 October decision replaces it with independent `sohojac_dev` records, staff identities/secrets and an allowed dev hostname/Turnstile widget. No deployed security-test bypass is permitted.
-- This is application request protection, not a claim that account-level Cloudflare WAF/Bot rules
-  have been configured. Additional edge rules remain an infrastructure decision.
-- Automated stale-branch pruning and the broken legacy public-only rollback workflow were removed.
-  Essential build/regression and separate per-environment migration/recovery checks must stay. Do not leave a shared-D1 deployment workflow after separating the environments.
+## Release checklist per bounded feature
 
-## Current review findings to close
+1. Branch from current `dev`, change one coherent workflow, and preserve role/grant checks, audit, retry and immutable business IDs.
+2. Run schema/reference tests, real named-permission and financial regressions, TypeScript, Worker build and authenticated local HTTP smoke against disposable D1.
+3. Review PR and merge to **dev only after the exact source revision passes**. Deploy to `sohojac_dev`; verify actual Worker D1 binding, four baseline migrations, application routes and private access, preserving records.
+4. Publish verified PR/Actions evidence and request **manual owner testing**. Changes may be rejected or refined on dev.
+5. **Never** merge or deploy to `master` until the owner explicitly approves the tested revision. Production uses its own recovery bookmark, migration history, deployment and restore plan.
 
-1. Identical legacy collection requests can create two payments while balance remains (reproduced).
-2. Role-only legacy APIs differ from named-permission domain actions.
-3. Settings and offering subjects use separate masters (reproduced).
-4. Legacy batch APIs enforce fewer prerequisites than canonical commands.
-5. Master edits can overwrite concurrent changes; business dates mix UTC and Bangladesh time.
-6. Lists have fixed caps; some billing summaries cover only returned rows (already disclosed in UI).
-7. Whole-app browser/accessibility/load and recovery acceptance remain unproven.
-
-## Phase-update checklist
-
-Each PR states: scope; source-parity impact; files/workflows removed and why; migrations/data preservation;
-security/permission implications; actual tests and their limits; dev and production release evidence;
-remaining acceptance work. Update only the phase actually completed. Missing source pages and mappings
-remain discoverable through the two pinned JSON manifests and the source-path audit script.
-
-## Phase 1 verification log
-
-- Nine direct production-guard tests cover policy routing, encoded paths, quota/reset behavior,
-  server-action coverage, hashed keys, invalid/replayed/mismatched tokens and outages.
-- TypeScript, Worker build and all 80 existing domain tests passed locally.
-- Initial full integration CI passed in [Actions run 41085640537](https://github.com/AbdusSattar-70/sohojac/actions/runs/41085640537). Subsequent commits are rechecked before release.
-- The phase PR is the current dev/production release record; its exact commit and migration/Worker/health evidence must be verified before calling the phase released.
-- Human Turnstile completion in a real browser remains an explicit acceptance check.
-
-## Separate dev and production databases — isolation verified, canonical dev reset planned
-
-The former single-D1 decision was used in the verified Phase 1 releases below. **It is superseded as of 31 October 2026.** The permanent target environment matrix is:
-
-| Branch / environment | Cloudflare Worker | D1 database | Data and credentials | Promotion |
-|---|---|---|---|---|
-| `dev` / development | Separate dev Worker and hostname | **`sohojac_dev`** (must be created) | Separate dev staff identities, Better Auth origin/secret, Turnstile keys, test fixtures; safe to reset only with explicit dev authorization | Deploy to dev, test and manually review |
-| `master` / production | Main Worker / `sohojac.com` | **`sohojac`** (retain existing DB and data) | Production identities, secrets and business records untouched | Owner explicitly approves the tested dev revision, then reviewed PR merges to `master` |
-
-**Deployment verification gate (passed for the previous 36-migration dev release, must be repeated after canonical reset):** (1) provision exact D1 name `sohojac_dev` with its own real database ID, (2) configure dev Worker/CI D1 binding to that ID, production Worker/CI only to production ID, (3) independently apply versioned migrations and seed reference/approved synthetic data in dev, (4) configure separate auth origin, secrets and dev Turnstile hostname, (5) add fail-closed pre-deploy checks of branch → Worker → D1 ID/name and prohibit cross-environment DB usage, (6) run isolated CRUD/security/integration smoke tests on dev and confirm production row counts and worker binding unchanged, (7) enable the explicit manual approval gate before the master merge. **The previous dev binding was verified independent; re-verify the new D1 UUID after the one-time canonical dev reset.**
-
-CI PR validation uses disposable local SQLite/D1 and does not migrate either remote database. Dev releases migrate/seed only `sohojac_dev`; master releases migrate **only `sohojac` after owner approval**. Keep individual recovery bookmarks, migration tracking, monitoring and secrets for each environment. Never clone guardian/student/payment PII from production into dev. Do not repeat the historical production reset or remove `sohojac` data.
-
-Historical shared-D1 release evidence below remains accurate for the dates recorded; it does **not** describe the desired future architecture.
-
-## Phase 1B: clean development foundation
-
-The user explicitly requested a reset of the shared `sohojac` DB. Replace the former TEST seed with
-`seeds/foundation.sql`: Classes 1–12, 27 editable guardian relationships (including Other), academic
-years 2026/2027, groups, subjects, lead sources, programmes, Main Campus and the existing chart of accounts.
-Do not fabricate schools, students, consent, offerings, batches, prices or financial transactions.
-The subject list is a configurable starting point, not a claim of official curriculum coverage.
-The legacy offering-subject register currently supports grades 4–12; extending its schema to grades 1–3
-and reconciling the two subject registers remains Phase 3 work. Class masters and public interest support 1–12.
-
-Main release runs the explicit one-time operation `foundation-reset-20261030-v1` only after a fresh recovery
-bookmark and both Workers' maintenance support are verified. Preserve auth credentials, staff identities,
-permission grants and migration history. Persist the original trigger manifest, block mutations, clear
-business data, restore triggers, seed and validate foreign keys. A PREPARED operation blocks writes on failure;
-retry using the saved manifest or restore the captured bookmark. COMPLETE prevents subsequent resets.
-Dev releases no longer add TEST data. Academic years and academy identity belong to Academic Setup;
-the dashboard link and duplicate sidebar grouping are corrected. Public choices read active reference masters.
-
-Release evidence is recorded in PR #41 and the verified Actions runs. The reset completion result must be
-confirmed independently of code checks; implementation alone is not proof of a remote reset.
-
-### Phase 1B release evidence
-
-- [PR integration run 41094528806](https://github.com/AbdusSattar-70/sohojac/actions/runs/41094528806) passed original source verifiers, migrations and authenticated smoke checks.
-- [Dev run 41094908761](https://github.com/AbdusSattar-70/sohojac/actions/runs/41094908761) deployed commit `f378443beb6bb8d035da9ce29a944e76eafc5426` and applied maintenance migration 0035 successfully.
-- [Main run 41095569753](https://github.com/AbdusSattar-70/sohojac/actions/runs/41095569753) deployed commit `6bc93c878466406009c8ca93364ad9f868159009`, captured the recovery bookmark, completed the shared D1 reset, and passed public health/private API denial and Turnstile checks.
-- Public `/interest` HTML independently verified Classes 1–12, 27 guardian relationships and no TEST option labels after reset. Runtime validation confirmed zero students/payments and valid foreign keys before marking COMPLETE.
-- Local verification: 15 reset/security/retirement checks, all 80 existing domain tests, TypeScript and Worker build passed. Login credentials and staff identities were preserved; no new login or financial posting was seeded.
-
-## Phase 1C: academic setup workflow corrections
-
-User-reported regressions: a duplicate Academic Years page, draft/non-fee-ready offerings selectable for
-batch creation, and disabled offering submission buttons concealing validation requirements.
-
-- Academic Setup is the single year-management UI. Remove the duplicate editor/navigation entry;
-  retain old URLs as redirects and authenticated year APIs for compatibility.
-- Share batch offering readiness between choices and guarded server mutations. Explain missing fee
-  publication, exclude expired fees and inactive classes, and retain concurrency/capacity/idempotency checks.
-- Keep offering, fee and public-control submit buttons available for validation; show summary/field errors,
-  preserve input on failure, provide monthly due-day defaults and refresh request identities after success.
-- Install a one-time additive public catalogue seed: Boys Evening Care for Classes 8–10, using the owner's
-  stated ৳2,500/৳3,000 monthly fees, three current fee plans and three 12-seat batches. Seed no students,
-  admissions, invoices or payments. Do not reset data or overwrite operator changes on later releases.
-- Exercise the draft → fee publication → public controls → batch workflow and seed against the actual
-  local Cloudflare D1 binding, in addition to existing SQLite/concurrency and authenticated CI checks.
-
-Other programme prices remain operator decisions. Admission opens only through the normal verified workflow.
-Record actual dev/main release evidence in the phase PR before marking this correction released.
-
-### Phase 1C release evidence
-
-- [PR #43](https://github.com/AbdusSattar-70/sohojac/pull/43) and [integration run 41101947580](https://github.com/AbdusSattar-70/sohojac/actions/runs/41101947580) verified the workflow corrections, actual local D1 binding, seed and authenticated ERP smoke checks. All original source/navigation verifiers, TypeScript and Worker build passed; 101 focused/domain tests passed locally.
-- [Dev run 41103587472](https://github.com/AbdusSattar-70/sohojac/actions/runs/41103587472) deployed `34b7a908fd77bf9477b6ba63b616674b1f56cac1` and confirmed three public offerings, published fees and three 12-seat batches in the single shared D1. No students, admissions or payments were seeded.
-- [Main run 41104267554](https://github.com/AbdusSattar-70/sohojac/actions/runs/41104267554) deployed `42e16ccdb77ba6b928a1cf18165c3ce0868fdb0b` and passed health, private endpoint denial and Turnstile checks. It confirmed the foundation reset and public catalogue seed were already complete, preserving subsequent work.
-- Independent live HTML checks confirmed all three Evening Care cards on the homepage and offering choices in `/interest`, alongside Classes 1–12.
-- Final review found a non-monthly due-day default edge case. [PR #45](https://github.com/AbdusSattar-70/sohojac/pull/45) added the shared monthly/term/one-time helper and regression coverage; [integration run 41104736381](https://github.com/AbdusSattar-70/sohojac/actions/runs/41104736381) passed. Monthly defaults to day 10; other billing cycles remain blank.
-- [Final dev run 41105286069](https://github.com/AbdusSattar-70/sohojac/actions/runs/41105286069) deployed `6b59a376ed6c8e25002cbd7c2ed59fc2f62498b6`. [Final main run 41105806134](https://github.com/AbdusSattar-70/sohojac/actions/runs/41105806134) deployed `06c667c0c76cc412babf9db7917ab038d8211abd`, completing the correction phase with successful health/security checks.
-
-Phase 2 remains next. Subject-master reconciliation and Classes 1–3 offering subjects remain Phase 3 work.
-
-## Phase 1D: clear offering subjects and publication eligibility
-
-Subject rows for different grades were shown with identical names/codes. Preserve their IDs and class/group
-relationships, expose those labels, scope choices to the offering context and use searchable checkboxes.
-Existing out-of-context links remain visible for explicit review/removal, rather than silent data loss.
-Draft/retired publication controls explain their prerequisite beside the switches. Attempting a blocked
-selection produces an immediate accessible alert and a link to the exact offering's Fee Plan or reactivation.
-An intake flag on an inactive offering is shown as pending activation rather than misleadingly Open.
-No database reset, deletions or fee changes are required. Record actual release evidence in the phase PR.
-
-## Operator-first implementation — initial infrastructure and UX slice (31 October 2026)
-
-- New `feature/operator-first-erp` branch from `dev`; no automatic merge to production.
-- Explicit independent `sohojac_dev` Cloudflare D1 target and fail-closed release identity checks; the dev job is responsible for provisioning the new database only after merge to `dev` and availability of Cloudflare credentials.
-- Replacement GitHub CI `erp-ci.yml` separates local domain/auth regression, dev-only deployment and explicit manual `master` dispatch with reviewed SHA. The old 1,681-line shared-D1 workflow is removed, and its 1,266-line local-only authenticated regression checks live in `scripts/ci-authenticated-smoke.sh` pending gradual replacement by clearer scenario suites.
-- Fresh dev reference seed covers Classes 1–12, guardian relationships and global subject masters without grade-duplicate seed rows or synthetic student/payment records; exact historical 2026 showcase fixtures from migration history are cleared only during initial empty-dev bootstrap.
-- Removed obsolete production reset, retired-database deletion and byte-exact original UI regression scripts. Historical D1 migration files remain intact because `master` still has its applied migration history.
-- Removed `Subjects on this offering` from the ordinary website editor; existing linked subject IDs remain preserved. Canonical subject-master consolidation and guided Programme Launch are **not yet implemented**.
-- **Status:** committed on feature branch; code reviews, CI, actual `sohojac_dev` creation/binding, smoke testing and dev release evidence are pending. No changes made to `master` or its existing D1.
-
-## Current Phase 2 implementation scope
-
-Collections REST and admission payment actions now call one student-payment command. A durable request belongs to one verified actor and normalized payload; identical retries recover the original receipt, changed payloads conflict, and unknown outcomes retain the same intent. Receipt, allocation, audited command and verified balanced journal commit together. Historical admission request keys remain recoverable.
-
-Operating expenses use the same explicit request-identity discipline, named posting permission and Bangladesh business date. Batch REST and Server Actions use one command with the same current offering/fee, capacity, version and retry guards. The historical public-catalogue regression uses a disposable local historical fixture; the clean dev bootstrap does not acquire a false production-reset marker.
-
-No production reset, subject-master reconciliation, Programme Launch rewrite, SMS delivery or automatic master promotion is included. The exact branch commit must pass the full quality workflow before any dev-only release. The owner must review the actual isolated dev version before approving a production candidate.
-
-## Phase 0F — canonical from-scratch development schema
-
-The operator requested a genuine clean `sohojac_dev` experience rather than replaying 36 historical patches. The reviewed end-schema generator `scripts/generate-canonical-migrations.mjs` applies the 36 original migrations only to an **ephemeral local SQLite database**, extracts the final table/index/trigger graph and approved finance reference accounts, removes obsolete `*_pre_0029` snapshot tables, and proves the generated schema has no marketing showcases, student accounts, invoices or payments. The output has **four** versioned SQL files in the root `migrations/` directory; the 36 historical production files are archived unchanged under `migrations/history/`. The CI checker regenerates and byte-compares them on every PR. Cloudflare CLI supports explicit `--dir` for environment-specific migration histories.
-
-On the first approved `dev` release of PR #53, the one-time reset targets **only** the exact old `sohojac_dev` D1 UUID `f6331cbc-fff5-43be-9588-2269d8942342`; it cannot delete `sohojac` or an arbitrary future dev D1. The dev provisioner then re-creates `sohojac_dev`, applies four canonical migrations and reference-only seed. Further dev deployments preserve records and skip the one-time reset. The existing production D1 and its recorded 36 filenames remain unchanged; when explicitly approved for production, the production job uses `--dir migrations/history` and the original D1 migration ledger.
-
-Create the first development owner with a short-lived ticket directly in **dev D1 only**, then complete https://sohojac-dev.a90-sattar.workers.dev/setup-owner. **No factory credentials or production identities are seeded.** See [step-by-step first-owner setup](./DEV_FIRST_OWNER.md).
-
-**Release status:** PR #53 merged to dev commit `31456778b5de74daa391774a76ef3efb3c874dab`; [run #41137793638](https://github.com/AbdusSattar-70/sohojac/actions/runs/41137793638) confirms four applied migrations, independent new dev D1 UUID and dev Worker binding. Production is unchanged.
-
-## C1 — Operator-first Programme Launch vertical slice
-
-The first operator-first workspace is developed on `feature/operator-first-programme-launch` at `/dashboard/academics/launch`. It unifies a normal coaching workflow in five steps: create a private draft, approve standard monthly fees, create and activate a maximum-12-student batch, configure public website/application visibility, and review actionable readiness conditions. The advanced offering, fee plan, and batch screens stay available for unusual cases. This is a user-facing workflow improvement, **not** a parallel domain-writing implementation: the existing audited, named-permission, idempotent offering/fee/batch/public commands remain the write authority.
-
-Readiness uses the authoritative server-side current fee/batch eligibility query, active batch seat counts and public intake dates; finance amounts remain hidden from staff without `finance.view`. The guided public form preserves existing translation/subject associations when staff edit a title and description. Publishing alone cannot open applications in this interface without valid current fees and free teaching seats. The shared SQL/domain command remains the final control.
-
-**Quality/release gate:** source-state tests for dated/retired/full seat scenarios, TypeScript and Worker builds, all payment/expense/admission/security regressions, CI acceptance, merge and deploy **dev only**, then owner manual testing of the live five-step flow. Multi-class curriculum/intake data restructuring and global subject master consolidation remain future separately reviewed work. No production promotion is authorized.
+Git history preserves the older shared-D1 experiment and prior source-mirroring decisions as historical evidence; they are **not** the current architecture or deployment policy.
