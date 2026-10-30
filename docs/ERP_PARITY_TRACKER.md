@@ -258,3 +258,17 @@ identity/payment reconciliation and signed-paper records also remain pending.
 The next independent feature is restoring missing Student Register profile links.
 Transfers, existing-student re-enrollment, closure, duplicate resolution and
 guardian-history migration remain separate outstanding student workflows.
+
+
+## Prepared next feature — student profile history
+
+`feature/student-profile-history` restores the missing profile route using the
+original read-section layout and a D1 adapter. Identity, current guardian contacts
+and enrollment history require `students.view`; admission details additionally
+require `admissions.view`; invoice queries require `finance.view`.
+The latest 200 posted invoice rows accompany full integer-paisa aggregate totals.
+
+Seven local query/isolation tests pass. Authenticated HTTP profile checks are
+staged in CI; full repository checks and deployment have not run.
+See [STUDENT_PROFILE_HISTORY.md](STUDENT_PROFILE_HISTORY.md). This is read-only,
+not full original student lifecycle parity.
