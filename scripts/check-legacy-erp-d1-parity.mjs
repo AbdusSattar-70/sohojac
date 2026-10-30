@@ -7,10 +7,10 @@ const auth = file("modules/platform/auth/erp-context.ts");
 if (!auth.includes("getStaffAccessForPage") || !auth.includes("erp_permission_grants"))
   throw new Error("ERP context must require verified staff session and D1 grants");
 if (!auth.includes("return null;")) throw new Error("ERP context must fail closed");
-const schema = file("migrations/0021_erp_permission_grants.sql");
+const schema = file("migrations/history/0021_erp_permission_grants.sql");
 if (!schema.includes("PRIMARY KEY(user_id,permission)") || !schema.includes("REFERENCES staff_memberships"))
   throw new Error("D1 grants must be scoped to a verified staff member");
-const year = file("migrations/0022_multiple_active_academic_years.sql");
+const year = file("migrations/history/0022_multiple_active_academic_years.sql");
 if (!year.includes("DROP INDEX IF EXISTS idx_one_active_academic_year"))
   throw new Error("D1 still restricts overlapping active academic years");
 if (/DELETE FROM|DROP TABLE/i.test(year)) throw new Error("Academic year migration destroys records");

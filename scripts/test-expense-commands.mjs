@@ -9,11 +9,11 @@ import {beforeEach,after,test} from "node:test";
 import {z} from "zod";
 
 const root=new URL("../",import.meta.url);
-const migrationNames=(await readdir(new URL("migrations/",root))).filter(name=>/^\d{4}_.*\.sql$/.test(name)).sort();
+const migrationNames=(await readdir(new URL("migrations/history/",root))).filter(name=>/^\d{4}_.*\.sql$/.test(name)).sort();
 assert(migrationNames.includes("0001_public_website.sql"));
 assert(migrationNames.includes("0016_operating_expenses.sql"));
 assert(migrationNames.includes("0037_operator_expense_commands.sql"));
-const migrations=await Promise.all(migrationNames.map(name=>readFile(new URL("migrations/"+name,root),"utf8")));
+const migrations=await Promise.all(migrationNames.map(name=>readFile(new URL("migrations/history/"+name,root),"utf8")));
 function compile(source,bindings,exports){
   const executable=stripTypeScriptTypes(source,{mode:"strip"}).replace(/^import[^\n]*\n/gm,"")
     .replace(/\bexport (?=(?:async )?function|const)/g,"");

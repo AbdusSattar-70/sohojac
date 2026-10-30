@@ -22,15 +22,15 @@ const ids = {
   fee: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
   nextFee: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
 };
-const baselineFolder = await access(new URL("migrations/0001_public_website.sql", root))
-  .then(() => new URL("migrations/", root))
-  .catch(() => new URL("scratch/student-lifecycle-reference/migrations/", root));
+const baselineFolder = await access(new URL("migrations/history/0001_public_website.sql", root))
+  .then(() => new URL("migrations/history/", root))
+  .catch(() => new URL("scratch/student-lifecycle-reference/migrations/history/", root));
 const baselineNames = (await readdir(baselineFolder)).filter((name) => /^(?:000[1-9]|001\d|002[0-8])_.*\.sql$/.test(name)).sort();
 assert.equal(baselineNames.length, 28, "Replay all 28 actual applied migration files");
 const baselineSql = await Promise.all(baselineNames.map((name) => readFile(new URL(name, baselineFolder), "utf8")));
-const migration = await readFile(new URL("migrations/0029_student_lifecycle.sql", root), "utf8");
-const academicMigration = await readFile(new URL("migrations/0030_academic_source_workflows.sql", root), "utf8");
-const paymentMigration = await readFile(new URL("migrations/0036_operator_payment_commands.sql", root), "utf8");
+const migration = await readFile(new URL("migrations/history/0029_student_lifecycle.sql", root), "utf8");
+const academicMigration = await readFile(new URL("migrations/history/0030_academic_source_workflows.sql", root), "utf8");
+const paymentMigration = await readFile(new URL("migrations/history/0036_operator_payment_commands.sql", root), "utf8");
 const source = await readFile(new URL("modules/students/lifecycle/command-store.ts", root), "utf8");
 const executable = stripTypeScriptTypes(source, { mode: "strip" })
   .replace(/^import .*;\r?\n/gm, "")
