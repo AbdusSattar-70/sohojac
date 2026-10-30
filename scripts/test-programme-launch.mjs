@@ -82,7 +82,8 @@ test("guided launch is permission-scoped, non-destructive and connected to the r
   assert(forms.includes("crypto.randomUUID()"));
   assert(forms.includes("intentFor(request.current, signature)"));
   assert(forms.includes("subjectIds: linkedSubjectIds"));
-  assert(forms.includes('disabled={!visible || !canOpen}'));
+  assert(forms.includes('disabled={!visible || (!canOpen && !accepting)}'));
+  assert(component.includes('inactiveLabel="Activate batch"'));
   assert(component.includes("RecordStateButton"));
   assert(component.includes('selectedBatches'));
   assert(!component.includes("env.DB"));
