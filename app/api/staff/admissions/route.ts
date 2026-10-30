@@ -1,6 +1,7 @@
 import {env} from "cloudflare:workers";
-import {getStaffAccess,privateJson,sameOrigin} from "@/lib/staff-access";
-import {createAdmission,type AdmissionRow} from "@/lib/erp-admissions";
+import {getStaffAccess,privateJson} from "@/lib/staff-access";
+import type {AdmissionRow} from "@/lib/erp-admissions";
+import {retiredAdmissionMutation} from "@/lib/retired-admission-mutation";
 export const dynamic="force-dynamic";
 const operations=(role:string)=>["OWNER","ADMIN","OPERATOR"].includes(role);
 export async function GET(request:Request){
@@ -40,41 +41,5 @@ export async function GET(request:Request){
   }catch{return privateJson({error:"Admission service unavailable"},503);}
 }
 export async function POST(request:Request){
-  const staff=await getStaffAccess(request.url,request.headers);
-  if(!staff)return privateJson({error:"Authentication required"},401);
-  if(!operations(staff.role))return privateJson({error:"Access denied"},403);
-  if(!sameOrigin(request))return privateJson({error:"Invalid request origin"},403);
-  if(!request.headers.get("content-type")?.toLowerCase().startsWith("application/json")){
-    return privateJson({error:"JSON required"},415);
-  }
-  let body:unknown;
-  try{const raw=await request.text();if(raw.length>3000)return privateJson({error:"Request too large"},413);body=JSON.parse(raw);}
-  catch{return privateJson({error:"Invalid JSON"},400);}
-  const parsed=createAdmission.safeParse(body);
-  if(!parsed.success)return privateJson({error:"Check student, guardian, class and reason"},400);
-  const data=parsed.data,id=crypto.randomUUID(),applicationNo="SA-APP-"+crypto.randomUUID().replace(/-/g,"").slice(0,12).toUpperCase();
-  try{
-    const result=await env.DB.batch([
-      env.DB.prepare([
-        "INSERT INTO academy_admissions",
-        "(id,application_no,enquiry_id,offering_id,status,prepared_by,",
-        "student_full_name,class_grade,guardian_full_name,guardian_mobile,school_name)",
-        "SELECT ?,?,NULLIF(?,''),?,'DRAFT',?,?,?,?,?,?",
-        "WHERE EXISTS(SELECT 1 FROM public_programme_offerings WHERE id=?)",
-        "AND (?='' OR EXISTS(SELECT 1 FROM public_enquiries",
-        "WHERE id=? AND (offering_id IS NULL OR offering_id=?)))"
-      ].join(" ")).bind(id,applicationNo,data.enquiryId,data.offeringId,staff.userId,
-        data.studentName,data.classGrade,data.guardianName,data.guardianMobile,
-        data.schoolName||null,data.offeringId,data.enquiryId,data.enquiryId,data.offeringId),
-      env.DB.prepare([
-        "INSERT INTO erp_audit_events(id,entity_type,entity_id,action,actor_id,reason,after_json)",
-        "SELECT ?,'admission',?,'DRAFT_CREATED',?,?,? WHERE changes()=1"
-      ].join(" ")).bind(crypto.randomUUID(),id,staff.userId,data.reason,
-        JSON.stringify({...data,guardianMobile:"[REDACTED]"})),
-    ]);
-    if(result[0].meta.changes!==1||result[1].meta.changes!==1){
-      return privateJson({error:"Programme or enquiry is unavailable"},409);
-    }
-    return privateJson({ok:true,id,applicationNo,status:"DRAFT"},201);
-  }catch{return privateJson({error:"Could not create application; enquiry may already be linked"},409);}
+  return retiredAdmissionMutation(request);
 }
