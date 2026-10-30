@@ -25,6 +25,7 @@ Do not delete migrations, pinned source manifests or regression checks as cleanu
 |---|---|---|
 | 1 — Security foundation and repository hygiene | Turnstile on anonymous forms; durable request limits; single shared sohojac D1; clean foundation reset and editable reference masters (Phase 1B); retire the old dev-only D1 after verified rebinding; consolidate docs and workflows | Implementation verified; environment release evidence is maintained in [phase PR #38](https://github.com/AbdusSattar-70/sohojac/pull/38) |
 | 1B — Clean development foundation | One-time shared DB reset; Classes 1–12; guardian relationships and reference masters; consolidated Academic Setup; public options from active masters | Released and reset verified in [PR #41](https://github.com/AbdusSattar-70/sohojac/pull/41) |
+| 1C — Academic setup workflow corrections | Single year editor; visible submission validation; consistent batch readiness; public Evening Care offerings and 12-seat cohorts | Released and verified in [PR #44](https://github.com/AbdusSattar-70/sohojac/pull/44) and [PR #46](https://github.com/AbdusSattar-70/sohojac/pull/46) |
 | 2 — One authoritative write path | REST and Server Actions call the same domain commands; named permissions everywhere; retry-safe collections and expenses; retire bypass APIs; exact retry/concurrent/denial regression tests | Next |
 | 3 — Canonical data and business rules | Reconcile the two subject masters without losing IDs; version-check master edits; common Asia/Dhaka business date and integer-paisa helpers; explicit fee-plan pinning policy | Planned |
 | 4 — Engineering and operational reliability | Format/lint; split the long CI smoke script into maintainable suites without removing coverage; structured safe diagnostics; recovery drill and immutable rollback target; controlled dependency updates; remove proven unused dependencies | Planned |
@@ -141,3 +142,14 @@ batch creation, and disabled offering submission buttons concealing validation r
 
 Other programme prices remain operator decisions. Admission opens only through the normal verified workflow.
 Record actual dev/main release evidence in the phase PR before marking this correction released.
+
+### Phase 1C release evidence
+
+- [PR #43](https://github.com/AbdusSattar-70/sohojac/pull/43) and [integration run 41101947580](https://github.com/AbdusSattar-70/sohojac/actions/runs/41101947580) verified the workflow corrections, actual local D1 binding, seed and authenticated ERP smoke checks. All original source/navigation verifiers, TypeScript and Worker build passed; 101 focused/domain tests passed locally.
+- [Dev run 41103587472](https://github.com/AbdusSattar-70/sohojac/actions/runs/41103587472) deployed `34b7a908fd77bf9477b6ba63b616674b1f56cac1` and confirmed three public offerings, published fees and three 12-seat batches in the single shared D1. No students, admissions or payments were seeded.
+- [Main run 41104267554](https://github.com/AbdusSattar-70/sohojac/actions/runs/41104267554) deployed `42e16ccdb77ba6b928a1cf18165c3ce0868fdb0b` and passed health, private endpoint denial and Turnstile checks. It confirmed the foundation reset and public catalogue seed were already complete, preserving subsequent work.
+- Independent live HTML checks confirmed all three Evening Care cards on the homepage and offering choices in `/interest`, alongside Classes 1–12.
+- Final review found a non-monthly due-day default edge case. [PR #45](https://github.com/AbdusSattar-70/sohojac/pull/45) added the shared monthly/term/one-time helper and regression coverage; [integration run 41104736381](https://github.com/AbdusSattar-70/sohojac/actions/runs/41104736381) passed. Monthly defaults to day 10; other billing cycles remain blank.
+- [Final dev run 41105286069](https://github.com/AbdusSattar-70/sohojac/actions/runs/41105286069) deployed `6b59a376ed6c8e25002cbd7c2ed59fc2f62498b6`. [Final main run 41105806134](https://github.com/AbdusSattar-70/sohojac/actions/runs/41105806134) deployed `06c667c0c76cc412babf9db7917ab038d8211abd`, completing the correction phase with successful health/security checks.
+
+Phase 2 remains next. Subject-master reconciliation and Classes 1–3 offering subjects remain Phase 3 work.
