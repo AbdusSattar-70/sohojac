@@ -63,7 +63,7 @@ export function TurnstileChallenge({
     const id = api.render(container.current, {
       sitekey: config.siteKey,
       action,
-      theme: "auto",
+      theme: "dark",
       callback: (token: string) => {
         setMessage("");
         onToken(token);
