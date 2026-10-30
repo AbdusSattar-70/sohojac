@@ -1,5 +1,8 @@
 # Programme Offerings — exact-source migration
 
+Historical mapping/identity contract. Current implementation and release status are in [the development strategy](DEVELOPMENT_STRATEGY.md).
+
+
 Source: `AbdusSattar-70/sohoj-academy`,
 `feature/sohoj_final`; source schema blob `da68ef71bc0b0a9574710b824c591ba2bcc04375`.
 

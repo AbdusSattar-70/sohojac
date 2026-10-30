@@ -2,8 +2,8 @@
 
 ## Supported releases
 
-The single `public-site-check.yml` pipeline contains regression checks plus isolated `dev` and production
-`master` releases. Feature PRs targeting dev run checks only; dev-to-master promotion reuses the verified dev run,
+The single `public-site-check.yml` pipeline contains regression checks plus `dev` and main
+`master` releases using the SAME `sohojac` D1. Feature PRs targeting dev run checks only; dev-to-master promotion reuses the verified dev run,
 then the master push independently checks the exact production merge. Do not add a competing manual/public-only deploy workflow.
 Both release paths capture a verified D1 Time Travel bookmark before pending migrations and preserve
 it as a seven-day Actions artifact. The three pre-0029 immutable snapshots also remain available.
@@ -19,7 +19,7 @@ Keep the auth secret stable across releases. Never put secrets in code, logs, is
 
 Dev variables/secrets: `DEV_TURNSTILE_SITE_KEY`, `DEV_TURNSTILE_SECRET_KEY`, optional
 `DEV_BETTER_AUTH_SECRET`. Its actual workers.dev hostname must be allowed by that Turnstile widget.
-The deployment provisions/reuses independent dev D1. Without dev Turnstile keys, anonymous account
+Both deployments bind the existing `sohojac` D1. No dev database is provisioned. Without dev Turnstile keys, anonymous account
 forms are deliberately unavailable, rather than silently accepting unverified requests.
 
 Optional staff email: configure `STAFF_EMAIL_FROM` and `RESEND_API_KEY` together with a verified sender.
@@ -81,3 +81,21 @@ request URL and configured auth origin; production and dev have no bypass flag.
 
 Superseded draft/release/status/setup notes were consolidated here and into the strategy. Their
 history remains in Git. Do not create another competing roadmap for each feature.
+
+## Shared development database and seed
+
+The user explicitly chose one DB for this development installation. Both URLs see the same records;
+existing main OWNER credentials work on dev. Sessions remain hostname-specific. Dev changes affect
+main data immediately, and both release jobs serialize through `sohojac-shared-d1-release`.
+
+The dev release runs the repeatable `seeds/development.sql` after migration/recovery capture.
+Search ERP lists for TEST: campus, year, class, Mathematics, programme, fee v1, Batch A, one returning
+student, two admission drafts and one CRM prospect. The offering is hidden from the public website.
+The synthetic contact is test data, not a real guardian. Review, consent, billing/payment and activation
+still require their normal operator commands. Re-running the seed does not reset staff edits or accounts.
+No database reset is needed or performed. Credentials/passwords are never seeded.
+
+After the verified dev Worker deploy, retirement checks both Worker D1 bindings and captures the former
+dev-only database bookmark before deleting only the exact former `sohojac-dev` resource. A separate
+seven-day Actions artifact records that retirement. Recovery of a deleted database requires Cloudflare
+undelete before its bookmark can be used; this metadata is not a standalone SQL database export.

@@ -35,6 +35,8 @@ jobs:
         run: pnpm run cf-typegen
       - name: Verify shared request protection and challenge failures
         run: node scripts/test-request-protection.mjs
+      - name: Verify shared development seed and guarded legacy database retirement
+        run: node scripts/test-development-seed.mjs
       - name: Verify types
         run: pnpm exec tsc --noEmit
       - name: Verify pinned original ERP architecture contract
@@ -1398,7 +1400,7 @@ jobs:
     permissions:
       contents: read
     concurrency:
-      group: sohojac-production-deploy
+      group: sohojac-shared-d1-release
       cancel-in-progress: false
     env:
       CF_SEND_TELEMETRY: "false"
@@ -1536,7 +1538,7 @@ jobs:
           echo "Site healthy; unauthenticated prospect access denied."
 
   dev_release:
-    name: Deploy isolated dev preview to Cloudflare
+    name: Deploy dev preview using shared sohojac D1
     needs: build
     if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
     runs-on: ubuntu-latest
@@ -1544,7 +1546,7 @@ jobs:
     permissions:
       contents: read
     concurrency:
-      group: sohojac-dev-deploy
+      group: sohojac-shared-d1-release
       cancel-in-progress: false
     env:
       CF_SEND_TELEMETRY: "false"
@@ -1586,24 +1588,26 @@ jobs:
           run_install: false
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
-      - name: Locate or provision independent development D1 and URL
+      - name: Confirm shared sohojac D1 and resolve dev URL
         id: target
-        run: node scripts/provision-dev-cloudflare.mjs
+        run: node scripts/prepare-dev-deployment.mjs
       - name: Capture verified dev D1 recovery point
-        run: node scripts/capture-d1-recovery.mjs "$SOHOJAC_DEV_D1_ID"
+        run: node scripts/capture-d1-recovery.mjs "$SOHOJAC_D1_ID"
       - name: Preserve dev recovery bookmark
         uses: actions/upload-artifact@v4
         with:
           name: dev-d1-recovery-${{ github.sha }}
           path: ${{ runner.temp }}/sohojac-d1-recovery.json
           retention-days: 7
-      - name: Apply pending migrations ONLY to development D1
+      - name: Apply pending migrations to the one shared D1
         run: |
           set -euo pipefail
-          test "$SOHOJAC_DEV_D1_ID" != "d6f3e4e9-2190-43bf-bc90-969687f6db78"
+          test "$SOHOJAC_D1_ID" = "d6f3e4e9-2190-43bf-bc90-969687f6db78"
           node scripts/check-d1-migrations.mjs
-          pnpm exec cf d1 migrations list "$SOHOJAC_DEV_D1_ID" --mode staging
-          printf 'y\n' | pnpm exec cf d1 migrations apply "$SOHOJAC_DEV_D1_ID" --mode staging
+          pnpm exec cf d1 migrations list "$SOHOJAC_D1_ID" --mode staging
+          printf 'y\n' | pnpm exec cf d1 migrations apply "$SOHOJAC_D1_ID" --mode staging
+      - name: Apply repeatable user-authorized development seed
+        run: node scripts/seed-development.mjs
       - name: Rebuild tested source with staging Cloudflare configuration
         run: |
           set -euo pipefail
@@ -1646,4 +1650,15 @@ jobs:
           private_code=$(curl --silent --show-error --max-time 15 -o /dev/null -w '%{http_code}' "$BETTER_AUTH_URL/api/staff/students")
           test "$private_code" = "401"
           echo "Staging ERP deployed: $BETTER_AUTH_URL"
-          echo "Dev has an independent D1 and needs its own OWNER setup; no production records were copied."
+          echo "Dev and main share sohojac D1 and existing accounts; no second database or owner is created."
+
+      - name: Retire former dev-only database after verified Worker rebinding
+        run: node scripts/retire-legacy-dev-database.mjs
+      - name: Preserve former dev database retirement bookmark
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: retired-dev-d1-recovery-${{ github.sha }}
+          path: ${{ runner.temp }}/retired-dev-d1-recovery.json
+          retention-days: 7
+          if-no-files-found: ignore
