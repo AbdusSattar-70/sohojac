@@ -241,7 +241,7 @@ export async function finalizeAdmission(input:unknown):Promise<Outcome>{
  const v=p.data,old=await state(v.admissionId);
  if(!old)return {ok:false,message:"Case not found."};
  if(old.status==="BILLED"||old.status==="ENROLLED")return {ok:true,message:"Admission already finalized; existing billing retained."};
- if(old.status!=="REVIEW"||!old.batch_id||old.student_id)return {ok:false,message:"Complete application verification before final submission."};
+ if(old.status!=="REVIEW"||!old.batch_id)return {ok:false,message:"Complete application verification before final submission."};
  const data=await getAdmissionReviewData(v.admissionId);
  if(data.version!==old.version)return {ok:false,message:"Application changed; reload the final review."};
  if(!data.referral||!data.hasConsent||!data.plan)return {ok:false,message:"Record source, signed paper consent and an active fee plan before final submission."};
@@ -251,7 +251,7 @@ export async function finalizeAdmission(input:unknown):Promise<Outcome>{
  const extra=data.charges.filter(x=>x.is_active).reduce((n,x)=>n+Math.round(x.amount*100),0);
  const registration=admission+extra,total=monthly+registration;
  if(!Number.isSafeInteger(total)||total<0)return {ok:false,message:"Invalid fee amount."};
- const studentId=crypto.randomUUID(),invoiceId=crypto.randomUUID(),billId=crypto.randomUUID();
+ const studentId=old.student_id??crypto.randomUUID(),invoiceId=crypto.randomUUID(),billId=crypto.randomUUID();
  // Validate the live fee snapshot before the first write in this D1 transaction.
  // Fee edits retain the identity revision so existing signed consent stays valid.
  // A changed discount, charge total, policy or latest plan rejects this snapshot;
@@ -261,13 +261,14 @@ export async function finalizeAdmission(input:unknown):Promise<Outcome>{
  try{
   const tx=await env.DB.batch([
    env.DB.prepare([
-    "INSERT INTO academy_student_number_sequence(admission_id)",
+    old.student_id ? "UPDATE academy_admissions SET version=version WHERE id IN (" : "INSERT INTO academy_student_number_sequence(admission_id)",
     "SELECT a.id FROM academy_admissions a",
     "JOIN academy_batches b ON b.id=a.batch_id",
     "JOIN academy_admission_consents c ON c.admission_id=a.id AND c.identity_revision=a.version",
     "JOIN academy_admission_referrals r ON r.admission_id=a.id",
     "JOIN public_programme_offerings o ON o.id=a.offering_id",
-    "WHERE a.id=? AND a.status='REVIEW' AND a.version=? AND a.student_id IS NULL AND a.consent_verified=1",
+    "WHERE a.id=? AND a.status='REVIEW' AND a.version=? AND a.student_id IS ? AND a.consent_verified=1",
+    ...(old.student_id ? ["AND a.existing_student=1 AND EXISTS(SELECT 1 FROM academy_students s WHERE s.id=a.student_id AND s.merged_into_id IS NULL AND s.status<>'ARCHIVED')"] : []),
     "AND b.status='ACTIVE' AND b.offering_id=a.offering_id",
     "AND b.capacity>(SELECT COUNT(*) FROM academy_enrollments en WHERE en.batch_id=b.id AND en.status='ACTIVE')",
     "AND COALESCE((SELECT d.discount_percent FROM academy_admission_discounts d WHERE d.admission_id=a.id),0)=?",
@@ -277,9 +278,9 @@ export async function finalizeAdmission(input:unknown):Promise<Outcome>{
     "AND EXISTS(SELECT 1 FROM academy_fee_plans f WHERE f.id=? AND f.offering_id=a.offering_id AND f.active=1",
     "AND f.monthly_amount_paisa=? AND f.admission_amount_paisa=?",
     "AND f.id=(SELECT current.id FROM academy_fee_plans current WHERE current.offering_id=a.offering_id AND current.active=1 ORDER BY current.rowid DESC LIMIT 1))",
-    "RETURNING seq"
-   ].join(" ")).bind(v.admissionId,old.version,data.discount.selected,extra,data.discount.selected,data.discount.selected,data.plan.id,tuition,admission),
-   env.DB.prepare([
+    old.student_id ? ") RETURNING id" : "RETURNING seq"
+   ].join(" ")).bind(v.admissionId,old.version,old.student_id,data.discount.selected,extra,data.discount.selected,data.discount.selected,data.plan.id,tuition,admission),
+   ...(!old.student_id ? [env.DB.prepare([
     "INSERT INTO academy_students(id,student_no,full_name,class_grade,guardian_name,guardian_mobile,school_name,status)",
     "SELECT ?,'SA-'||printf('%06d',n.seq),a.student_full_name,a.class_grade,a.guardian_full_name,a.guardian_mobile,a.school_name,'INACTIVE'",
     "FROM academy_admissions a JOIN academy_student_number_sequence n ON n.admission_id=a.id",
@@ -292,7 +293,7 @@ export async function finalizeAdmission(input:unknown):Promise<Outcome>{
     "AND EXISTS(SELECT 1 FROM academy_fee_plans f WHERE f.id=? AND f.offering_id=a.offering_id AND f.active=1",
     "AND f.monthly_amount_paisa=? AND f.admission_amount_paisa=?)",
     "RETURNING id"
-   ].join(" ")).bind(studentId,v.admissionId,old.version,data.plan.id,tuition,admission),
+   ].join(" ")).bind(studentId,v.admissionId,old.version,data.plan.id,tuition,admission)] : []),
    env.DB.prepare([
     "UPDATE academy_admissions SET student_id=?,fee_plan_id=?,status='BILLED',",
     "approved_by=?,verified_by=COALESCE(verified_by,?),version=version+1,",
@@ -314,7 +315,7 @@ export async function finalizeAdmission(input:unknown):Promise<Outcome>{
     "SELECT ?,'admission',admission_id,'FINALIZED_AND_BILLED',?,?,?",
     "FROM finance_invoices WHERE changes()=1 AND id=? AND student_id=? RETURNING id"
    ].join(" ")).bind(crypto.randomUUID(),user,v.reason,
-    JSON.stringify({studentId,invoiceId,reference,studentNo:"SA- sequence allocated atomically",monthlyPaisa:monthly,admissionAndExtrasPaisa:registration,discountPercent:data.discount.selected}),invoiceId,studentId)
+    JSON.stringify({studentId,invoiceId,reference,studentNo:old.student_id?"Existing permanent identity retained":"SA- sequence allocated atomically",monthlyPaisa:monthly,admissionAndExtrasPaisa:registration,discountPercent:data.discount.selected}),invoiceId,studentId)
   ]);
   if(tx.some(r=>(r.results?.length??0)!==1))return {ok:false,message:"Finalization not confirmed. Check the case and invoice before retrying."};
   refresh(v.admissionId);return {ok:true,message:"Admission confirmed. Student ID and initial invoice issued together; payment remains unpaid until recorded."};
