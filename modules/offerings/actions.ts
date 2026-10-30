@@ -17,7 +17,7 @@ async function authorized(permission:string):Promise<Context|null>{
  return context;
 }
 function refresh(){
- for(const path of ["/dashboard/academics/offerings","/dashboard/academics/batches","/dashboard/admissions","/dashboard/finance/fee-plans","/dashboard/crm/manage","/dashboard/governance/audit","/","/interest"])revalidatePath(path);
+ for(const path of ["/dashboard/academics/launch","/dashboard/academics/offerings","/dashboard/academics/batches","/dashboard/admissions","/dashboard/finance/fee-plans","/dashboard/crm/manage","/dashboard/governance/audit","/","/interest"])revalidatePath(path);
 }
 function invalid(parsed:{error:{issues:Array<{message:string;path:PropertyKey[]}>}}):OfferingMutationResult{
  const issue=parsed.error.issues[0];return {ok:false,error:issue?.message??"Check the input.",field:issue?.path[0]?.toString()};
