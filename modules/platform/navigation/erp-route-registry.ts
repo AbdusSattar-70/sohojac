@@ -378,7 +378,7 @@ export const implementedErpRoutes = [
  "/dashboard/admissions", "/dashboard/students", "/dashboard/crm/prospects",
  "/dashboard/crm/manage", "/dashboard/academics/settings",
  "/dashboard/staff", "/dashboard/governance/audit",
- "/dashboard/academics/academic-years", "/dashboard/academics/offerings",
+ "/dashboard/academics/offerings",
  "/dashboard/academics/subjects", "/dashboard/academics/batches",
  "/dashboard/academics/routine", "/dashboard/academics/assessments",
  "/dashboard/attendance", "/dashboard/teacher",

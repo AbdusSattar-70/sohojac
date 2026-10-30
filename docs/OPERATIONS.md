@@ -105,3 +105,16 @@ After the verified dev Worker deploy, retirement checks both Worker D1 bindings 
 dev-only database bookmark before deleting only the exact former `sohojac-dev` resource. A separate
 seven-day Actions artifact records that retirement. Recovery of a deleted database requires Cloudflare
 undelete before its bookmark can be used; this metadata is not a standalone SQL database export.
+
+## Public catalogue and batch readiness
+
+`seed-public-catalogue.mjs` runs once on the shared DB after dev upload; main verifies the same seed.
+`public-catalogue-20261030-v1` records completion. Later deployments preserve offering names, visibility,
+fees and batch edits. This is additive and does not repeat the foundation reset.
+The three public Boys Evening Care offerings use Class 8 ৳2,500/month and Classes 9–10 ৳3,000/month,
+with 12-seat batches. Actual schedules and other programmes' fees must be configured by staff.
+
+Create an offering draft → publish today's Fee Plan to activate it → configure public visibility/intake
+→ create a batch. Batch choices disable offerings missing active context/current fees. A disabled submit
+button is no longer used to conceal validation errors: submit shows the fields that need attention.
+Academic years are managed within Academic Setup; old separate-year bookmarks redirect there.

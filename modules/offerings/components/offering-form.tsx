@@ -4,7 +4,12 @@ import { finishWorkflow } from "@/modules/platform/navigation/workflow-return";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, useWatch, type FieldPath, type Resolver } from "react-hook-form";
+import {
+  useForm,
+  useWatch,
+  type FieldPath,
+  type Resolver,
+} from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { ErpFormField, ErpFormStatus } from "@/components/erp/form-field";
 import {
@@ -36,7 +41,11 @@ export function OfferingForm({
   const router = useRouter();
   const isEditing = Boolean(initialOffering);
   const contextLocked = Boolean(
-    initialOffering && initialOffering.status !== "DRAFT" && initialOffering.branch_id && initialOffering.program_id && initialOffering.operation_kind,
+    initialOffering &&
+    initialOffering.status !== "DRAFT" &&
+    initialOffering.branch_id &&
+    initialOffering.program_id &&
+    initialOffering.operation_kind,
   );
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(
@@ -48,9 +57,11 @@ export function OfferingForm({
     handleSubmit,
     reset,
     setError,
-    formState: { errors, isDirty, isValid },
+    formState: { errors },
   } = useForm<OfferingFormInput>({
-    resolver: zodResolver(offeringFormSchema) as unknown as Resolver<OfferingFormInput>,
+    resolver: zodResolver(
+      offeringFormSchema,
+    ) as unknown as Resolver<OfferingFormInput>,
     mode: "onChange",
     defaultValues: initialOffering
       ? {
@@ -114,69 +125,83 @@ export function OfferingForm({
       values: data.programs,
     },
   ] as const;
-  const submit = handleSubmit((input) => {
-    if (
-      operationKind !== "TRAINING" &&
-      (!input.academicYearId || !input.classId)
-    ) {
-      setMessage({
-        ok: false,
-        text: "Select the class and academic year for School or Coaching.",
-      });
-      return;
-    }
-    if (
-      operationKind === "TRAINING" &&
-      (!input.teachingStartsOn ||
-        !input.teachingEndsOn ||
-        input.teachingEndsOn < input.teachingStartsOn)
-    ) {
-      setMessage({
-        ok: false,
-        text: "Set the training course start and end dates.",
-      });
-      return;
-    }
-    setMessage(null);
-    startTransition(async () => {
-      const result = isEditing
-        ? await updateProgrammeOffering(input as UpdateOfferingInput).catch(
-            () => ({
+  const submit = handleSubmit(
+    (input) => {
+      if (
+        operationKind !== "TRAINING" &&
+        (!input.academicYearId || !input.classId)
+      ) {
+        setMessage({
+          ok: false,
+          text: "Select the class and academic year for School or Coaching.",
+        });
+        return;
+      }
+      if (
+        operationKind === "TRAINING" &&
+        (!input.teachingStartsOn ||
+          !input.teachingEndsOn ||
+          input.teachingEndsOn < input.teachingStartsOn)
+      ) {
+        setMessage({
+          ok: false,
+          text: "Set the training course start and end dates.",
+        });
+        return;
+      }
+      setMessage(null);
+      startTransition(async () => {
+        const result = isEditing
+          ? await updateProgrammeOffering(input as UpdateOfferingInput).catch(
+              () => ({
+                ok: false as const,
+                field: undefined as string | undefined,
+                error:
+                  "Could not save. Your entries are retained; check connection and retry.",
+              }),
+            )
+          : await createProgrammeOffering(input).catch(() => ({
               ok: false as const,
               field: undefined as string | undefined,
               error:
-                "Could not save. Your entries are retained; check connection and retry.",
-            }),
-          )
-        : await createProgrammeOffering(input).catch(() => ({
-            ok: false as const,
-            field: undefined as string | undefined,
-            error:
-              "Could not create. Your entries are retained; check connection and retry.",
-          }));
-      if (!result.ok) {
-        if (result.field)
-          setError(result.field as FieldPath<OfferingFormInput>, {
-            message: result.error,
+                "Could not create. Your entries are retained; check connection and retry.",
+            }));
+        if (!result.ok) {
+          if (result.field)
+            setError(result.field as FieldPath<OfferingFormInput>, {
+              message: result.error,
+            });
+          setMessage({ ok: false, text: result.error });
+          return;
+        }
+        setMessage({
+          ok: true,
+          text: isEditing
+            ? "Offering details saved. Existing placements and public settings stay attached."
+            : "Offering created as a draft. Publish its Fee Plan to activate it.",
+        });
+        finishWorkflow(router);
+        onSuccess?.(
+          isEditing
+            ? "Offering details saved."
+            : "Offering created. Set fees and permitted discounts next.",
+        );
+        if (!isEditing)
+          reset({
+            ...input,
+            code: "",
+            name: "",
+            reason: "",
+            requestId: crypto.randomUUID(),
           });
-        setMessage({ ok: false, text: result.error });
-        return;
-      }
-      setMessage({
-        ok: true,
-        text: isEditing
-          ? "Offering details saved. Existing placements and public settings stay attached."
-          : "Offering created as a draft. Publish its Fee Plan to activate it.",
       });
-      finishWorkflow(router);
-      onSuccess?.(
-        isEditing
-          ? "Offering details saved."
-          : "Offering created. Set fees and permitted discounts next.",
-      );
-      if (!isEditing) reset();
-    });
-  });
+    },
+    () =>
+      setMessage({
+        ok: false,
+        text: "Complete the highlighted fields, then submit again. Your entries are retained.",
+      }),
+  );
   return (
     <form
       data-editor
@@ -351,7 +376,7 @@ export function OfferingForm({
         </div>
         <ErpFormStatus message={message} />
         <div className="flex flex-wrap items-center gap-3">
-          <Button type="submit" disabled={!isDirty || !isValid || pending}>
+          <Button type="submit" disabled={pending}>
             {pending
               ? "Saving…"
               : isEditing
@@ -363,7 +388,7 @@ export function OfferingForm({
               type="button"
               variant="outline"
               disabled={pending}
-             
+
               onClick={onCancel}
             >
               Cancel

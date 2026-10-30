@@ -121,3 +121,23 @@ confirmed independently of code checks; implementation alone is not proof of a r
 - [Main run 41095569753](https://github.com/AbdusSattar-70/sohojac/actions/runs/41095569753) deployed commit `6bc93c878466406009c8ca93364ad9f868159009`, captured the recovery bookmark, completed the shared D1 reset, and passed public health/private API denial and Turnstile checks.
 - Public `/interest` HTML independently verified Classes 1–12, 27 guardian relationships and no TEST option labels after reset. Runtime validation confirmed zero students/payments and valid foreign keys before marking COMPLETE.
 - Local verification: 15 reset/security/retirement checks, all 80 existing domain tests, TypeScript and Worker build passed. Login credentials and staff identities were preserved; no new login or financial posting was seeded.
+
+## Phase 1C: academic setup workflow corrections
+
+User-reported regressions: a duplicate Academic Years page, draft/non-fee-ready offerings selectable for
+batch creation, and disabled offering submission buttons concealing validation requirements.
+
+- Academic Setup is the single year-management UI. Remove the duplicate editor/navigation entry;
+  retain old URLs as redirects and authenticated year APIs for compatibility.
+- Share batch offering readiness between choices and guarded server mutations. Explain missing fee
+  publication, exclude expired fees and inactive classes, and retain concurrency/capacity/idempotency checks.
+- Keep offering, fee and public-control submit buttons available for validation; show summary/field errors,
+  preserve input on failure, provide monthly due-day defaults and refresh request identities after success.
+- Install a one-time additive public catalogue seed: Boys Evening Care for Classes 8–10, using the owner's
+  stated ৳2,500/৳3,000 monthly fees, three current fee plans and three 12-seat batches. Seed no students,
+  admissions, invoices or payments. Do not reset data or overwrite operator changes on later releases.
+- Exercise the draft → fee publication → public controls → batch workflow and seed against the actual
+  local Cloudflare D1 binding, in addition to existing SQLite/concurrency and authenticated CI checks.
+
+Other programme prices remain operator decisions. Admission opens only through the normal verified workflow.
+Record actual dev/main release evidence in the phase PR before marking this correction released.

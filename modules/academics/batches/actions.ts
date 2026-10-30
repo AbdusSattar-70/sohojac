@@ -5,6 +5,7 @@ import {revalidatePath} from "next/cache";
 import {getErpContext} from "@/modules/platform/auth/erp-context";
 import {commandSchema} from "@/modules/admissions/schema";
 import {z} from "zod";
+import {batchOfferingReadySql} from "@/lib/academic-offering-readiness";
 type Outcome={ok:boolean;message:string;field?:string;entityId?:string};
 async function actor(){
  const context=await getErpContext();if(!context?.permissions.includes("academics.manage"))return null;
@@ -25,6 +26,10 @@ export async function runAcademicBatchCommand(input:unknown):Promise<Outcome>{
  if(!v.code||!/^([A-Za-z0-9_-]){2,40}$/.test(v.code)||!v.name||v.name.length<2)return {ok:false,message:"Enter a valid batch code and name."};
  if(!v.capacity||v.capacity>12)return {ok:false,message:"Batch capacity must be between 1 and the current policy limit of 12.",field:"capacity"};
  const payload=JSON.stringify(v),command=v.action,prev=await replay(v.requestId,user,command,payload);if(prev)return prev;
+ if(v.action==="CREATE_BATCH") {
+  const ready=await env.DB.prepare("SELECT o.id FROM public_programme_offerings o WHERE o.id=? AND "+batchOfferingReadySql).bind(v.offeringId!).first();
+  if(!ready)return {ok:false,field:"offeringId",message:"Choose an active offering with a published current Fee Plan. Open Fee Plans to publish tuition and activate the draft before creating a batch."};
+ }
  const id=v.action==="CREATE_BATCH"?crypto.randomUUID():v.batchId!;
  let old:unknown=null;
  if(v.action==="EDIT_BATCH"){
@@ -37,13 +42,7 @@ export async function runAcademicBatchCommand(input:unknown):Promise<Outcome>{
    env.DB.prepare([
     "INSERT INTO academy_batches(id,code,name,offering_id,year_id,capacity,status)",
     "SELECT ?,upper(?),?,o.id,o.academic_year_id,?,'ACTIVE' FROM public_programme_offerings o",
-    "WHERE o.id=? AND o.is_active=1 AND o.branch_id IS NOT NULL AND o.program_id IS NOT NULL",
-    "AND EXISTS(SELECT 1 FROM academy_branches b WHERE b.id=o.branch_id AND b.is_active=1)",
-    "AND EXISTS(SELECT 1 FROM academy_programmes p WHERE p.id=o.program_id AND p.active=1)",
-    "AND o.operation_kind IN ('SCHOOL','COACHING','TRAINING')",
-    "AND (o.operation_kind='TRAINING' OR (o.academic_year_id IS NOT NULL AND o.class_id IS NOT NULL))",
-    "AND EXISTS(SELECT 1 FROM academy_fee_plans f WHERE f.offering_id=o.id AND f.active=1",
-    "AND (f.source_version IS NULL OR (f.source_status='ACTIVE' AND f.effective_from<=date('now','+6 hours')))) RETURNING id"
+    "WHERE o.id=? AND "+batchOfferingReadySql+" RETURNING id"
    ].join(" ")).bind(id,v.code,v.name,v.capacity,v.offeringId!):
    env.DB.prepare([
     "UPDATE academy_batches SET code=upper(?),name=?,capacity=?,version=version+1",
@@ -70,9 +69,7 @@ export async function changeRecordState(input:unknown):Promise<Outcome>{
   const tx=await env.DB.batch([
    env.DB.prepare([
     "UPDATE academy_batches SET status=?,version=version+1 WHERE id=? AND version=? AND status IN ('ACTIVE','PLANNED')",
-    "AND (?=0 OR EXISTS(SELECT 1 FROM public_programme_offerings o WHERE o.id=academy_batches.offering_id AND o.is_active=1",
-    "AND EXISTS(SELECT 1 FROM academy_fee_plans f WHERE f.offering_id=o.id AND f.active=1",
-    "AND (f.source_version IS NULL OR (f.source_status='ACTIVE' AND f.effective_from<=date('now','+6 hours')))))) RETURNING id"
+    "AND (?=0 OR EXISTS(SELECT 1 FROM public_programme_offerings o WHERE o.id=academy_batches.offering_id AND "+batchOfferingReadySql+")) RETURNING id"
    ].join(" ")).bind(v.active?"ACTIVE":"PLANNED",v.id,old.version,v.active?1:0),
    env.DB.prepare("INSERT INTO erp_audit_events(id,entity_type,entity_id,action,actor_id,reason,before_json,after_json) SELECT ?,'academy_batch',?,?,?,?,?,? WHERE changes()=1 RETURNING id").bind(crypto.randomUUID(),v.id,v.active?"REACTIVATE":"MARK_INACTIVE",user,v.reason,JSON.stringify(old),JSON.stringify({status:v.active?"ACTIVE":"PLANNED"}))
   ]);

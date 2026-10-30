@@ -58,7 +58,7 @@ export function PublicControlsForm({
     handleSubmit,
     setError,
     control,
-    formState: { errors, isDirty, isValid },
+    formState: { errors },
   } = useForm<UpdateOfferingPublicControlsInput>({
     resolver: zodResolver(
       updateOfferingPublicControlsSchema,
@@ -66,6 +66,8 @@ export function PublicControlsForm({
     mode: "onChange",
     defaultValues: {
       offeringId: offering.id,
+      requestId: crypto.randomUUID(),
+      expectedVersion: offering.version,
       showcaseTitle: offering.showcase_title ?? "",
       showcaseTitleBn: offering.showcase_title_bn ?? "",
       showcaseDescription: offering.showcase_description ?? "",
@@ -92,38 +94,45 @@ export function PublicControlsForm({
   });
 
   const isVisible = useWatch({ control, name: "isWebsiteVisible" });
-  const canSubmit = isDirty && isValid && !pending;
+  const canSubmit = !pending;
 
-  const submit = handleSubmit((input) => {
-    setMessage(null);
-    startTransition(async () => {
-      const result = await updateProgrammeOfferingPublicControls(input).catch(
-        () => ({
-          ok: false as const,
-          field: undefined as string | undefined,
-          error: "Could not save. Your entries remain; retry when connected.",
-        }),
-      );
-      if (!result.ok) {
-        if (result.field) {
-          setError(
-            result.field as FieldPath<UpdateOfferingPublicControlsInput>,
-            {
-              message: result.error,
-            },
-          );
+  const submit = handleSubmit(
+    (input) => {
+      setMessage(null);
+      startTransition(async () => {
+        const result = await updateProgrammeOfferingPublicControls(input).catch(
+          () => ({
+            ok: false as const,
+            field: undefined as string | undefined,
+            error: "Could not save. Your entries remain; retry when connected.",
+          }),
+        );
+        if (!result.ok) {
+          if (result.field) {
+            setError(
+              result.field as FieldPath<UpdateOfferingPublicControlsInput>,
+              {
+                message: result.error,
+              },
+            );
+          }
+          setMessage({ ok: false, text: result.error });
+          return;
         }
-        setMessage({ ok: false, text: result.error });
-        return;
-      }
-      setMessage({
-        ok: true,
-        text: "Public controls saved. Website visibility and application intake are independent of operational status.",
+        setMessage({
+          ok: true,
+          text: "Public controls saved. Website visibility and application intake are independent of operational status.",
+        });
+        onSuccess?.();
+        router.refresh();
       });
-      onSuccess?.();
-      router.refresh();
-    });
-  });
+    },
+    () =>
+      setMessage({
+        ok: false,
+        text: "Complete the highlighted fields, then submit again. Your entries are retained.",
+      }),
+  );
 
   return (
     <form

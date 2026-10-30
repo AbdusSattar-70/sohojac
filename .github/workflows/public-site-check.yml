@@ -37,6 +37,8 @@ jobs:
         run: node scripts/test-request-protection.mjs
       - name: Verify shared development seed and guarded legacy database retirement
         run: node scripts/test-development-seed.mjs
+      - name: Verify actual D1 academic workflow and catalogue seed
+        run: node --test scripts/test-academic-d1-runtime.mjs scripts/test-public-catalogue.mjs
       - name: Verify types
         run: pnpm exec tsc --noEmit
       - name: Verify pinned original ERP architecture contract
@@ -1518,6 +1520,13 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: node scripts/reset-foundation.mjs
 
+      - name: Seed requested public catalogue and batches once
+        if: steps.ready.outputs.ready == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node scripts/seed-public-catalogue.mjs
+
       - name: Check production public routes and private API denial
         if: steps.ready.outputs.ready == 'true'
         run: |
@@ -1638,6 +1647,8 @@ jobs:
           pnpm exec cf deploy --prebuilt --mode staging --secrets-file "$RUNNER_TEMP/sohojac-dev-secrets.json"
       - name: Activate only the dev Worker workers.dev route
         run: node scripts/enable-dev-worker.mjs
+      - name: Seed requested public catalogue and batches once
+        run: node scripts/seed-public-catalogue.mjs
       - name: Smoke-test deployed preview and staff access denial
         run: |
           set -euo pipefail
