@@ -23,7 +23,7 @@ Do not delete migrations, pinned source manifests or regression checks as cleanu
 
 | Phase | Outcome and acceptance | Status |
 |---|---|---|
-| 1 — Security foundation and repository hygiene | Turnstile on anonymous account forms; shared server verification; durable request limits on public/API/ERP mutations; challenge expiry/retry UI; production fail-closed checks; remove stale docs, sample endpoint and dead rollback/automatic cleanup workflow | Implemented; awaiting full integration CI and dev/production release verification |
+| 1 — Security foundation and repository hygiene | Turnstile on anonymous account forms; shared server verification; durable request limits on public/API/ERP mutations; challenge expiry/retry UI; production fail-closed checks; remove stale docs, sample endpoint and dead rollback/automatic cleanup workflow | Implementation verified; environment release evidence is maintained in [phase PR #38](https://github.com/AbdusSattar-70/sohojac/pull/38) |
 | 2 — One authoritative write path | REST and Server Actions call the same domain commands; named permissions everywhere; retry-safe collections and expenses; retire bypass APIs; exact retry/concurrent/denial regression tests | Next |
 | 3 — Canonical data and business rules | Reconcile the two subject masters without losing IDs; version-check master edits; common Asia/Dhaka business date and integer-paisa helpers; explicit fee-plan pinning policy | Planned |
 | 4 — Engineering and operational reliability | Format/lint; split the long CI smoke script into maintainable suites without removing coverage; structured safe diagnostics; recovery drill and immutable rollback target; controlled dependency updates; remove proven unused dependencies | Planned |
@@ -80,6 +80,7 @@ remain discoverable through the two pinned JSON manifests and the source-path au
 
 - Nine direct production-guard tests cover policy routing, encoded paths, quota/reset behavior,
   server-action coverage, hashed keys, invalid/replayed/mismatched tokens and outages.
-- TypeScript and existing regression checks must pass before merging.
-- Real integration and release evidence is recorded on the phase PR and Actions run.
+- TypeScript, Worker build and all 80 existing domain tests passed locally.
+- Initial full integration CI passed in [Actions run 41085640537](https://github.com/AbdusSattar-70/sohojac/actions/runs/41085640537). Subsequent commits are rechecked before release.
+- The phase PR is the current dev/production release record; its exact commit and migration/Worker/health evidence must be verified before calling the phase released.
 - Human Turnstile completion in a real browser remains an explicit acceptance check.
