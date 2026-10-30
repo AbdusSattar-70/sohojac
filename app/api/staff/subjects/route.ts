@@ -1,6 +1,6 @@
 import {env} from "cloudflare:workers";
-import {getStaffAccess,privateJson,sameOrigin} from "@/lib/staff-access";
-import {createSubject,type SubjectRow,type OfferingSubjectRow} from "@/lib/erp-subjects";
+import {getStaffAccess,privateJson} from "@/lib/staff-access";
+import type {SubjectRow,OfferingSubjectRow} from "@/lib/erp-subjects";
 export const dynamic="force-dynamic";
 export async function GET(request:Request){
   const staff=await getStaffAccess(request.url,request.headers);
@@ -22,32 +22,17 @@ export async function GET(request:Request){
       links:links.results??[],canEdit:["OWNER","ADMIN"].includes(staff.role)});
   }catch{return privateJson({error:"Subject catalogue unavailable"},503);}
 }
-export async function POST(request:Request){
-  const staff=await getStaffAccess(request.url,request.headers);
-  if(!staff)return privateJson({error:"Authentication required"},401);
-  if(!["OWNER","ADMIN"].includes(staff.role))return privateJson({error:"Access denied"},403);
-  if(!sameOrigin(request))return privateJson({error:"Invalid request origin"},403);
-  if(!request.headers.get("content-type")?.toLowerCase().startsWith("application/json")){
-    return privateJson({error:"JSON required"},415);
-  }
-  let body:unknown;
-  try{const raw=await request.text();if(raw.length>2000)return privateJson({error:"Request too large"},413);body=JSON.parse(raw);}
-  catch{return privateJson({error:"Invalid JSON"},400);}
-  const parsed=createSubject.safeParse(body);
-  if(!parsed.success)return privateJson({error:"Check subject code, name, class and group"},400);
-  const d=parsed.data,id=crypto.randomUUID();
-  try{
-    const tx=await env.DB.batch([
-      env.DB.prepare([
-        "INSERT INTO academy_subjects(id,code,name,class_grade,group_name)",
-        "VALUES (?,?,?,?,?) RETURNING id"
-      ].join(" ")).bind(id,d.code,d.name,d.classGrade,d.group),
-      env.DB.prepare([
-        "INSERT INTO erp_audit_events(id,entity_type,entity_id,action,actor_id,reason,after_json)",
-        "SELECT ?,'academy_subject',?,'CREATED',?,?,? WHERE changes()=1 RETURNING id"
-      ].join(" ")).bind(crypto.randomUUID(),id,staff.userId,d.reason,JSON.stringify(d)),
-    ]);
-    if(tx.some(x=>(x.results?.length??0)!==1))return privateJson({error:"Subject not created"},409);
-    return privateJson({ok:true,id,version:1},201);
-  }catch{return privateJson({error:"Subject code already used for this class and group"},409);}
+/**
+ * Legacy subjects have class/stream-specific IDs and are already linked into
+ * historical public-card data. No new legacy master rows should be minted.
+ * Use the single global academic_subjects master under Academic Settings;
+ * existing linked legacy records remain readable until a verified ID cutover.
+ */
+export async function POST(request:Request) {
+  const staff = await getStaffAccess(request.url, request.headers);
+  if (!staff) return privateJson({error:"Authentication required"},401);
+  return privateJson({
+    error:"Class-specific subject creation is retired. Create the subject once under Academic Settings → Subjects.",
+    action:"/dashboard/academics/settings",
+  },410);
 }
