@@ -160,39 +160,46 @@ export async function saveExtraCharge(input:unknown):Promise<Outcome>{
  const duplicate=await env.DB.prepare("SELECT id FROM academy_admission_extra_charges WHERE request_id=? AND admission_id=?").bind(v.request_id,v.admission_id).first<{id:string}>();
  if(duplicate)return {ok:true,message:"Previously saved charge confirmed; not duplicated."};
  if(!Number.isSafeInteger(amount)||amount<1)return {ok:false,message:"Invalid amount."};
+ const old=await state(v.admission_id);
+ if(!old||old.status!=="REVIEW")return {ok:false,message:"Only verified, unbilled cases allow extra charges."};
  try{
   const result=await env.DB.batch([
    env.DB.prepare([
     "INSERT INTO academy_admission_extra_charges(id,request_id,admission_id,charge_type,name,amount_paisa,recorded_by)",
-    "SELECT ?,?,?,?,?,?,? FROM academy_admissions WHERE id=? AND status='REVIEW' RETURNING id"
-   ].join(" ")).bind(id,v.request_id,v.admission_id,v.charge_type,v.name,amount,user,v.admission_id),
+    "SELECT ?,?,?,?,?,?,? FROM academy_admissions WHERE id=? AND status='REVIEW' AND version=? RETURNING id"
+   ].join(" ")).bind(id,v.request_id,v.admission_id,v.charge_type,v.name,amount,user,v.admission_id,old.version),
    env.DB.prepare([
     "INSERT INTO erp_audit_events(id,entity_type,entity_id,action,actor_id,reason,after_json)",
-    "VALUES(?,'admission',(SELECT admission_id FROM academy_admission_extra_charges WHERE id=?),",
-    "'ONE_TIME_CHARGE_ADDED',?,?,?)"
-   ].join(" ")).bind(crypto.randomUUID(),id,user,"Additional fee agreed with guardian",JSON.stringify({chargeType:v.charge_type,amountPaisa:amount}))
+    "SELECT ?,'admission',admission_id,'ONE_TIME_CHARGE_ADDED',?,?,?",
+    "FROM academy_admission_extra_charges WHERE id=? AND changes()=1 RETURNING id"
+   ].join(" ")).bind(crypto.randomUUID(),user,"Additional fee agreed with guardian",JSON.stringify({chargeType:v.charge_type,amountPaisa:amount}),id)
   ]);
-  if((result[0].results?.length??0)!==1)return {ok:false,message:"Only verified, unbilled cases allow extra charges."};
+  if(result.some(r=>(r.results?.length??0)!==1))return {ok:false,message:"Only verified, unbilled cases allow extra charges."};
   refresh(v.admission_id);return {ok:true,message:"One-time charge added to the pre-billing review."};
- }catch{return {ok:false,message:"Could not save charge. Check case status."};}
+ }catch{
+  const replay=await env.DB.prepare("SELECT id FROM academy_admission_extra_charges WHERE request_id=? AND admission_id=?").bind(v.request_id,v.admission_id).first<{id:string}>();
+  return replay?{ok:true,message:"Previously saved charge confirmed; not duplicated."}:{ok:false,message:"Could not save charge. Check case status."};
+ }
 }
 export async function deactivateExtraCharge(admissionId:string,chargeId:string):Promise<Outcome>{
  if(!uuid.safeParse(admissionId).success||!uuid.safeParse(chargeId).success)return {ok:false,message:"Invalid charge."};
  const user=await actor();if(!user)return {ok:false,message:"Admission permission required."};
+ const old=await state(admissionId);
+ if(!old||old.status!=="REVIEW")return {ok:false,message:"Charge is not editable."};
  try{
   const tx=await env.DB.batch([
    env.DB.prepare([
     "UPDATE academy_admission_extra_charges SET is_active=0",
     "WHERE id=? AND admission_id=? AND is_active=1",
-    "AND EXISTS(SELECT 1 FROM academy_admissions a WHERE a.id=? AND a.status='REVIEW') RETURNING id"
-   ].join(" ")).bind(chargeId,admissionId,admissionId),
+    "AND EXISTS(SELECT 1 FROM academy_admissions a WHERE a.id=? AND a.status='REVIEW' AND a.version=?) RETURNING id"
+   ].join(" ")).bind(chargeId,admissionId,admissionId,old.version),
    env.DB.prepare([
     "INSERT INTO erp_audit_events(id,entity_type,entity_id,action,actor_id,reason,after_json)",
-    "VALUES(?,'admission',(SELECT admission_id FROM academy_admission_extra_charges WHERE id=? AND is_active=0),",
-    "'ONE_TIME_CHARGE_DEACTIVATED',?,?,?)"
-   ].join(" ")).bind(crypto.randomUUID(),chargeId,user,"Removed unbilled additional charge",JSON.stringify({chargeId}))
+    "SELECT ?,'admission',admission_id,'ONE_TIME_CHARGE_DEACTIVATED',?,?,?",
+    "FROM academy_admission_extra_charges WHERE id=? AND admission_id=? AND is_active=0 AND changes()=1 RETURNING id"
+   ].join(" ")).bind(crypto.randomUUID(),user,"Removed unbilled additional charge",JSON.stringify({chargeId}),chargeId,admissionId)
   ]);
-  if((tx[0].results?.length??0)!==1)return {ok:false,message:"Charge is not editable."};
+  if(tx.some(r=>(r.results?.length??0)!==1))return {ok:false,message:"Charge is not editable."};
   refresh(admissionId);return {ok:true,message:"Charge marked inactive; historical record retained."};
  }catch{return {ok:false,message:"Could not deactivate charge."};}
 }
@@ -209,17 +216,20 @@ export async function saveAdmissionDiscount(input:unknown):Promise<Outcome>{
   const tx=await env.DB.batch([
    env.DB.prepare([
     "INSERT INTO academy_admission_discounts(admission_id,discount_percent,discount_reason,recorded_by)",
-    "SELECT ?,?,?,? FROM academy_admissions WHERE id=? AND status='REVIEW'",
+    "SELECT ?,?,?,? FROM academy_admissions a WHERE a.id=? AND a.status='REVIEW' AND a.version=?",
+    "AND (?=0 OR EXISTS(SELECT 1 FROM public_programme_offerings o,",
+    "json_each(CASE WHEN json_valid(o.allowed_discount_percentages_json) THEN o.allowed_discount_percentages_json ELSE '[]' END) p",
+    "WHERE o.id=a.offering_id AND p.type IN ('integer','real') AND p.value=?))",
     "ON CONFLICT(admission_id) DO UPDATE SET discount_percent=excluded.discount_percent,discount_reason=excluded.discount_reason,",
     "recorded_by=excluded.recorded_by,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') RETURNING admission_id"
-   ].join(" ")).bind(v.admissionId,v.discountPercent,v.discountPercent?v.discountReason:null,user,v.admissionId),
+   ].join(" ")).bind(v.admissionId,v.discountPercent,v.discountPercent?v.discountReason:null,user,v.admissionId,old.version,v.discountPercent,v.discountPercent),
    env.DB.prepare([
     "INSERT INTO erp_audit_events(id,entity_type,entity_id,action,actor_id,reason,after_json)",
-    "VALUES(?,'admission',(SELECT admission_id FROM academy_admission_discounts WHERE admission_id=?),",
-    "'TUITION_DISCOUNT_SAVED',?,?,?)"
-   ].join(" ")).bind(crypto.randomUUID(),v.admissionId,user,v.reason,JSON.stringify({discountPercent:v.discountPercent,discountReason:v.discountReason||null}))
+    "SELECT ?,'admission',admission_id,'TUITION_DISCOUNT_SAVED',?,?,?",
+    "FROM academy_admission_discounts WHERE admission_id=? AND changes()=1 RETURNING id"
+   ].join(" ")).bind(crypto.randomUUID(),user,v.reason,JSON.stringify({discountPercent:v.discountPercent,discountReason:v.discountReason||null}),v.admissionId)
   ]);
-  if((tx[0].results?.length??0)!==1)return {ok:false,message:"Case changed; discount not saved."};
+  if(tx.some(r=>(r.results?.length??0)!==1))return {ok:false,message:"Case or discount policy changed; discount not saved."};
   refresh(v.admissionId);return {ok:true,message:"Tuition discount saved for final review."};
  }catch{return {ok:false,message:"Could not save tuition discount."};}
 }
@@ -233,6 +243,7 @@ export async function finalizeAdmission(input:unknown):Promise<Outcome>{
  if(old.status==="BILLED"||old.status==="ENROLLED")return {ok:true,message:"Admission already finalized; existing billing retained."};
  if(old.status!=="REVIEW"||!old.batch_id||old.student_id)return {ok:false,message:"Complete application verification before final submission."};
  const data=await getAdmissionReviewData(v.admissionId);
+ if(data.version!==old.version)return {ok:false,message:"Application changed; reload the final review."};
  if(!data.referral||!data.hasConsent||!data.plan)return {ok:false,message:"Record source, signed paper consent and an active fee plan before final submission."};
  if(!data.discount.allowed.includes(data.discount.selected))return {ok:false,message:"Saved discount is no longer allowed. Recheck the offering policy."};
  const tuition=Math.round(data.plan.tuition*100),admission=Math.round(data.plan.admission*100);
@@ -241,15 +252,33 @@ export async function finalizeAdmission(input:unknown):Promise<Outcome>{
  const registration=admission+extra,total=monthly+registration;
  if(!Number.isSafeInteger(total)||total<0)return {ok:false,message:"Invalid fee amount."};
  const studentId=crypto.randomUUID(),invoiceId=crypto.randomUUID(),billId=crypto.randomUUID();
+ // Validate the live fee snapshot before the first write in this D1 transaction.
+ // Fee edits retain the identity revision so existing signed consent stays valid.
+ // A changed discount, charge total, policy or latest plan rejects this snapshot;
+ // changes() gates every following write, including the sequence and audit trail.
  // Assign the original sequential SA-000001 identifier inside the D1 transaction.
  const reference="SA-BILL-"+crypto.randomUUID().replaceAll("-","").slice(0,12).toUpperCase();
  try{
   const tx=await env.DB.batch([
    env.DB.prepare([
     "INSERT INTO academy_student_number_sequence(admission_id)",
-    "SELECT id FROM academy_admissions WHERE id=? AND status='REVIEW' AND version=?",
-    "AND student_id IS NULL RETURNING seq"
-   ].join(" ")).bind(v.admissionId,old.version),
+    "SELECT a.id FROM academy_admissions a",
+    "JOIN academy_batches b ON b.id=a.batch_id",
+    "JOIN academy_admission_consents c ON c.admission_id=a.id AND c.identity_revision=a.version",
+    "JOIN academy_admission_referrals r ON r.admission_id=a.id",
+    "JOIN public_programme_offerings o ON o.id=a.offering_id",
+    "WHERE a.id=? AND a.status='REVIEW' AND a.version=? AND a.student_id IS NULL AND a.consent_verified=1",
+    "AND b.status='ACTIVE' AND b.offering_id=a.offering_id",
+    "AND b.capacity>(SELECT COUNT(*) FROM academy_enrollments en WHERE en.batch_id=b.id AND en.status='ACTIVE')",
+    "AND COALESCE((SELECT d.discount_percent FROM academy_admission_discounts d WHERE d.admission_id=a.id),0)=?",
+    "AND COALESCE((SELECT SUM(e.amount_paisa) FROM academy_admission_extra_charges e WHERE e.admission_id=a.id AND e.is_active=1),0)=?",
+    "AND (?=0 OR EXISTS(SELECT 1 FROM json_each(CASE WHEN json_valid(o.allowed_discount_percentages_json)",
+    "THEN o.allowed_discount_percentages_json ELSE '[]' END) p WHERE p.type IN ('integer','real') AND p.value=?))",
+    "AND EXISTS(SELECT 1 FROM academy_fee_plans f WHERE f.id=? AND f.offering_id=a.offering_id AND f.active=1",
+    "AND f.monthly_amount_paisa=? AND f.admission_amount_paisa=?",
+    "AND f.id=(SELECT current.id FROM academy_fee_plans current WHERE current.offering_id=a.offering_id AND current.active=1 ORDER BY current.rowid DESC LIMIT 1))",
+    "RETURNING seq"
+   ].join(" ")).bind(v.admissionId,old.version,data.discount.selected,extra,data.discount.selected,data.discount.selected,data.plan.id,tuition,admission),
    env.DB.prepare([
     "INSERT INTO academy_students(id,student_no,full_name,class_grade,guardian_name,guardian_mobile,school_name,status)",
     "SELECT ?,'SA-'||printf('%06d',n.seq),a.student_full_name,a.class_grade,a.guardian_full_name,a.guardian_mobile,a.school_name,'INACTIVE'",
@@ -257,7 +286,7 @@ export async function finalizeAdmission(input:unknown):Promise<Outcome>{
     "JOIN academy_batches b ON b.id=a.batch_id",
     "JOIN academy_admission_consents c ON c.admission_id=a.id AND c.identity_revision=a.version",
     "JOIN academy_admission_referrals r ON r.admission_id=a.id",
-    "WHERE a.id=? AND a.status='REVIEW' AND a.version=? AND a.student_id IS NULL AND a.consent_verified=1",
+    "WHERE changes()=1 AND a.id=? AND a.status='REVIEW' AND a.version=? AND a.student_id IS NULL AND a.consent_verified=1",
     "AND b.status='ACTIVE' AND b.offering_id=a.offering_id",
     "AND b.capacity>(SELECT COUNT(*) FROM academy_enrollments en WHERE en.batch_id=b.id AND en.status='ACTIVE')",
     "AND EXISTS(SELECT 1 FROM academy_fee_plans f WHERE f.id=? AND f.offering_id=a.offering_id AND f.active=1",
@@ -268,24 +297,24 @@ export async function finalizeAdmission(input:unknown):Promise<Outcome>{
     "UPDATE academy_admissions SET student_id=?,fee_plan_id=?,status='BILLED',",
     "approved_by=?,verified_by=COALESCE(verified_by,?),version=version+1,",
     "updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')",
-    "WHERE id=? AND version=? AND status='REVIEW' AND EXISTS(SELECT 1 FROM academy_students WHERE id=?) RETURNING id"
+    "WHERE changes()=1 AND id=? AND version=? AND status='REVIEW' AND EXISTS(SELECT 1 FROM academy_students WHERE id=?) RETURNING id"
    ].join(" ")).bind(studentId,data.plan.id,user,user,v.admissionId,old.version,studentId),
    env.DB.prepare([
     "INSERT INTO academy_admission_bills(id,admission_id,reference,monthly_amount_paisa,admission_amount_paisa,amount_paisa,issue_on,issued_by)",
     "SELECT ?,id,?,?,?,?,date('now'),? FROM academy_admissions",
-    "WHERE id=? AND status='BILLED' AND student_id=? AND version=? RETURNING id"
+    "WHERE changes()=1 AND id=? AND status='BILLED' AND student_id=? AND version=? RETURNING id"
    ].join(" ")).bind(billId,reference,monthly,registration,total,user,v.admissionId,studentId,old.version+1),
    env.DB.prepare([
     "INSERT INTO finance_invoices(id,invoice_no,student_id,admission_id,issue_on,due_on,amount_paisa,status,created_by)",
     "SELECT ?,b.reference,?,b.admission_id,b.issue_on,NULL,b.amount_paisa,'ISSUED',?",
-    "FROM academy_admission_bills b WHERE b.id=? AND b.admission_id=? RETURNING id"
+    "FROM academy_admission_bills b WHERE changes()=1 AND b.id=? AND b.admission_id=? RETURNING id"
    ].join(" ")).bind(invoiceId,studentId,user,billId,v.admissionId),
    env.DB.prepare([
     "INSERT INTO erp_audit_events(id,entity_type,entity_id,action,actor_id,reason,after_json)",
-    "VALUES(?,'admission',(SELECT admission_id FROM finance_invoices WHERE id=? AND student_id=?),",
-    "'FINALIZED_AND_BILLED',?,?,?) RETURNING id"
-   ].join(" ")).bind(crypto.randomUUID(),invoiceId,studentId,user,v.reason,
-    JSON.stringify({studentId,invoiceId,reference,studentNo:"SA- sequence allocated atomically",monthlyPaisa:monthly,admissionAndExtrasPaisa:registration,discountPercent:data.discount.selected}))
+    "SELECT ?,'admission',admission_id,'FINALIZED_AND_BILLED',?,?,?",
+    "FROM finance_invoices WHERE changes()=1 AND id=? AND student_id=? RETURNING id"
+   ].join(" ")).bind(crypto.randomUUID(),user,v.reason,
+    JSON.stringify({studentId,invoiceId,reference,studentNo:"SA- sequence allocated atomically",monthlyPaisa:monthly,admissionAndExtrasPaisa:registration,discountPercent:data.discount.selected}),invoiceId,studentId)
   ]);
   if(tx.some(r=>(r.results?.length??0)!==1))return {ok:false,message:"Finalization not confirmed. Check the case and invoice before retrying."};
   refresh(v.admissionId);return {ok:true,message:"Admission confirmed. Student ID and initial invoice issued together; payment remains unpaid until recorded."};
@@ -369,3 +398,4 @@ export async function activateAdmission(input:unknown):Promise<Outcome>{
   refresh(v.admissionId);return {ok:true,message:"Student enrollment activated and recorded in the batch."};
  }catch{return {ok:false,message:"Could not activate. All initial fees must be settled and an active seat available."};}
 }
+

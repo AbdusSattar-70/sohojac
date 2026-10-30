@@ -235,3 +235,26 @@ New real source-first work:
 
 **Release remains BLOCKED.** Do not merge PR #16 or deploy master based on
 path coverage or a green CI alone.
+
+
+## Repository audit — 30 October 2026
+
+Historical draft checkpoints above are not current deployment status. PRs #17–#22
+restored the Admissions workflow and canonical dashboard routing; PRs #23–#24
+added student billing. Production master `ced2853a` passed build, deployment
+and smoke checks in [run 40971888310](https://github.com/AbdusSattar-70/sohojac/actions/runs/40971888310).
+
+Admissions is not fully complete. This audit identified legacy mutation endpoints
+that bypass canonical consent/payment requirements and finalization that could
+bill a stale concurrent fee review. The `admissions-lifecycle-hardening` changes
+are prepared locally: retire the four old write methods and atomically validate
+the live fee snapshot before finalization. See
+[ADMISSIONS_LIFECYCLE_HARDENING.md](ADMISSIONS_LIFECYCLE_HARDENING.md).
+
+No remote release was made for these changes. Full CI, isolated dev deployment,
+production promotion and authenticated acceptance remain pending. Historical
+identity/payment reconciliation and signed-paper records also remain pending.
+
+The next independent feature is restoring missing Student Register profile links.
+Transfers, existing-student re-enrollment, closure, duplicate resolution and
+guardian-history migration remain separate outstanding student workflows.
