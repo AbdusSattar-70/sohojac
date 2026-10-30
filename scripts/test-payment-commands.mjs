@@ -36,9 +36,9 @@ const ledger=()=>db.prepare("SELECT SUM(debit_paisa) AS debit,SUM(credit_paisa) 
 beforeEach(()=>{
  folder=fs.mkdtempSync(path.join(os.tmpdir(),"sohojac-payment-"));
  db=new DatabaseSync(path.join(folder,"ledger.sqlite"));files=[db];db.exec("PRAGMA foreign_keys=ON");
- for(const name of fs.readdirSync("migrations/history").filter(n=>/^\d{4}_.*\.sql$/.test(n)&&Number(n.slice(0,4))<=35).sort())
-  db.exec(fs.readFileSync(path.join("migrations/history",name),"utf8"));
- db.exec(fs.readFileSync("migrations/0036_operator_payment_commands.sql","utf8"));
+ for(const name of fs.readdirSync("migrations/history/history").filter(n=>/^\d{4}_.*\.sql$/.test(n)&&Number(n.slice(0,4))<=35).sort())
+  db.exec(fs.readFileSync(path.join("migrations/history/history",name),"utf8"));
+ db.exec(fs.readFileSync("migrations/history/0036_operator_payment_commands.sql","utf8"));
  for(const [id,role]of[[owner,"OWNER"],[operator,"OPERATOR"]]){
   db.prepare('INSERT INTO "user"(id,name,email,"createdAt","updatedAt","emailVerified") VALUES (?,?,?,?,?,1)')
    .run(id,id,id+"@example.invalid",0,0);
@@ -122,7 +122,7 @@ test("missing ledger trigger or audit failure rolls the complete payment stateme
   if(fail==="ledger")db.exec("DROP TRIGGER post_payment_allocation_gl");
   else {
    // Restore the real allocation trigger for the independent audit-failure case.
-   const sql=fs.readFileSync("migrations/0014_tuition_collections_and_double_entry.sql","utf8");
+   const sql=fs.readFileSync("migrations/history/0014_tuition_collections_and_double_entry.sql","utf8");
    db.exec(sql);
    db.exec("CREATE TRIGGER payment_test_audit_failure BEFORE INSERT ON erp_audit_events BEGIN SELECT RAISE(ABORT,'audit failure'); END");
   }
