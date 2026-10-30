@@ -28,7 +28,7 @@ export const getErpContext = cache(async (): Promise<ErpContext | null> => {
         "system.master_data.manage", "academics.manage",
         "finance.billing.manage", "finance.payments.post", "admissions.manage", "admissions.create", "students.manage",
         "staff.manage", "workforce.manage", "audit.view",
-        "system.users.manage",
+        "system.users.manage", "system.settings.manage",
         "crm.prospects.manage", "crm.followups.manage",
       ] : []),
       // A verified staff member can enter the root to see a safe, empty

@@ -19,6 +19,8 @@ export const createOfferingSchema = z.object({
     .max(40)
     .regex(/^[A-Za-z0-9_-]+$/, "Use letters, numbers, _ or -."),
   name: z.union([z.string().trim().min(2).max(160), z.literal("")]),
+  requestId: id,
+  expectedVersion: z.number().int().min(1).optional(),
   reason: z
     .string()
     .trim()
@@ -27,19 +29,22 @@ export const createOfferingSchema = z.object({
 });
 export type CreateOfferingInput = z.infer<typeof createOfferingSchema>;
 export const offeringFormSchema = createOfferingSchema.extend({
-  offeringId: id.optional(),
-  requestId: id.optional(),
+  offeringId: publicOfferingId.optional(),
+  requestId: id,
 });
 export type OfferingFormInput = z.infer<typeof offeringFormSchema>;
 export const updateOfferingSchema = createOfferingSchema.extend({
-  offeringId: id,
+  offeringId: publicOfferingId,
   requestId: id,
+  expectedVersion: z.number().int().min(1),
 });
 export type UpdateOfferingInput = z.infer<typeof updateOfferingSchema>;
 
 export const publishFeePlanSchema = z
   .object({
-    offeringId: id,
+    offeringId: publicOfferingId,
+    requestId: id,
+    expectedVersion: z.number().int().min(1),
     billingCycle: z.enum(["MONTHLY", "ONE_TIME", "TERM"]),
     dueDay: z.number().int().min(1).max(28).nullable(),
     effectiveFrom: z.iso.date(),
@@ -131,7 +136,9 @@ const updateOfferingPublicControlsBaseSchema = z.object({
   isAcceptingApplications: z.boolean(),
   applicationsOpenOn: z.string().optional(),
   applicationsCloseOn: z.string().optional(),
-  subjectIds: z.array(z.string().uuid()).max(30),
+  subjectIds: z.array(publicOfferingId).max(30),
+  requestId: id.optional(),
+  expectedVersion: z.number().int().min(1).optional(),
   reason: z
     .string()
     .trim()

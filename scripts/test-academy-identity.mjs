@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {DatabaseSync} from 'node:sqlite';
+import {stripTypeScriptTypes} from 'node:module';
+import {test,beforeEach,after} from 'node:test';
+import {z} from 'zod';
+let db,permissions,origin,failAudit;
+const actor='11111111-1111-4111-8111-111111111111';
+const env={DB:{prepare(sql){return {bind(...values){return {sql,values}}}},async batch(statements){db.exec('BEGIN');try{for(const s of statements){if(failAudit&&s.sql.includes('INSERT INTO erp_audit_events'))throw Error('injected audit outage');db.prepare(s.sql).run(...s.values)}db.exec('COMMIT')}catch(e){db.exec('ROLLBACK');throw e}}}};
+const source=stripTypeScriptTypes(fs.readFileSync('modules/platform/setup/identity-actions.ts','utf8'),{mode:'strip'}).replace(/^import .*;\r?\n/gm,'').replace('export async function','async function');
+const save=new Function('z','env','headers','revalidatePath','getErpContext',source+';return saveAcademyIdentity')(z,env,async()=>new Headers({origin,host:'academy.invalid'}),()=>{},async()=>({profileId:actor,permissions}));
+beforeEach(()=>{db?.close();db=new DatabaseSync(':memory:');db.exec('PRAGMA foreign_keys=ON');for(const file of fs.readdirSync('migrations').filter(f=>/^\d{4}.*\.sql$/.test(f)).sort())db.exec(fs.readFileSync('migrations/'+file,'utf8'));db.prepare('INSERT INTO "user"(id,name,email,"createdAt","updatedAt") VALUES (?,?,?,?,?)').run(actor,'Synthetic Owner','owner@example.invalid',0,0);permissions=['system.settings.manage'];origin='https://academy.invalid';failAudit=false});
+after(()=>db?.close());
+const input={name:'Verified Academy',branch_name:'Verified Campus'};
+test('identity is never seeded by migration',()=>{assert.equal(db.prepare('SELECT COUNT(*) n FROM academy_branches').get().n,0);assert.equal(db.prepare('SELECT COUNT(*) n FROM academy_identity').get().n,0)});
+test('permissions, origin and bounded input reject without writing',async()=>{permissions=[];assert.equal((await save(input)).ok,false);permissions=['system.settings.manage'];origin='https://attacker.invalid';assert.equal((await save(input)).ok,false);origin='https://academy.invalid';assert.equal((await save({...input,name:'X'})).ok,false);assert.equal(db.prepare('SELECT COUNT(*) n FROM academy_branches').get().n,0)});
+test('confirmed campus keeps its permanent identity across rename and retries',async()=>{assert.equal((await save(input)).ok,true);const id=db.prepare("SELECT id FROM academy_branches WHERE code='MAIN'").get().id;assert.equal((await save({...input,branch_name:'Renamed Campus'})).ok,true);assert.equal((await save({...input,branch_name:'Renamed Campus'})).ok,true);assert.equal(db.prepare('SELECT COUNT(*) n FROM academy_branches').get().n,1);assert.equal(db.prepare("SELECT id FROM academy_branches WHERE code='MAIN'").get().id,id);assert.equal(db.prepare('SELECT name FROM academy_identity').get().name,input.name)});
+test('audit failure rolls back identity and campus together',async()=>{failAudit=true;assert.equal((await save(input)).ok,false);assert.equal(db.prepare('SELECT COUNT(*) n FROM academy_identity').get().n,0);assert.equal(db.prepare('SELECT COUNT(*) n FROM academy_branches').get().n,0)});
