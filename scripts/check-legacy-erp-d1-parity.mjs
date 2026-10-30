@@ -14,7 +14,7 @@ const year = file("migrations/0022_multiple_active_academic_years.sql");
 if (!year.includes("DROP INDEX IF EXISTS idx_one_active_academic_year"))
   throw new Error("D1 still restricts overlapping active academic years");
 if (/DELETE FROM|DROP TABLE/i.test(year)) throw new Error("Academic year migration destroys records");
-if (/Only one year may be active/.test(file("components/staff/academic-years-register.tsx")))
+if (/Only one year may be active/.test(file("modules/crm/manage/components/master-data-workspace.tsx")))
   throw new Error("Old academic-year restriction still shown in UI");
 if (/Only one academic year may be active/.test(file("app/api/staff/academic-years/[id]/route.ts")))
   throw new Error("Incorrect academic-year conflict remains");

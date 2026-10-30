@@ -1,3 +1,4 @@
+import {batchOfferingReadySql} from "@/lib/academic-offering-readiness";
 import {env} from "cloudflare:workers";
 import {requirePermission} from "@/modules/platform/auth/erp-context";
 import {workspaceSchema,type AdmissionWorkspace} from "@/modules/admissions/schema";
@@ -7,12 +8,7 @@ export async function getBatchWorkspace():Promise<AdmissionWorkspace>{
  const [offerings,batches]=await Promise.all([
   env.DB.prepare([
    "SELECT o.id,o.code,o.name,o.class_id,o.class_name,o.academic_year_name,o.branch_name,",
-   "CASE WHEN o.is_active=1 AND o.branch_id IS NOT NULL AND o.program_id IS NOT NULL AND o.operation_kind IS NOT NULL",
-   "AND EXISTS(SELECT 1 FROM academy_branches b WHERE b.id=o.branch_id AND b.is_active=1)",
-   "AND EXISTS(SELECT 1 FROM academy_programmes p WHERE p.id=o.program_id AND p.active=1)",
-   "AND (o.operation_kind='TRAINING' OR (o.academic_year_id IS NOT NULL AND o.class_id IS NOT NULL))",
-   "AND EXISTS(SELECT 1 FROM academy_fee_plans f WHERE f.offering_id=o.id AND f.active=1",
-   "AND (f.source_version IS NULL OR (f.source_status='ACTIVE' AND f.effective_from<=date('now','+6 hours')))) THEN 1 ELSE 0 END AS fee_ready",
+   "CASE WHEN "+batchOfferingReadySql+" THEN 1 ELSE 0 END AS fee_ready",
    "FROM public_programme_offerings o ORDER BY o.created_at DESC,o.id"
   ].join(" ")).all<{id:string;code:string;name:string;class_id:string|null;class_name:string;academic_year_name:string;branch_name:string|null;fee_ready:number}>(),
   env.DB.prepare([
