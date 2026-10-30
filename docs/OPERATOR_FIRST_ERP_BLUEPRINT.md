@@ -2,7 +2,7 @@
 
 **Review date:** 31 October 2026  
 **Repository:** AbdusSattar-70/sohojac, inspected at master commit d53101c7032b60e61428b77ad02ed17709993a89  
-**Document status:** Proposed product and engineering strategy; **review-only, no runtime changes authorized by this document**
+**Document status:** Proposed product and engineering strategy; **review-only, no runtime changes authorized by this document**  
 **Technical architecture:** [Enterprise-grade modular target architecture, command contracts and migration gates](./ERP_TARGET_ARCHITECTURE.md)  
 **Audience:** Owner, administrator, operator, teacher, developer and future QA staff  
 **Product:** Sohoj Academy coaching-centre ERP and public website; one Cloudflare D1 shared by dev/main; English-only dark ERP; no student/guardian accounts; guardians reached by SMS.
