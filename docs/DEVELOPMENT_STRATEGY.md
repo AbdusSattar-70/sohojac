@@ -26,6 +26,7 @@ Do not delete migrations, pinned source manifests or regression checks as cleanu
 | 1 — Security foundation and repository hygiene | Turnstile on anonymous forms; durable request limits; single shared sohojac D1; clean foundation reset and editable reference masters (Phase 1B); retire the old dev-only D1 after verified rebinding; consolidate docs and workflows | Implementation verified; environment release evidence is maintained in [phase PR #38](https://github.com/AbdusSattar-70/sohojac/pull/38) |
 | 1B — Clean development foundation | One-time shared DB reset; Classes 1–12; guardian relationships and reference masters; consolidated Academic Setup; public options from active masters | Released and reset verified in [PR #41](https://github.com/AbdusSattar-70/sohojac/pull/41) |
 | 1C — Academic setup workflow corrections | Single year editor; visible submission validation; consistent batch readiness; public Evening Care offerings and 12-seat cohorts | Released and verified in [PR #44](https://github.com/AbdusSattar-70/sohojac/pull/44) and [PR #46](https://github.com/AbdusSattar-70/sohojac/pull/46) |
+| 1D — Offering subjects and publication feedback | Scoped labelled subject checkboxes, safe legacy-link review and immediate blocked-publication feedback | Released and verified in [PR #49](https://github.com/AbdusSattar-70/sohojac/pull/49) |
 | 2 — One authoritative write path | REST and Server Actions call the same domain commands; named permissions everywhere; retry-safe collections and expenses; retire bypass APIs; exact retry/concurrent/denial regression tests | Next |
 | 3 — Canonical data and business rules | Reconcile the two subject masters without losing IDs; version-check master edits; common Asia/Dhaka business date and integer-paisa helpers; explicit fee-plan pinning policy | Planned |
 | 4 — Engineering and operational reliability | Format/lint; split the long CI smoke script into maintainable suites without removing coverage; structured safe diagnostics; recovery drill and immutable rollback target; controlled dependency updates; remove proven unused dependencies | Planned |
@@ -163,3 +164,11 @@ Draft/retired publication controls explain their prerequisite beside the switche
 selection produces an immediate accessible alert and a link to the exact offering's Fee Plan or reactivation.
 An intake flag on an inactive offering is shown as pending activation rather than misleadingly Open.
 No database reset, deletions or fee changes are required. Record actual release evidence in the phase PR.
+
+### Phase 1D verification
+
+- [PR #48](https://github.com/AbdusSattar-70/sohojac/pull/48) and [integration run 41111418388](https://github.com/AbdusSattar-70/sohojac/actions/runs/41111418388) passed the actual local D1 workflow, authenticated ERP smoke suite and source verifiers. Twenty-two targeted tests, TypeScript and the Worker build also passed locally.
+- Six subject-option tests cover class/group scoping, common subjects, retained mismatches, inactive links, unknown/training contexts and Class 1 versus Class 10 labels. The offering regression verifies inactive existing links can be retained/removed, while new inactive assignments fail.
+- [Dev run 41112002966](https://github.com/AbdusSattar-70/sohojac/actions/runs/41112002966) deployed `279dc4d87677bc4371839cdd47cd16aacc6918f4` and passed deployment checks. The shared catalogue seed was already complete, so operator data was preserved.
+- [Main run 41112689054](https://github.com/AbdusSattar-70/sohojac/actions/runs/41112689054) deployed `765f6055d522c9a8174194c6c53755232f636a12` and passed public health, private endpoint denial and Turnstile checks. Existing reset/catalogue completion markers preserved operator data.
+- Website visibility still requires ACTIVE status. Drafts link to the specific Fee Plan; retired offerings link to reactivation. Existing incorrect class/group selections are flagged for explicit review rather than deleted automatically.
