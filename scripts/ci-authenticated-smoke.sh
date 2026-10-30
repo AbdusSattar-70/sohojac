@@ -479,24 +479,39 @@ test "$history_status" = "200"
 grep -q 'CI follow-up test' /tmp/staff-history.json
 
 
+
+# Disposable-local verified context for both canonical and legacy batch adapters.
+# Fresh dev references intentionally contain no real campus/programme/price.
+pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "
+ INSERT OR IGNORE INTO academy_branches(id,code,name) VALUES ('61000000-0000-4000-8000-000000000001','CI-BATCH-CAMPUS','Synthetic local campus');
+ INSERT OR IGNORE INTO academy_programmes(id,code,name) VALUES ('61000000-0000-4000-8000-000000000002','CI-BATCH-PROGRAMME','Synthetic local programme');
+ INSERT OR IGNORE INTO academic_years(id,code,title,status) VALUES ('61000000-0000-4000-8000-000000000003','CI-BATCH-YEAR','Synthetic local year','ACTIVE');
+ INSERT OR IGNORE INTO academy_classes(id,code,name) VALUES ('61000000-0000-4000-8000-000000000004','CI-BATCH-CLASS','Synthetic local class');
+ UPDATE public_programme_offerings SET branch_id='61000000-0000-4000-8000-000000000001',program_id='61000000-0000-4000-8000-000000000002',
+ academic_year_id='61000000-0000-4000-8000-000000000003',class_id='61000000-0000-4000-8000-000000000004',
+ operation_kind='COACHING',offering_status='ACTIVE',is_active=1 WHERE id='sa-ssc-science';
+ INSERT INTO academy_fee_plans(id,offering_id,title,monthly_amount_paisa,admission_amount_paisa,active)
+ VALUES ('61000000-0000-4000-8000-000000000005','sa-ssc-science','Synthetic local readiness fee',100000,0,1);
+" > /tmp/ci-batch-context.json
+
 echo 'CI entering batch lifecycle checks'
 # Batch register: authentication, role denial, capacity, concurrency, lifecycle and audit.
 anonymous_batch=$(curl -sS -o /tmp/ci-anon-batch.json -w '%{http_code}' "http://localhost:4173/api/staff/batches")
 test "$anonymous_batch" = "401"
-teacher_batch=$(curl -sS -o /tmp/ci-teacher-batch.json -w '%{http_code}' -b /tmp/teacher-ci-cookies -X POST "http://localhost:4173/api/staff/batches" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{}')
+teacher_batch=$(curl -sS -o /tmp/ci-teacher-batch.json -w '%{http_code}' -b /tmp/teacher-ci-cookies -X POST "http://localhost:4173/api/staff/batches" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" -H "Idempotency-Key: 57000000-0000-4000-8000-000000000001" --data '{}')
 test "$teacher_batch" = "403"
-oversized_batch=$(curl -sS -o /tmp/ci-oversized-batch.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/batches" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"code":"INVALID","name":"Over capacity","offeringId":"sa-ssc-science","yearId":"","capacity":13,"beginsOn":"","endsOn":"","reason":"Capacity boundary test"}')
+oversized_batch=$(curl -sS -o /tmp/ci-oversized-batch.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/batches" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" -H "Idempotency-Key: 57000000-0000-4000-8000-000000000002" --data '{"code":"INVALID","name":"Over capacity","offeringId":"sa-ssc-science","yearId":"","capacity":13,"beginsOn":"","endsOn":"","reason":"Capacity boundary test"}')
 test "$oversized_batch" = "400"
-batch_create=$(curl -sS -o /tmp/ci-created-batch.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/batches" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"code":"CI-SSC-A","name":"SSC Science CI Batch","offeringId":"sa-ssc-science","yearId":"","capacity":12,"beginsOn":"2027-01-01","endsOn":"2027-06-01","reason":"CI verifies planned batch creation"}')
+batch_create=$(curl -sS -o /tmp/ci-created-batch.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/batches" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" -H "Idempotency-Key: 57000000-0000-4000-8000-000000000003" --data '{"code":"CI-SSC-A","name":"SSC Science CI Batch","offeringId":"sa-ssc-science","yearId":"","capacity":12,"beginsOn":"2027-01-01","endsOn":"2027-06-01","reason":"CI verifies planned batch creation"}')
 test "$batch_create" = "201"
 batch_id=$(node -e 'process.stdout.write(require("/tmp/ci-created-batch.json").id)')
-batch_active=$(curl -sS -o /tmp/ci-active-batch.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/batches/$batch_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"name":"SSC Science CI Batch","capacity":12,"beginsOn":"2027-01-01","endsOn":"2027-06-01","nextStatus":"ACTIVE","expectedVersion":1,"reason":"Activate test batch after approval"}')
+batch_active=$(curl -sS -o /tmp/ci-active-batch.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/batches/$batch_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" -H "Idempotency-Key: 57000000-0000-4000-8000-000000000004" --data '{"name":"SSC Science CI Batch","capacity":12,"beginsOn":"2027-01-01","endsOn":"2027-06-01","nextStatus":"ACTIVE","expectedVersion":1,"reason":"Activate test batch after approval"}')
 test "$batch_active" = "200"
-batch_stale=$(curl -sS -o /tmp/ci-stale-batch.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/batches/$batch_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"name":"SSC Science CI Batch","capacity":12,"beginsOn":"","endsOn":"","nextStatus":"ACTIVE","expectedVersion":1,"reason":"Stale version must never win"}')
+batch_stale=$(curl -sS -o /tmp/ci-stale-batch.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/batches/$batch_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" -H "Idempotency-Key: 57000000-0000-4000-8000-000000000005" --data '{"name":"SSC Science CI Batch","capacity":12,"beginsOn":"","endsOn":"","nextStatus":"ACTIVE","expectedVersion":1,"reason":"Stale version must never win"}')
 test "$batch_stale" = "409"
-batch_close=$(curl -sS -o /tmp/ci-close-batch.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/batches/$batch_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"name":"SSC Science CI Batch","capacity":12,"beginsOn":"2027-01-01","endsOn":"2027-06-01","nextStatus":"COMPLETED","expectedVersion":2,"reason":"Complete batch in CI lifecycle test"}')
+batch_close=$(curl -sS -o /tmp/ci-close-batch.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/batches/$batch_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" -H "Idempotency-Key: 57000000-0000-4000-8000-000000000006" --data '{"name":"SSC Science CI Batch","capacity":12,"beginsOn":"2027-01-01","endsOn":"2027-06-01","nextStatus":"COMPLETED","expectedVersion":2,"reason":"Complete batch in CI lifecycle test"}')
 test "$batch_close" = "200"
-batch_reopen=$(curl -sS -o /tmp/ci-reopen-batch.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/batches/$batch_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"name":"SSC Science CI Batch","capacity":12,"beginsOn":"","endsOn":"","nextStatus":"ACTIVE","expectedVersion":3,"reason":"Closed batch must not reopen"}')
+batch_reopen=$(curl -sS -o /tmp/ci-reopen-batch.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/batches/$batch_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" -H "Idempotency-Key: 57000000-0000-4000-8000-000000000007" --data '{"name":"SSC Science CI Batch","capacity":12,"beginsOn":"","endsOn":"","nextStatus":"ACTIVE","expectedVersion":3,"reason":"Closed batch must not reopen"}')
 test "$batch_reopen" = "409"
 batch_page=$(curl -sS -o /tmp/ci-batch-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/academics/batches")
 test "$batch_page" = "200"
@@ -565,10 +580,10 @@ test "$teacher_admission" = "403"
 admission_fee=$(curl -sS -o /tmp/ci-admission-fee.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/fee-plans" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"offeringId":"sa-ssc-science","title":"CI admissions standard","monthlyAmountPaisa":250000,"admissionAmountPaisa":150000,"reason":"Admission approval test rate"}')
 test "$admission_fee" = "201"
 admission_fee_id=$(node -e 'process.stdout.write(require("/tmp/ci-admission-fee.json").id)')
-admission_batch=$(curl -sS -o /tmp/ci-admission-batch.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/batches" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"code":"CI-ADM-A","name":"CI Admissions Active","offeringId":"sa-ssc-science","yearId":"","capacity":12,"beginsOn":"","endsOn":"","reason":"Create active batch for admission test"}')
+admission_batch=$(curl -sS -o /tmp/ci-admission-batch.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/batches" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" -H "Idempotency-Key: 57000000-0000-4000-8000-000000000008" --data '{"code":"CI-ADM-A","name":"CI Admissions Active","offeringId":"sa-ssc-science","yearId":"","capacity":12,"beginsOn":"","endsOn":"","reason":"Create active batch for admission test"}')
 test "$admission_batch" = "201"
 admission_batch_id=$(node -e 'process.stdout.write(require("/tmp/ci-admission-batch.json").id)')
-activated_batch=$(curl -sS -o /tmp/ci-activated-batch.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/batches/$admission_batch_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"name":"CI Admissions Active","capacity":12,"beginsOn":"","endsOn":"","nextStatus":"ACTIVE","expectedVersion":1,"reason":"Activate CI admission batch"}')
+activated_batch=$(curl -sS -o /tmp/ci-activated-batch.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X PATCH "http://localhost:4173/api/staff/batches/$admission_batch_id" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" -H "Idempotency-Key: 57000000-0000-4000-8000-000000000009" --data '{"name":"CI Admissions Active","capacity":12,"beginsOn":"","endsOn":"","nextStatus":"ACTIVE","expectedVersion":1,"reason":"Activate CI admission batch"}')
 test "$activated_batch" = "200"
 # Old simplified writes are retired. Authentication and origin checks
 # remain in force; even an owner cannot bypass signed consent/payment.
@@ -867,19 +882,35 @@ invoice_id=$(node -e 'const fs=require("fs");const d=JSON.parse(fs.readFileSync(
 # Invoice ID comes from the authenticated collections list; invoice_no is display-only.
 curl -fsS -b /tmp/staff-ci-cookies "http://localhost:4173/api/staff/collections" > /tmp/ci-collection-list.json
 invoice_id=$(node -e 'const d=require("/tmp/ci-collection-list.json");if(!d.invoices?.length)process.exit(1);process.stdout.write(d.invoices[0].id)')
-invalid_collection=$(curl -sS -o /tmp/ci-invalid-collection.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/collections" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"invoiceId\":\"$invoice_id\",\"amountPaisa\":0,\"method\":\"CASH\",\"reference\":\"\",\"reason\":\"Zero money is not a payment\"}")
+invalid_collection=$(curl -sS -o /tmp/ci-invalid-collection.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/collections" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" -H "Idempotency-Key: 57000000-0000-4000-8000-000000000010" --data "{\"invoiceId\":\"$invoice_id\",\"amountPaisa\":0,\"method\":\"CASH\",\"reference\":\"\",\"reason\":\"Zero money is not a payment\"}")
 test "$invalid_collection" = "400"
-collection_one=$(curl -sS -o /tmp/ci-collection-one.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/collections" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"invoiceId\":\"$invoice_id\",\"amountPaisa\":200000,\"method\":\"CASH\",\"reference\":\"\",\"reason\":\"Received cash in synthetic CI test\"}")
+collection_one=$(curl -sS -o /tmp/ci-collection-one.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/collections" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" -H "Idempotency-Key: 57000000-0000-4000-8000-000000000011" --data "{\"invoiceId\":\"$invoice_id\",\"amountPaisa\":200000,\"method\":\"CASH\",\"reference\":\"\",\"reason\":\"Received cash in synthetic CI test\"}")
 echo "First collection HTTP: $collection_one"
 if [ "$collection_one" != "201" ]; then cat /tmp/ci-collection-one.json; fi
 test "$collection_one" = "201"
-over_collection=$(curl -sS -o /tmp/ci-over-collection.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/collections" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"invoiceId\":\"$invoice_id\",\"amountPaisa\":300000,\"method\":\"BANK\",\"reference\":\"\",\"reason\":\"Overpayment must be refused\"}")
+
+# Repeated HTTP intent returns the exact original receipt, even with unpaid balance.
+collection_replay=$(curl -sS -o /tmp/ci-collection-replay.json -w '%{http_code}' -b /tmp/staff-ci-cookies \
+ -X POST "http://localhost:4173/api/staff/collections" -H "Origin: http://localhost:4173" \
+ -H "Content-Type: application/json" -H "Idempotency-Key: 57000000-0000-4000-8000-000000000011" \
+ --data "{\"invoiceId\":\"$invoice_id\",\"amountPaisa\":200000,\"method\":\"CASH\",\"reference\":\"\",\"reason\":\"Received cash in synthetic CI test\"}")
+test "$collection_replay" = "200"
+node -e 'const assert=require("node:assert/strict");const first=require("/tmp/ci-collection-one.json"),retry=require("/tmp/ci-collection-replay.json");assert.equal(retry.id,first.id);assert.equal(retry.receiptNo,first.receiptNo);assert.equal(retry.remainingDuePaisa,200000)'
+payment_result=$(curl -sS -o /tmp/ci-payment-result.json -w '%{http_code}' -b /tmp/staff-ci-cookies \
+ "http://localhost:4173/api/staff/collections?requestId=57000000-0000-4000-8000-000000000011")
+test "$payment_result" = "200"
+node -e 'const assert=require("node:assert/strict");assert.equal(require("/tmp/ci-payment-result.json").id,require("/tmp/ci-collection-one.json").id)'
+pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
+ --sql "SELECT (SELECT COUNT(*) FROM finance_payments),(SELECT COUNT(*) FROM finance_allocations),(SELECT COUNT(*) FROM finance_payment_commands)" > /tmp/ci-retry-count.json
+node -e 'const assert=require("node:assert/strict");assert.deepEqual(require("/tmp/ci-retry-count.json")[0].results.rows[0],[1,1,1])'
+
+over_collection=$(curl -sS -o /tmp/ci-over-collection.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/collections" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" -H "Idempotency-Key: 57000000-0000-4000-8000-000000000012" --data "{\"invoiceId\":\"$invoice_id\",\"amountPaisa\":300000,\"method\":\"BANK\",\"reference\":\"\",\"reason\":\"Overpayment must be refused\"}")
 test "$over_collection" = "409"
-collection_two=$(curl -sS -o /tmp/ci-collection-two.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/collections" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"invoiceId\":\"$invoice_id\",\"amountPaisa\":200000,\"method\":\"MFS\",\"reference\":\"MFS-CI-1\",\"reason\":\"Second verified payment closes invoice\"}")
+collection_two=$(curl -sS -o /tmp/ci-collection-two.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/collections" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" -H "Idempotency-Key: 57000000-0000-4000-8000-000000000013" --data "{\"invoiceId\":\"$invoice_id\",\"amountPaisa\":200000,\"method\":\"MFS\",\"reference\":\"MFS-CI-1\",\"reason\":\"Second verified payment closes invoice\"}")
 echo "Second collection HTTP: $collection_two"
 if [ "$collection_two" != "201" ]; then cat /tmp/ci-collection-two.json; fi
 test "$collection_two" = "201"
-settled_collection=$(curl -sS -o /tmp/ci-settled-collection.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/collections" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"invoiceId\":\"$invoice_id\",\"amountPaisa\":1,\"method\":\"CASH\",\"reference\":\"\",\"reason\":\"Settled invoices reject new money\"}")
+settled_collection=$(curl -sS -o /tmp/ci-settled-collection.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/collections" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" -H "Idempotency-Key: 57000000-0000-4000-8000-000000000014" --data "{\"invoiceId\":\"$invoice_id\",\"amountPaisa\":1,\"method\":\"CASH\",\"reference\":\"\",\"reason\":\"Settled invoices reject new money\"}")
 test "$settled_collection" = "409"
 collections_page=$(curl -sS -o /tmp/ci-collections-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/finance/collections")
 test "$collections_page" = "200"
@@ -963,12 +994,12 @@ anon_expense=$(curl -sS -o /tmp/ci-anon-expense.json -w '%{http_code}' "http://l
 test "$anon_expense" = "401"
 teacher_expense=$(curl -sS -o /tmp/ci-teacher-expense.json -w '%{http_code}' -b /tmp/teacher-ci-cookies "http://localhost:4173/api/staff/expenses")
 test "$teacher_expense" = "403"
-invalid_expense=$(curl -sS -o /tmp/ci-invalid-expense.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/expenses" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"category":"RENT","payee":"Synthetic landlord","description":"CI rent payment","spentOn":"2026-01-01","amountPaisa":-500,"method":"CASH","reason":"Reject invalid negative expense"}')
+invalid_expense=$(curl -sS -o /tmp/ci-invalid-expense.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/expenses" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" -H "Idempotency-Key: 57000000-0000-4000-8000-000000000015" --data '{"category":"RENT","payee":"Synthetic landlord","description":"CI rent payment","spentOn":"2026-01-01","amountPaisa":-500,"method":"CASH","reason":"Reject invalid negative expense"}')
 test "$invalid_expense" = "400"
-future_expense=$(curl -sS -o /tmp/ci-future-expense.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/expenses" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"category":"RENT","payee":"Synthetic landlord","description":"Future CI rent payment","spentOn":"2099-01-01","amountPaisa":50000,"method":"CASH","reason":"Reject any future expense posting"}')
-test "$future_expense" = "409"
+future_expense=$(curl -sS -o /tmp/ci-future-expense.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/expenses" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" -H "Idempotency-Key: 57000000-0000-4000-8000-000000000016" --data '{"category":"RENT","payee":"Synthetic landlord","description":"Future CI rent payment","spentOn":"2099-01-01","amountPaisa":50000,"method":"CASH","reason":"Reject any future expense posting"}')
+test "$future_expense" = "400"
 expense_spent_on=$(date -u +%F)
-posted_expense=$(curl -sS -o /tmp/ci-posted-expense.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/expenses" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"category\":\"RENT\",\"payee\":\"Synthetic landlord\",\"description\":\"Recorded CI rent payment\",\"spentOn\":\"$expense_spent_on\",\"amountPaisa\":50000,\"method\":\"CASH\",\"reason\":\"Verify cash rent expense accounting entry\"}")
+posted_expense=$(curl -sS -o /tmp/ci-posted-expense.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/expenses" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" -H "Idempotency-Key: 57000000-0000-4000-8000-000000000017" --data "{\"category\":\"RENT\",\"payee\":\"Synthetic landlord\",\"description\":\"Recorded CI rent payment\",\"spentOn\":\"$expense_spent_on\",\"amountPaisa\":50000,\"method\":\"CASH\",\"reason\":\"Verify cash rent expense accounting entry\"}")
 echo "Expense posting HTTP: $posted_expense"
 if [ "$posted_expense" != "201" ]; then cat /tmp/ci-posted-expense.json; fi
 test "$posted_expense" = "201"

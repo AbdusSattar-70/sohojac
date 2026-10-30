@@ -6,15 +6,18 @@ export function RecordStateButton({
   entity,
   id,
   active,
+  expectedVersion,
 }: {
-  entity: "batch" | "offering" | "student" | "staff" | "referrer";
+  entity: "batch";
   id: string;
   active: boolean;
+  expectedVersion: number | undefined;
 }) {
   const [open, setOpen] = useState(false),
     [note, setNote] = useState(""),
     [message, setMessage] = useState("");
   const [pending, start] = useTransition();
+  const [requestId, setRequestId] = useState(() => crypto.randomUUID());
   const router = useRouter();
   return (
     <div>
@@ -47,10 +50,13 @@ export function RecordStateButton({
                   entity,
                   id,
                   active: !active,
+                  expectedVersion,
+                  requestId,
                   reason: note,
                 });
                 setMessage(r.message);
                 if (r.ok) {
+                  setRequestId(crypto.randomUUID());
                   setOpen(false);
                   router.refresh();
                 }
@@ -76,3 +82,4 @@ export function RecordStateButton({
     </div>
   );
 }
+

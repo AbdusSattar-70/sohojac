@@ -1,5 +1,6 @@
 import {z} from "zod";
 export const collectionInput=z.object({
+  requestId:z.string().uuid(),
   invoiceId:z.string().uuid(),
   amountPaisa:z.number().int().min(1).max(200000000),
   method:z.enum(["CASH","BANK","MFS"]),

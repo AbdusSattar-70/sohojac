@@ -5,6 +5,7 @@ import path from "node:path";
 import {stripTypeScriptTypes} from "node:module";
 import {DatabaseSync} from "node:sqlite";
 import {beforeEach,after,test} from "node:test";
+import {z} from "zod";
 
 const uid="11111111-1111-4111-8111-111111111111",branch="22222222-2222-4222-8222-222222222222",year="33333333-3333-4333-8333-333333333333",grade="44444444-4444-4444-8444-444444444444",programme="55555555-5555-4555-8555-555555555555";
 const uuid=()=>crypto.randomUUID();
@@ -16,12 +17,12 @@ const env={DB:{prepare(sql){sqlRead.push(sql);return {bind(...values){return {sq
 const headers=async()=>new Headers({origin,host:"academy.invalid"});
 const getErpContext=async()=>({profileId:uid,permissions});
 async function requirePermission(p){if(!permissions.includes(p))throw Error("Permission denied");return {profileId:uid,permissions};}
-const pass={safeParse:value=>({success:true,data:value}),parse:value=>value};
-let realZod,schemas={commandSchema:pass,workspaceSchema:pass};
 function executable(file){return stripTypeScriptTypes(fs.readFileSync(new URL("../"+file,import.meta.url),"utf8"),{mode:"strip"}).replace(/^import .*;\r?\n/gm,"").replace(/\bexport (?=(?:async function|function|const))/g,"");}
-try{realZod=(await import("zod")).z;schemas=new Function("z",executable("modules/admissions/schema.ts")+"\nreturn {commandSchema,workspaceSchema};")(realZod);}catch(error){if(error.code!=="ERR_MODULE_NOT_FOUND"||process.env.CI)throw error;console.log("Local SQL/permission checks only: Zod is unavailable. CI uses installed real admission schemas.");}
-const z=realZod??new Proxy(function(){},{get:(_,key)=>key==="safeParse"?value=>({success:true,data:value}):key==="parse"?value=>value:z,apply:()=>z});
-function load(file,exports){const deps={batchOfferingReadySql,env,headers,getErpContext,requirePermission,revalidatePath:()=>{},z,...schemas};return new Function(...Object.keys(deps),executable(file)+"\nreturn {"+exports.join(",")+"};")(...Object.values(deps));}
+const schemas=new Function("z",executable("modules/admissions/schema.ts")+"\nreturn {commandSchema,workspaceSchema};")(z);
+let batchSchemas={},batchCommands={};
+function load(file,exports){const deps={batchOfferingReadySql,env,headers,getErpContext,requirePermission,revalidatePath:()=>{},z,...schemas,...batchSchemas,...batchCommands};return new Function(...Object.keys(deps),executable(file)+"\nreturn {"+exports.join(",")+"};")(...Object.values(deps));}
+batchSchemas=load("lib/erp-batches.ts",["batchCommandSchema"]);
+batchCommands=load("modules/academics/batches/commands.ts",["runBatchCommand"]);
 const actions=load("modules/academics/batches/actions.ts",["runAcademicBatchCommand","changeRecordState"]);
 const reads=load("modules/academics/batches/queries.ts",["getBatchWorkspace"]);
 const publicReads=load("modules/offerings/queries.ts",["getPublicProgrammeOfferings"]);
@@ -84,11 +85,11 @@ test("editing changes only cohort metadata, guards stale revisions, and keeps of
 });
 test("source lifecycle stops new use without deleting active enrollment and never reopens final historical states",async()=>{
  const made=await actions.runAcademicBatchCommand(command());enrollment(made.entityId,1);
- assert.equal((await actions.changeRecordState({entity:"batch",id:made.entityId,active:false,reason:"Pause new cohort intake"})).ok,true);
+ assert.equal((await actions.changeRecordState({entity:"batch",id:made.entityId,requestId:uuid(),expectedVersion:1,active:false,reason:"Pause new cohort intake"})).ok,true);
  assert.equal(db.prepare("SELECT status FROM academy_batches WHERE id=?").get(made.entityId).status,"PLANNED");assert.equal(count("academy_enrollments"),1);
- assert.equal((await actions.changeRecordState({entity:"batch",id:made.entityId,active:true,reason:"Reopen verified cohort"})).ok,true);
+ assert.equal((await actions.changeRecordState({entity:"batch",id:made.entityId,requestId:uuid(),expectedVersion:2,active:true,reason:"Reopen verified cohort"})).ok,true);
  db.prepare("UPDATE academy_batches SET status='COMPLETED' WHERE id=?").run(made.entityId);
- assert.equal((await actions.changeRecordState({entity:"batch",id:made.entityId,active:true,reason:"Do not reopen historical closure"})).ok,false);
+ assert.equal((await actions.changeRecordState({entity:"batch",id:made.entityId,requestId:uuid(),expectedVersion:3,active:true,reason:"Do not reopen historical closure"})).ok,false);
 });
 test("academic batch workspace contains real cohort occupancy but never queries applicant identity, invoices or payments",async()=>{
  const made=await actions.runAcademicBatchCommand(command());enrollment(made.entityId,1);sqlRead=[];
@@ -112,7 +113,7 @@ test("public seats reflect actual active cohorts and enrollments rather than cac
  db.exec("UPDATE public_programme_offerings SET active_batch_count=0,current_total_seats=0,current_open_seats=0 WHERE id='sa-ssc-science'");
  let catalogue=await publicReads.getPublicProgrammeOfferings();let offering=catalogue.find(o=>o.id==="sa-ssc-science");
  assert.equal(offering.active_batch_count,1);assert.equal(offering.current_total_seats,12);assert.equal(offering.current_open_seats,10);
- await actions.changeRecordState({entity:"batch",id:made.entityId,active:false,reason:"Pause cohort intake"});
+ await actions.changeRecordState({entity:"batch",id:made.entityId,requestId:uuid(),expectedVersion:1,active:false,reason:"Pause cohort intake"});
  catalogue=await publicReads.getPublicProgrammeOfferings();offering=catalogue.find(o=>o.id==="sa-ssc-science");
  assert.equal(offering.active_batch_count,0);assert.equal(offering.current_total_seats,0);assert.equal(offering.current_open_seats,0);
 });
@@ -131,6 +132,7 @@ test("expired published fees block new batches and reactivation consistently",as
  db.prepare("UPDATE academy_fee_plans SET source_status='ACTIVE',active=1 WHERE id=?").run(plan);
  assert.equal((await actions.runAcademicBatchCommand(command({code:'EXPIRED-A'}))).ok,false);
  assert.equal((await reads.getBatchWorkspace()).offerings.find(o=>o.id==='sa-ssc-science').feeReady,false);
- assert.equal((await actions.changeRecordState({entity:'batch',id:made.entityId,active:false,reason:'Pause expired term intake'})).ok,true);
- assert.equal((await actions.changeRecordState({entity:'batch',id:made.entityId,active:true,reason:'Reject expired term reopen'})).ok,false);
+ assert.equal((await actions.changeRecordState({entity:'batch',id:made.entityId,requestId:uuid(),expectedVersion:1,active:false,reason:'Pause expired term intake'})).ok,true);
+ assert.equal((await actions.changeRecordState({entity:'batch',id:made.entityId,requestId:uuid(),expectedVersion:2,active:true,reason:'Reject expired term reopen'})).ok,false);
 });
+

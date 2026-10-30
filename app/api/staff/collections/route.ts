@@ -1,12 +1,23 @@
 import {env} from "cloudflare:workers";
-import {getStaffAccess,privateJson,sameOrigin} from "@/lib/staff-access";
+import {privateJson,sameOrigin} from "@/lib/staff-access";
+import {getCommandAccess} from "@/modules/platform/auth/command-access";
 import {collectionInput,type CollectionInvoice,type CollectionReceipt} from "@/lib/erp-collections";
+import {recordStudentPayment,findStudentPaymentResult} from "@/modules/finance/payments/record-payment";
 export const dynamic="force-dynamic";
-const authorized=(role:string)=>["OWNER","ADMIN","OPERATOR"].includes(role);
 export async function GET(request:Request){
-  const staff=await getStaffAccess(request.url,request.headers);
-  if(!staff)return privateJson({error:"Authentication required"},401);
-  if(!authorized(staff.role))return privateJson({error:"Access denied"},403);
+ let actor;
+ try{actor=await getCommandAccess(request);}catch{return privateJson({error:"Permissions are unavailable"},503);}
+ if(!actor)return privateJson({error:"Authentication required"},401);
+ const requestId=new URL(request.url).searchParams.get("requestId");
+ if(requestId!==null){
+  try{
+   const result=await findStudentPaymentResult(env.DB,actor,requestId);
+   if(!result)return privateJson({state:"UNCONFIRMED",message:"Retry this same request to confirm its outcome."});
+   if(!result.ok)return privateJson({error:result.message,code:result.code},result.code==="FORBIDDEN"?403:result.code==="INVALID"?400:409);
+   return privateJson({state:"POSTED",...result});
+  }catch{return privateJson({error:"Payment outcome is unavailable. Keep the same request ID."},503);}
+ }
+ if(!actor.permissions.includes("finance.view"))return privateJson({error:"Finance viewing permission required"},403);
   try{
     const [invoices,receipts]=await Promise.all([
       env.DB.prepare([
@@ -25,51 +36,28 @@ export async function GET(request:Request){
         "ORDER BY p.received_at DESC,p.id DESC LIMIT 100"
       ].join(" ")).all<CollectionReceipt>(),
     ]);
-    return privateJson({invoices:invoices.results??[],receipts:receipts.results??[]});
+    return privateJson({invoices:invoices.results??[],receipts:receipts.results??[],actorId:actor.profileId,canPost:actor.permissions.includes("finance.payments.post")});
   }catch{return privateJson({error:"Collections unavailable"},503);}
 }
+
 export async function POST(request:Request){
-  const staff=await getStaffAccess(request.url,request.headers);
-  if(!staff)return privateJson({error:"Authentication required"},401);
-  if(!authorized(staff.role))return privateJson({error:"Access denied"},403);
-  if(!sameOrigin(request))return privateJson({error:"Invalid request origin"},403);
-  if(!request.headers.get("content-type")?.toLowerCase().startsWith("application/json")){
-    return privateJson({error:"JSON required"},415);
-  }
-  let body:unknown;
-  try{const raw=await request.text();if(raw.length>2500)return privateJson({error:"Request too large"},413);body=JSON.parse(raw);}
-  catch{return privateJson({error:"Invalid JSON"},400);}
-  const parsed=collectionInput.safeParse(body);
-  if(!parsed.success)return privateJson({error:"Check amount, method, invoice and reason"},400);
-  const data=parsed.data,paymentId=crypto.randomUUID(),allocationId=crypto.randomUUID();
-  const receiptNo="SA-RCPT-"+crypto.randomUUID().replace(/-/g,"").slice(0,12).toUpperCase();
-  try{
-    // The triggers enforce invoice ownership, outstanding balance and balanced GL.
-    // D1.batch rolls back the receipt when any allocation or journal entry fails.
-    const tx=await env.DB.batch([
-      env.DB.prepare([
-        "INSERT INTO finance_payments",
-        "(id,receipt_no,student_id,amount_paisa,payment_method,received_by,reference)",
-        "SELECT ?,?,i.student_id,?,?,?,? FROM finance_invoices i",
-        "WHERE i.id=? AND i.status IN ('ISSUED','PARTIAL')",
-        "AND i.amount_paisa-i.paid_paisa>=? RETURNING id"
-      ].join(" ")).bind(paymentId,receiptNo,data.amountPaisa,data.method,
-        staff.userId,data.reference||null,data.invoiceId,data.amountPaisa),
-      env.DB.prepare([
-        "INSERT INTO finance_allocations(id,payment_id,invoice_id,amount_paisa)",
-        "SELECT ?,?,?,? WHERE changes()=1 RETURNING id"
-      ].join(" ")).bind(allocationId,paymentId,data.invoiceId,data.amountPaisa),
-      env.DB.prepare([
-        "INSERT INTO erp_audit_events(id,entity_type,entity_id,action,actor_id,reason,after_json)",
-        "SELECT ?,'finance_payment',?,'RECEIVED_AND_ALLOCATED',?,?,? WHERE changes()=1 RETURNING id"
-      ].join(" ")).bind(crypto.randomUUID(),paymentId,staff.userId,data.reason,
-        JSON.stringify({receiptNo,invoiceId:data.invoiceId,amountPaisa:data.amountPaisa,method:data.method})),
-    ]);
-    // Ledger triggers post several extra rows; only RETURNING tracks the
-    // intended inserted payment, allocation and audit rows precisely.
-    if(tx.some(x=>(x.results?.length??0)!==1)){
-      return privateJson({error:"Invoice already settled or amount exceeds outstanding"},409);
-    }
-    return privateJson({ok:true,id:paymentId,receiptNo,allocatedPaisa:data.amountPaisa},201);
-  }catch{return privateJson({error:"Payment not posted. Nothing was collected in the ERP; verify the invoice and retry."},409);}
+ let actor;
+ try{actor=await getCommandAccess(request);}catch{return privateJson({error:"Permissions are unavailable"},503);}
+ if(!actor)return privateJson({error:"Authentication required"},401);
+ if(!actor.permissions.includes("finance.payments.post"))return privateJson({error:"Payment posting permission required"},403);
+ if(!sameOrigin(request))return privateJson({error:"Invalid request origin"},403);
+ if(!request.headers.get("content-type")?.toLowerCase().startsWith("application/json"))return privateJson({error:"JSON required"},415);
+ let body:unknown;
+ try{const raw=await request.text();if(raw.length>2500)return privateJson({error:"Request too large"},413);body=JSON.parse(raw);}
+ catch{return privateJson({error:"Invalid JSON"},400);}
+ if(!body||typeof body!=="object"||Array.isArray(body))return privateJson({error:"Payment details required"},400);
+ const values=body as Record<string,unknown>,headerId=request.headers.get("idempotency-key");
+ if(values.requestId===undefined&&!headerId)return privateJson({error:"Refresh the collections page before recording this payment."},400);
+ if(headerId&&values.requestId!==undefined&&values.requestId!==headerId)return privateJson({error:"Payment request IDs do not match"},400);
+ const parsed=collectionInput.safeParse({...values,requestId:values.requestId??headerId??undefined});
+ if(!parsed.success)return privateJson({error:"Check the amount, method, invoice and reason. Refresh the page if the payment cannot be submitted."},400);
+ const result=await recordStudentPayment(env.DB,actor,parsed.data);
+ if(!result.ok)return privateJson({error:result.message,code:result.code},
+  result.code==="INVALID"?400:result.code==="FORBIDDEN"?403:result.code==="UNAVAILABLE"?503:409);
+ return privateJson(result,result.replayed?200:201);
 }

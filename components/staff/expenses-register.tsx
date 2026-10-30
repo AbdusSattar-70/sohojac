@@ -1,13 +1,15 @@
 "use client";
-import {useCallback,useEffect,useState,type FormEvent} from "react";
+import {useCallback,useEffect,useRef,useState,type FormEvent} from "react";
 import type {ExpenseRow} from "@/lib/erp-expenses";
+import {businessDate} from "@/modules/platform/business-date";
 
 const categoryCodes=["RENT","UTILITIES","TEACHING_MATERIALS","MARKETING","MAINTENANCE","TRANSPORT","OTHER"] as const;
 type Category=(typeof categoryCodes)[number];
 type FormData={category:Category;payee:string;description:string;spentOn:string;amount:string;
   method:"CASH"|"BANK"|"MFS";reason:string};
 const blank=():FormData=>({category:"RENT",payee:"",description:"",
-  spentOn:new Date().toISOString().slice(0,10),amount:"",method:"CASH",reason:""});
+  spentOn:businessDate(),amount:"",method:"CASH",reason:""});
+type ExpenseSubmission=Omit<FormData,"amount">&{requestId:string;amountPaisa:number};
 const field="mt-1 block min-h-10 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-blue-700";
 const taka=(n:number)=>"৳"+(n/100).toFixed(2);
 function parseTaka(s:string):number|null{
@@ -22,6 +24,9 @@ export function ExpensesRegister(){
   const [form,setForm]=useState<FormData>(blank);
   const [busy,setBusy]=useState(false),[loading,setLoading]=useState(true);
   const [message,setMessage]=useState("");
+  const requestId=useRef(crypto.randomUUID());
+  const submission=useRef<ExpenseSubmission|null>(null);
+  const [unconfirmed,setUnconfirmed]=useState(false);
   const refresh=useCallback(async()=>{
     setLoading(true);
     try{
@@ -35,19 +40,32 @@ export function ExpensesRegister(){
   useEffect(()=>{void refresh();},[refresh]);
   async function submit(e:FormEvent<HTMLFormElement>){
     e.preventDefault();if(busy)return;
-    const amountPaisa=parseTaka(form.amount);
-    if(amountPaisa===null){setMessage("Enter a valid positive amount, with at most two decimal places.");return;}
+    if(!submission.current){
+      const amountPaisa=parseTaka(form.amount);
+      if(amountPaisa===null){setMessage("Enter a valid positive amount, with at most two decimal places.");return;}
+      submission.current={requestId:requestId.current,category:form.category,payee:form.payee,
+        description:form.description,spentOn:form.spentOn,amountPaisa,method:form.method,reason:form.reason};
+    }
     setBusy(true);setMessage("");
     try{
       const r=await fetch("/api/staff/expenses",{method:"POST",credentials:"same-origin",
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({category:form.category,payee:form.payee,description:form.description,
-          spentOn:form.spentOn,amountPaisa,method:form.method,reason:form.reason})});
-      const d=await r.json() as {error?:string;reference?:string};
-      if(!r.ok)throw new Error(d.error||"Could not post expense");
+        body:JSON.stringify(submission.current)});
+      const d=await r.json() as {ok?:boolean;error?:string;reference?:string};
+      if(!r.ok){
+        // Validation/denial is a confirmed rejection. An unknown outcome keeps
+        // both the identity and exact payload locked for a safe retry.
+        if(r.status>=400&&r.status<500){submission.current=null;setUnconfirmed(false);}
+        throw new Error(d.error||"Could not confirm expense. Retry to check its outcome.");
+      }
+      if(d.ok!==true||!d.reference)throw new Error("Could not confirm expense. Retry to check its outcome.");
+      submission.current=null;requestId.current=crypto.randomUUID();setUnconfirmed(false);
       setForm(blank());await refresh();
       setMessage("Operating expense "+(d.reference||"")+" posted to the ledger.");
-    }catch(e){setMessage(e instanceof Error?e.message:"Expense not recorded");}
+    }catch(e){
+      setUnconfirmed(submission.current!==null);
+      setMessage(e instanceof Error?e.message:"Expense outcome is unconfirmed. Retry to check its outcome.");
+    }
     finally{setBusy(false);}
   }
   return <div className="space-y-6">
@@ -59,12 +77,14 @@ export function ExpensesRegister(){
     {message&&<p role="status" className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">{message}</p>}
     <form onSubmit={submit} className="rounded-xl border border-slate-200 bg-white p-5">
       <h2 className="font-bold">Record approved operating expense</h2>
+      {unconfirmed&&<p className="mt-3 text-sm text-amber-800" role="status">The posting outcome is unconfirmed. Keep these details and retry to recover the same expense.</p>}
+      <fieldset disabled={busy||unconfirmed}>
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <label className="text-xs font-bold">Category<select className={field} value={form.category} onChange={e=>setForm(x=>({...x,category:e.target.value as Category}))}>
           {categoryCodes.map(c=><option key={c} value={c}>{c.replaceAll("_"," ")}</option>)}
         </select></label>
         <label className="text-xs font-bold">Payee or supplier<input className={field} required maxLength={160} value={form.payee} onChange={e=>setForm(x=>({...x,payee:e.target.value}))}/></label>
-        <label className="text-xs font-bold">Date of payment<input className={field} required type="date" max={new Date().toISOString().slice(0,10)} value={form.spentOn} onChange={e=>setForm(x=>({...x,spentOn:e.target.value}))}/></label>
+        <label className="text-xs font-bold">Date of payment<input className={field} required type="date" max={businessDate()} value={form.spentOn} onChange={e=>setForm(x=>({...x,spentOn:e.target.value}))}/></label>
         <label className="text-xs font-bold">Amount paid (৳)<input className={field} required inputMode="decimal" value={form.amount} onChange={e=>setForm(x=>({...x,amount:e.target.value}))}/></label>
         <label className="text-xs font-bold">Payment method<select className={field} value={form.method} onChange={e=>setForm(x=>({...x,method:e.target.value as FormData["method"]}))}>
           <option value="CASH">Cash</option><option value="BANK">Bank</option><option value="MFS">Mobile financial services</option>
@@ -72,7 +92,8 @@ export function ExpensesRegister(){
         <label className="text-xs font-bold sm:col-span-2 lg:col-span-3">Description<input className={field} required minLength={3} maxLength={500} value={form.description} onChange={e=>setForm(x=>({...x,description:e.target.value}))}/></label>
         <label className="text-xs font-bold sm:col-span-2 lg:col-span-3">Posting reason<input className={field} required minLength={8} maxLength={500} value={form.reason} onChange={e=>setForm(x=>({...x,reason:e.target.value}))}/></label>
       </div>
-      <button className="mt-4 min-h-10 rounded-lg bg-blue-700 px-4 text-xs font-bold text-white disabled:opacity-50" type="submit" disabled={busy}>{busy?"Posting…":"Post expense"}</button>
+      </fieldset>
+      <button className="mt-4 min-h-10 rounded-lg bg-blue-700 px-4 text-xs font-bold text-white disabled:opacity-50" type="submit" disabled={busy}>{busy?"Posting…":unconfirmed?"Retry expense":"Post expense"}</button>
     </form>
     <section className="space-y-3">
       <h2 className="font-bold">Expense totals by category</h2>
@@ -91,3 +112,4 @@ export function ExpensesRegister(){
     </section>
   </div>;
 }
+

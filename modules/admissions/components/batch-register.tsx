@@ -126,6 +126,7 @@ export function BatchRegister({
                             entity="batch"
                             id={batch.id}
                             active={batch.isActive}
+                            expectedVersion={batch.version}
                           />
                         </div>
                       </td>
