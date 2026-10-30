@@ -1,8 +1,9 @@
-name: Public Website Checks
+name: ERP checks and releases
 on:
   push:
-    branches: [master, dev, feature/public_site_port, feature/erp_access_lifecycle]
+    branches: [master, dev]
   pull_request:
+    branches: [dev]
   workflow_dispatch:
     inputs:
       deploy_confirmation:
@@ -32,6 +33,8 @@ jobs:
           chmod 600 .env
       - name: Generate Cloudflare Worker types
         run: pnpm run cf-typegen
+      - name: Verify shared request protection and challenge failures
+        run: node scripts/test-request-protection.mjs
       - name: Verify types
         run: pnpm exec tsc --noEmit
       - name: Verify pinned original ERP architecture contract
@@ -1635,20 +1638,3 @@ jobs:
           test "$private_code" = "401"
           echo "Staging ERP deployed: $BETTER_AUTH_URL"
           echo "Dev has an independent D1 and needs its own OWNER setup; no production records were copied."
-
-  dev_cleanup:
-    name: Prune safely merged, obsolete feature branches
-    needs: [build, dev_release]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Check out exact deployed dev commit
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - name: Delete only integrated branches with unchanged observed SHA
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: node scripts/prune-integrated-dev-branches.mjs

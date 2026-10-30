@@ -1,4 +1,5 @@
 "use client";
+import { TurnstileChallenge } from "@/components/security/turnstile-challenge";
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
@@ -11,22 +12,30 @@ export default function ForgotPasswordPage() {
   const [complete, setComplete] = useState(false);
   const [error, setError] = useState("");
 
+  const [securityToken, setSecurityToken] = useState("");
+  const [securityReset, setSecurityReset] = useState(0);
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy) return;
+    if (busy || !securityToken) return;
     setError("");
     setBusy(true);
     try {
       // Fixed same-origin path prevents user-controlled redirect URLs.
-      await authClient.requestPasswordReset({
+      const result = await authClient.requestPasswordReset({
         email: email.trim().toLowerCase(),
         redirectTo: window.location.origin + "/reset-password",
-      });
+      }, { headers: { "x-turnstile-token": securityToken } });
+      if (result.error) {
+        setError(result.error.status === 429 ? "Too many requests. Please wait before retrying." : "Request failed. Complete a fresh security check and retry.");
+        return;
+      }
       // Never reveal if the address belongs to a staff account.
       setComplete(true);
     } catch {
       setError("Could not send the request. Please try again later.");
     } finally {
+      setSecurityReset(value => value + 1);
       setBusy(false);
     }
   }
@@ -52,7 +61,8 @@ export default function ForgotPasswordPage() {
             className="mt-1.5 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm focus-visible:outline-2 focus-visible:outline-blue-600" />
         </label>
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-        <button type="submit" disabled={busy} className="min-h-11 w-full rounded-lg bg-blue-700 px-4 text-sm font-bold text-white hover:bg-blue-800 disabled:opacity-50">
+        <TurnstileChallenge action="staff-password-recovery" onToken={setSecurityToken} resetKey={securityReset} />
+        <button type="submit" disabled={busy || !securityToken} className="min-h-11 w-full rounded-lg bg-blue-700 px-4 text-sm font-bold text-white hover:bg-blue-800 disabled:opacity-50">
           {busy ? "Requesting…" : "Send reset link"}
         </button>
       </form>}

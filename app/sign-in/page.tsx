@@ -1,4 +1,5 @@
 "use client";
+import { TurnstileChallenge } from "@/components/security/turnstile-challenge";
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
@@ -13,14 +14,18 @@ export default function SignInPage() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const [securityToken, setSecurityToken] = useState("");
+  const [securityReset, setSecurityReset] = useState(0);
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (busy || !securityToken) return;
     setBusy(true);
     setError("");
     try {
-      const result = await authClient.signIn.email({ email, password });
+      const result = await authClient.signIn.email({ email, password }, { headers: { "x-turnstile-token": securityToken } });
       if (result.error) {
-        setError("Sign-in failed. Check your credentials or contact the administrator.");
+        setError(result.error.status === 429 ? "Too many sign-in attempts. Please wait before retrying." : "Sign-in failed. Check your credentials or complete a fresh security check.");
         return;
       }
       router.replace("/dashboard");
@@ -28,6 +33,7 @@ export default function SignInPage() {
     } catch {
       setError("Unable to connect to authentication. Please try again.");
     } finally {
+      setSecurityReset(value => value + 1);
       setBusy(false);
     }
   }
@@ -58,7 +64,8 @@ export default function SignInPage() {
             className="mt-1.5 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm focus-visible:outline-2 focus-visible:outline-blue-600" />
         </label>
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-        <button type="submit" disabled={busy} className="min-h-11 w-full rounded-lg bg-blue-700 px-4 text-sm font-bold text-white hover:bg-blue-800 disabled:opacity-50">
+        <TurnstileChallenge action="staff-sign-in" onToken={setSecurityToken} resetKey={securityReset} />
+        <button type="submit" disabled={busy || !securityToken} className="min-h-11 w-full rounded-lg bg-blue-700 px-4 text-sm font-bold text-white hover:bg-blue-800 disabled:opacity-50">
           {busy ? "Signing in…" : "Sign in"}
         </button>
         <p className="text-center text-sm text-slate-600">

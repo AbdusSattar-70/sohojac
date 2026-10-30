@@ -1,4 +1,5 @@
 "use client";
+import { TurnstileChallenge } from "@/components/security/turnstile-challenge";
 
 import { Suspense, useState, type FormEvent } from "react";
 import Link from "next/link";
@@ -22,9 +23,12 @@ function ResetPasswordForm() {
   const [complete, setComplete] = useState(false);
   const [error, setError] = useState("");
 
+  const [securityToken, setSecurityToken] = useState("");
+  const [securityReset, setSecurityReset] = useState(0);
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy || !token) return;
+    if (busy || !securityToken || !token) return;
     if (password.length < 8 || password.length > 128 || password !== confirm) {
       setError("Choose a matching password with 8–128 characters.");
       return;
@@ -32,7 +36,7 @@ function ResetPasswordForm() {
     setError("");
     setBusy(true);
     try {
-      const result = await authClient.resetPassword({ newPassword: password, token });
+      const result = await authClient.resetPassword({ newPassword: password, token }, { headers: { "x-turnstile-token": securityToken } });
       if (result.error) {
         setError("This reset link could not be used. Request a new link.");
       } else {
@@ -44,7 +48,8 @@ function ResetPasswordForm() {
       }
     } catch {
       setError("Could not reset your password. Please try again.");
-    } finally { setBusy(false); }
+    } finally {
+      setSecurityReset(value => value + 1); setBusy(false); }
   }
 
   return <main lang="en" className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10 text-slate-900">
@@ -74,7 +79,8 @@ function ResetPasswordForm() {
             className="mt-1.5 block min-h-11 w-full rounded-lg border border-slate-300 px-3 text-sm focus-visible:outline-2 focus-visible:outline-blue-600" />
         </label>
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-        <button type="submit" disabled={busy || password !== confirm} className="min-h-11 w-full rounded-lg bg-blue-700 px-4 text-sm font-bold text-white disabled:opacity-50">
+        <TurnstileChallenge action="staff-password-reset" onToken={setSecurityToken} resetKey={securityReset} />
+        <button type="submit" disabled={busy || !securityToken || password !== confirm} className="min-h-11 w-full rounded-lg bg-blue-700 px-4 text-sm font-bold text-white disabled:opacity-50">
           {busy ? "Updating…" : "Update password"}
         </button>
       </form>}
