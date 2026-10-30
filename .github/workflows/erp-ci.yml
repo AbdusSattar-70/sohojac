@@ -58,6 +58,7 @@ jobs:
           node --test scripts/test-payment-commands.mjs scripts/test-collection-retry-ui.mjs scripts/test-expense-commands.mjs scripts/test-batch-command-adapters.mjs
           node --test scripts/test-finance-theme.mjs
           node --test scripts/test-batch-operator-ui.mjs
+          node --test scripts/test-programme-launch.mjs
       - name: Route and identity contracts
         run: |
           node scripts/check-staff-number-parity.mjs
