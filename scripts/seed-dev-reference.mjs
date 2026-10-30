@@ -1,4 +1,4 @@
-import fs from "node:fs";
+import { freshDevLegacyCleanupStatements, devReferenceSeedSql } from "./canonical-dev-bootstrap.mjs";
 import { databaseTargets, requireDevelopmentDatabaseId } from "../lib/database-target.ts";
 
 const { CLOUDFLARE_ACCOUNT_ID: account, CLOUDFLARE_API_TOKEN: token, GITHUB_REF: ref } = process.env;
@@ -30,13 +30,11 @@ if (current?.status === "COMPLETE") {
 // Historical schema migrations include two 2026 marketing showcase rows and
 // four grade-specific subject examples. Retire only those exact legacy fixtures
 // while bootstrapping a brand-new DEV D1, never on production or a used DB.
-const baseline = (await query("SELECT (SELECT count(*) FROM public_programme_offerings WHERE id NOT IN ('sa-annual-2026','sa-ssc-science')) other_offerings,(SELECT count(*) FROM academy_students) students,(SELECT count(*) FROM academy_admissions) admissions,(SELECT count(*) FROM academy_batches) batches,(SELECT count(*) FROM academy_fee_plans) fee_plans,(SELECT count(*) FROM finance_payments) payments,(SELECT count(*) FROM public_programme_offerings) offerings"))[0].results[0];
+const baseline = (await query("SELECT (SELECT count(*) FROM public_programme_offerings WHERE id NOT IN ('sa-annual-2026','sa-ssc-science')) other_offerings,(SELECT count(*) FROM academy_students) students,(SELECT count(*) FROM academy_admissions) admissions,(SELECT count(*) FROM academy_batches) batches,(SELECT count(*) FROM academy_fee_plans) fee_plans,(SELECT count(*) FROM finance_payments) payments"))[0].results[0];
 if (Object.values(baseline).some(value => value !== 0))
   throw Error("Refusing fresh dev bootstrap because the target contains business records. Never reset a populated database.");
-await query("DELETE FROM academy_offering_subjects WHERE offering_id IN ('sa-annual-2026','sa-ssc-science')");
-await query("DELETE FROM academy_subjects WHERE id IN ('physics','chemistry','biology','higher-maths')");
-await query("DELETE FROM public_programme_offerings WHERE id IN ('sa-annual-2026','sa-ssc-science')");
-const sql = fs.readFileSync(new URL("../seeds/dev-reference.sql", import.meta.url), "utf8");
+for (const sql of freshDevLegacyCleanupStatements) await query(sql);
+const sql = devReferenceSeedSql();
 if (/\bDELETE\s+FROM\b|\bDROP\s+(?:TABLE|TRIGGER|INDEX)\b|\bTRUNCATE\b/i.test(sql))
   throw Error("Dev reference seed must be strictly additive.");
 await query(sql);
