@@ -88,12 +88,18 @@ The user explicitly chose one DB for this development installation. Both URLs se
 existing main OWNER credentials work on dev. Sessions remain hostname-specific. Dev changes affect
 main data immediately, and both release jobs serialize through `sohojac-shared-d1-release`.
 
-The dev release runs the repeatable `seeds/development.sql` after migration/recovery capture.
-Search ERP lists for TEST: campus, year, class, Mathematics, programme, fee v1, Batch A, one returning
-student, two admission drafts and one CRM prospect. The offering is hidden from the public website.
-The synthetic contact is test data, not a real guardian. Review, consent, billing/payment and activation
-still require their normal operator commands. Re-running the seed does not reset staff edits or accounts.
-No database reset is needed or performed. Credentials/passwords are never seeded.
+The user-authorized one-time main release reset uses `scripts/reset-foundation.mjs` and
+`seeds/foundation.sql`. It preserves administrator login credentials, staff identities and migration history,
+clears business records and installs editable reference masters without TEST labels or sample people.
+Classes 1–12 and 27 guardian relationships are included; add further relationships through Academic Setup.
+Programmes and subjects are starting points; configure actual offerings, batches and prices before admission.
+
+Deploy dev first, then main. Both Workers must advertise the maintenance gate; a fresh captured D1 recovery
+bookmark is required. PREPARED in `system_maintenance_operations` blocks all mutations during reset or on
+failure. Retry the same main release to use the stored original trigger manifest, or restore the recovery
+bookmark through Cloudflare before resuming. Do not manually mark COMPLETE to bypass failed validation.
+A COMPLETE marker makes future releases preserve all newly entered work. The reset never provisions a DB.
+The Actions recovery artifact is retained seven days; the bookmark itself depends on D1 retention.
 
 After the verified dev Worker deploy, retirement checks both Worker D1 bindings and captures the former
 dev-only database bookmark before deleting only the exact former `sohojac-dev` resource. A separate

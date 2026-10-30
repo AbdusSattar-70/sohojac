@@ -22,4 +22,4 @@ pnpm run build
 ```
 
 See the runbook before applying migrations or configuring auth/Turnstile. Never
-commit secrets. Both deployments share data; dev releases add clearly labelled repeatable TEST records without resetting existing accounts.
+commit secrets. Both deployments share data; a user-authorized one-time foundation reset installs clean reference data while preserving login accounts. Later releases preserve newly entered work.

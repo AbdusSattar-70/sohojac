@@ -72,14 +72,14 @@ export default async function DashboardPage({
         description="A concise view of work that needs attention. Every number comes from the same governed ERP records used by the underlying workflows."
       />
 
-      {context.permissions.includes("system.settings.view") && (
+      {context.permissions.includes("system.master_data.manage") && (
         <div className="flex flex-wrap items-center gap-3 rounded-2xl border bg-card px-5 py-4 text-sm">
-          <span className="font-medium">Manage academy setup</span>
+          <span className="font-medium">Manage academic setup</span>
           <Link
-            href="/dashboard/settings"
+            href="/dashboard/academics/settings"
             className="rounded-lg border px-3 py-2 font-semibold text-primary hover:bg-muted"
           >
-            Open Settings
+            Open Academic Setup
           </Link>
         </div>
       )}

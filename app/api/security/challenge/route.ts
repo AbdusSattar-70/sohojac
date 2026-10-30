@@ -11,7 +11,12 @@ export function GET(request: Request) {
     !required ||
     Boolean(bindings.TURNSTILE_SITE_KEY && bindings.TURNSTILE_SECRET_KEY);
   return Response.json(
-    { required, ready, siteKey: bindings.TURNSTILE_SITE_KEY ?? "" },
+    {
+      maintenanceGate: "foundation-reset-v1",
+      required,
+      ready,
+      siteKey: bindings.TURNSTILE_SITE_KEY ?? "",
+    },
     {
       status: ready ? 200 : 503,
       headers: {

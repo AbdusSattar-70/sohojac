@@ -2,83 +2,108 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { test, beforeEach, after } from "node:test";
+import { resetPlan, operationId } from "./foundation-reset-plan.mjs";
 let db;
-const seed = fs.readFileSync("seeds/development.sql", "utf8");
+const seed = fs.readFileSync("seeds/foundation.sql", "utf8");
 beforeEach(() => {
   db?.close();
   db = new DatabaseSync(":memory:");
   db.exec("PRAGMA foreign_keys=ON");
-  for (const file of fs
+  for (const f of fs
     .readdirSync("migrations")
     .filter((f) => /^\d{4}.*sql$/.test(f))
     .sort())
-    db.exec(fs.readFileSync("migrations/" + file, "utf8"));
+    db.exec(fs.readFileSync("migrations/" + f, "utf8"));
 });
 after(() => db?.close());
-function owner() {
-  db.exec(
-    `INSERT INTO "user"(id,name,email,"createdAt","updatedAt") VALUES ('owner','Existing Owner','seed@example.invalid',0,0); INSERT INTO staff_memberships(user_id,role,active) VALUES ('owner','OWNER',1);`,
-  );
-}
 const n = (table) => db.prepare("SELECT COUNT(*) n FROM " + table).get().n;
-test("seed refuses missing owner without inventing accounts or partial records", () => {
-  assert.throws(() => db.exec(seed));
-  assert.equal(n("academy_branches"), 0);
-  assert.equal(n("user"), 0);
-});
-test("seed is repeatable, clearly marked, hidden from public and posts no financial transactions", () => {
-  owner();
-  for (let i = 0; i < 3; i++) db.exec(seed);
+function reset() {
+  const schema = db
+    .prepare(
+      "SELECT type,name,sql FROM sqlite_schema WHERE type IN ('table','trigger')",
+    )
+    .all();
+  db.prepare(
+    "INSERT INTO system_maintenance_operations(id,status,manifest_json) VALUES (?,'PREPARED',?)",
+  ).run(operationId, JSON.stringify(schema));
+  db.exec("BEGIN");
+  try {
+    db.exec(resetPlan(schema, seed));
+    db.exec("COMMIT");
+  } catch (e) {
+    db.exec("ROLLBACK");
+    throw e;
+  }
+}
+test("reset removes business data, preserves administrator and restores every trigger", () => {
+  db.exec(
+    `INSERT INTO "user"(id,name,email,"createdAt","updatedAt") VALUES ('owner','Existing Owner','owner@example.invalid',0,0); INSERT INTO staff_memberships(user_id,role,active) VALUES ('owner','OWNER',1);`,
+  );
+  const triggers = n("sqlite_schema");
+  const triggerNames = db
+    .prepare(
+      "SELECT name FROM sqlite_schema WHERE type='trigger' ORDER BY name",
+    )
+    .all();
+  reset();
   assert.equal(n("user"), 1);
-  assert.equal(n("academy_admissions"), 2);
-  assert.equal(n("academy_prospects"), 1);
-  assert.equal(n("academy_fee_plan_components"), 2);
-  assert.equal(
+  assert.equal(n("academy_staff"), 1);
+  assert.deepEqual(
     db
       .prepare(
-        "SELECT show_on_website FROM public_programme_offerings WHERE id='test-readiness-2027'",
+        "SELECT name FROM sqlite_schema WHERE type='trigger' ORDER BY name",
       )
-      .get().show_on_website,
-    0,
+      .all(),
+    triggerNames,
   );
-  for (const table of [
-    "finance_invoices",
+  for (const t of [
+    "academy_students",
+    "academy_admissions",
+    "academy_prospects",
     "finance_payments",
     "finance_journals",
-    "academy_enrollments",
+    "public_programme_offerings",
   ])
-    assert.equal(n(table), 0);
+    assert.equal(n(t), 0);
   assert.equal(
     db.prepare("SELECT COUNT(*) n FROM pragma_foreign_key_check").get().n,
     0,
   );
 });
-test("reapplying seed preserves existing credentials, live rows and staff edits", () => {
-  owner();
-  db.exec(
-    "INSERT INTO academy_classes(id,code,name) VALUES ('live-class','LIVE','Existing real class')",
-  );
-  db.exec(seed);
-  db.exec(
-    "UPDATE academy_students SET full_name='TEST — Staff edited student' WHERE student_no='TEST-SA-000001'",
-  );
-  db.exec(seed);
-  assert.equal(
+test("reference data covers all twelve grades and diverse guardian relationships without demo records", () => {
+  reset();
+  assert.deepEqual(
     db
-      .prepare(
-        "SELECT full_name FROM academy_students WHERE student_no='TEST-SA-000001'",
-      )
-      .get().full_name,
-    "TEST — Staff edited student",
+      .prepare("SELECT name FROM academy_classes ORDER BY sort_order")
+      .all()
+      .map((x) => x.name),
+    Array.from({ length: 12 }, (_, i) => "Class " + (i + 1)),
   );
+  for (const name of [
+    "Father",
+    "Mother",
+    "Legal guardian",
+    "Maternal uncle",
+    "Other",
+  ])
+    assert.ok(
+      db
+        .prepare("SELECT id FROM academy_guardian_relationships WHERE name=?")
+        .get(name),
+    );
+  assert.ok(n("academy_guardian_relationships") >= 25);
+  assert.ok(n("academic_subjects") >= 20);
+  assert.ok(!seed.includes("TEST"));
+});
+test("reference seed is repeatable and preserves operator edits", () => {
+  reset();
+  db.exec("UPDATE academy_classes SET name='Grade One' WHERE code='CLASS1'");
+  db.exec(seed);
+  assert.equal(n("academy_classes"), 12);
   assert.equal(
-    db.prepare("SELECT name FROM academy_classes WHERE id='live-class'").get()
+    db.prepare("SELECT name FROM academy_classes WHERE code='CLASS1'").get()
       .name,
-    "Existing real class",
-  );
-  assert.equal(
-    db.prepare('SELECT name FROM "user"').get().name,
-    "Existing Owner",
+    "Grade One",
   );
 });
 const source = fs
