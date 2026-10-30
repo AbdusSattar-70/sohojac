@@ -1,6 +1,6 @@
 import fs from "node:fs";
 const file=p=>fs.readFileSync(p,"utf8");
-const sql=file("migrations/0024_staff_master_identity.sql");
+const sql=file("migrations/history/0024_staff_master_identity.sql");
 for(const term of [
  "staff_seq INTEGER PRIMARY KEY AUTOINCREMENT",
  "SA-STF-", "printf('%06d',staff_seq)", "STORED UNIQUE",
