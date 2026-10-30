@@ -13,8 +13,8 @@ import { DatabaseSync } from "node:sqlite";
  * references remain a separate idempotent seed; finance chart reference accounts
  * are the only migrated baseline data.
  */
-const sourceDir = process.argv[2] || "migrations";
-const destination = process.argv[3] || "migrations/canonical";
+const sourceDir = process.argv[2] || "migrations/history";
+const destination = process.argv[3] || "migrations";
 const names = readdirSync(sourceDir).filter(n => /^\d{4}_[a-z0-9_-]+\.sql$/.test(n)).sort();
 if (names.length !== 36 || names.at(0) !== "0001_public_website.sql" ||
     names.at(-1) !== "0037_operator_expense_commands.sql") {
