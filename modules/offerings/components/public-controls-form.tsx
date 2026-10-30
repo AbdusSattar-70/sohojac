@@ -40,6 +40,9 @@ export function PublicControlsForm({
   onSuccess,
 }: {
   offering: OfferingRow;
+  /** Accepted during component migration; subject assignments are not edited here. */
+  subjects?: OfferingOverview["subjects"];
+  allowSubjectEditing?: boolean;
   linkedSubjectIds: string[];
   onSuccess?: () => void;
 }) {
