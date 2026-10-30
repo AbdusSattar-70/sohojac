@@ -89,7 +89,7 @@ export function OperatorProgrammeForm({
     });
   };
   return (
-    <form onSubmit={submit} className="space-y-5" data-editor data-busy={pending}>
+    <form onSubmit={submit} className="space-y-5" data-editor data-busy={pending ? "true" : "false"}>
       <fieldset disabled={pending} className="contents">
         <p className="text-sm text-muted-foreground">
           Set up an ordinary coaching programme. The system generates its internal code and keeps the draft private until you publish it.
@@ -194,7 +194,7 @@ export function OperatorFeeForm({
     });
   };
   return (
-    <form onSubmit={submit} className="space-y-4" data-editor data-busy={pending}>
+    <form onSubmit={submit} className="space-y-4" data-editor data-busy={pending ? "true" : "false"}>
       <fieldset disabled={pending} className="contents">
         <p className="text-sm text-muted-foreground">
           Set the monthly tuition and any one-time admission fee. These terms become the approved billing basis for future admissions.
@@ -264,7 +264,7 @@ export function OperatorBatchForm({
     });
   };
   return (
-    <form onSubmit={submit} className="space-y-4" data-editor data-busy={pending}>
+    <form onSubmit={submit} className="space-y-4" data-editor data-busy={pending ? "true" : "false"}>
       <fieldset disabled={pending} className="contents">
         <p className="text-sm text-muted-foreground">Create a small teaching cohort. The 12-seat limit is enforced again by the server.</p>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -352,7 +352,7 @@ export function OperatorPublicationForm({
     });
   };
   return (
-    <form onSubmit={submit} className="space-y-4" data-editor data-busy={pending}>
+    <form onSubmit={submit} className="space-y-4" data-editor data-busy={pending ? "true" : "false"}>
       <fieldset disabled={pending} className="contents">
         <div className="grid gap-4">
           <label className="text-sm font-medium">Public programme title
@@ -368,12 +368,12 @@ export function OperatorPublicationForm({
             <input type="checkbox" checked={visible} onChange={(e) => {
               setVisible(e.target.checked);
               if (!e.target.checked) setAccepting(false);
-            }} className="size-4" disabled={offering.status !== "ACTIVE"}/>
+            }} className="size-4" disabled={offering.status !== "ACTIVE" && !visible}/>
             Show programme on public website
           </label>
           <label className="flex min-h-10 items-center gap-3 text-sm font-medium">
             <input type="checkbox" checked={accepting} onChange={(e) => setAccepting(e.target.checked)}
-              className="size-4" disabled={!visible || !canOpen}/>
+              className="size-4" disabled={!visible || (!canOpen && !accepting)}/>
             Accept applications for this programme
           </label>
           {!canOpen && <p className="text-xs text-muted-foreground">
