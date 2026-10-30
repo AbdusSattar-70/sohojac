@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
-import Script from "next/script";
+import { TurnstileChallenge } from "@/components/security/turnstile-challenge";
 import { useLanguage } from "@/components/providers/language-provider";
 import { AcknowledgementSlip } from "@/components/public/acknowledgement-slip";
 import type { PublicOfferingCard } from "@/modules/offerings/types";
@@ -33,6 +33,8 @@ export function PublicInterestForm({ offerings, intent, initialOfferingId = "", 
   // changes the selection. All later status messages derive from offeringId.
   const [showInitialClosedNotice, setShowInitialClosedNotice] = useState(initiallyClosedRequested);
   const [className, setClassName] = useState(() => classForOffering(offerings.find(o => o.id === initialOfferingId)?.class_name));
+  const [securityToken, setSecurityToken] = useState("");
+  const [securityReset, setSecurityReset] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
@@ -42,7 +44,7 @@ export function PublicInterestForm({ offerings, intent, initialOfferingId = "", 
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy || !canSubmit || !registrationReady) return;
+    if (busy || !canSubmit || !registrationReady || !securityToken) return;
     const form = event.currentTarget;
     const data = new FormData(form);
     const get = (field: string) => String(data.get(field) || "").trim();
@@ -65,7 +67,7 @@ export function PublicInterestForm({ offerings, intent, initialOfferingId = "", 
           trialInterest: data.get("trialInterest") === "on",
           referralNote: get("referralNote"), notes: get("notes"),
           consent: data.get("consent") === "on", website: get("website"),
-          turnstileToken: get("cf-turnstile-response"),
+          turnstileToken: securityToken,
         }),
       });
       const result = await response.json() as { error?: string; ok?: boolean } & Partial<Confirmation>;
@@ -81,7 +83,7 @@ export function PublicInterestForm({ offerings, intent, initialOfferingId = "", 
       setBusy(false);
       // Turnstile tokens are single-use, even if a request fails after verification.
       // This form has only one widget; reset it before a retry.
-      if (!succeeded) (window as Window & { turnstile?: { reset: () => void } }).turnstile?.reset();
+      if (!succeeded) setSecurityReset(value => value + 1);
     }
   }
 
@@ -234,10 +236,7 @@ export function PublicInterestForm({ offerings, intent, initialOfferingId = "", 
     {!registrationReady && <p role="status" className="rounded-xl border border-amber-600/40 bg-amber-600/10 p-4 text-sm leading-7">
       {bn ? "অনলাইন নিবন্ধন সাময়িকভাবে বন্ধ আছে। নিরাপত্তা যাচাই চালু হলে আবার চেষ্টা করুন।" : "Online registration is temporarily unavailable while security verification is being configured. Please return later."}
     </p>}
-    {registrationReady && siteKey && <div className="space-y-2">
-      <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" strategy="afterInteractive" />
-      <div className="cf-turnstile" data-sitekey={siteKey} data-theme="dark" data-action="public-enquiry" />
-    </div>}
+    {registrationReady && <TurnstileChallenge action="public-enquiry" onToken={setSecurityToken} resetKey={securityReset} />}
     <div className="sr-only" aria-hidden="true"><label>Website <input name="website" tabIndex={-1} autoComplete="off" /></label></div>
     <label className="flex items-start gap-3 rounded-xl border border-border bg-muted/30 p-4 text-sm leading-6">
       <input type="checkbox" name="consent" required className="mt-1 size-4 accent-blue-600"/>
@@ -246,7 +245,7 @@ export function PublicInterestForm({ offerings, intent, initialOfferingId = "", 
       </span>
     </label>
     {error && <p role="alert" className="rounded-xl border border-red-700/40 bg-red-800/10 p-4 text-sm text-red-300">{error}</p>}
-    <button type="submit" disabled={busy || !canSubmit || !registrationReady} className="min-h-12 w-full rounded-xl bg-blue-700 px-6 py-3 font-semibold text-white transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50">
+    <button type="submit" disabled={busy || !canSubmit || !registrationReady || !securityToken} className="min-h-12 w-full rounded-xl bg-blue-700 px-6 py-3 font-semibold text-white transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50">
       {busy ? (bn ? "জমা হচ্ছে…" : "Submitting…") : intent === "admission" ? (bn ? "ভর্তির আবেদন জমা দিন" : "Submit admission application") : (bn ? "আগ্রহ নিবন্ধন জমা দিন" : "Submit interest registration")}
     </button>
     <p className="text-xs leading-6 text-muted-foreground">{bn ? "এই ফর্ম ভর্তি নিশ্চিতকরণ বা পেমেন্ট রসিদ নয়।" : "Submitting this form does not confirm admission, reserve a seat, or create a payment receipt."}</p>

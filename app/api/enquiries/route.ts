@@ -1,3 +1,4 @@
+import { verifyTurnstile } from "@/lib/security/request-protection";
 import { env } from "cloudflare:workers";
 import { z } from "zod";
 
@@ -56,38 +57,8 @@ export async function POST(request: Request) {
   const d = parsed.data;
   if (d.website) return answer({ ok: true }); // Quietly discard bot submissions.
 
-  // Mandatory protection outside local development; never expose a public form
-  // on a deployed Worker without a configured Turnstile secret.
-  const hostname = new URL(request.url).hostname;
-  const isLocal = hostname === "localhost" || hostname === "127.0.0.1";
-  const turnstileSecret = (env as unknown as { TURNSTILE_SECRET_KEY?: string }).TURNSTILE_SECRET_KEY;
-  if (!isLocal && !turnstileSecret) return answer({ error: "Registration is not configured yet" }, 503);
-  if (turnstileSecret) {
-    if (!d.turnstileToken) return answer({ error: "Please complete the security verification" }, 400);
-    try {
-      const verified = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        signal: AbortSignal.timeout(8000),
-        body: new URLSearchParams({
-          secret: turnstileSecret,
-          response: d.turnstileToken,
-          ...(request.headers.get("CF-Connecting-IP") ? { remoteip: request.headers.get("CF-Connecting-IP")! } : {}),
-        }),
-      });
-      const validation = await verified.json() as {
-        success?: boolean; hostname?: string; action?: string;
-      };
-      // Tokens must be issued for the actual requested hostname and this form,
-      // not merely pass a challenge on a different website.
-      if (!verified.ok || !validation.success ||
-          validation.action !== "public-enquiry" ||
-          validation.hostname?.toLowerCase() !== hostname.toLowerCase()) {
-        return answer({ error: "Security verification failed. Please refresh and retry." }, 403);
-      }
-    } catch { return answer({ error: "Could not verify the security challenge" }, 503); }
-  }
-
+  const securityError = await verifyTurnstile(request, d.turnstileToken ?? "", "public-enquiry");
+  if (securityError) return securityError;
 
   try {
     if (d.intent === "admission" && !d.offeringId) {

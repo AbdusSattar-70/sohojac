@@ -42,7 +42,7 @@ The checker now admits only SHA-256
 for this reviewed rebuild. Both deployment jobs capture a verified D1 Time
 Travel recovery bookmark and retain it as a seven-day Actions artifact before
 migrations; a missing bookmark blocks the release. Production still requires
-a successful isolated dev D1 migration/replay. Retain the snapshot tables. A rollback requires a reviewed
+the previously verified isolated migration replay. The later user decision now uses one shared development D1; current dev releases are not data isolation. Retain the snapshot tables. A rollback requires a reviewed
 recovery plan that accounts for any lifecycle changes made after deployment;
 restoring a pre-migration snapshot blindly could lose later legitimate work.
 

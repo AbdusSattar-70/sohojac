@@ -2,12 +2,14 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
-import Script from "next/script";
+import { TurnstileChallenge } from "@/components/security/turnstile-challenge";
 
 type StaffRole = "ADMIN" | "OPERATOR" | "TEACHER" | "ACCOUNTANT";
 const input = "mt-1.5 block min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600";
 
 export function AccessRequestForm({siteKey, ready}: {siteKey: string; ready: boolean}) {
+  const [securityToken,setSecurityToken] = useState("");
+  const [securityReset,setSecurityReset] = useState(0);
   const [busy,setBusy] = useState(false);
   const [done,setDone] = useState(false);
   const [error,setError] = useState("");
@@ -15,7 +17,7 @@ export function AccessRequestForm({siteKey, ready}: {siteKey: string; ready: boo
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy || !ready) return;
+    if (busy || !ready || !securityToken) return;
     const form = event.currentTarget;
     const data = new FormData(form);
     const value = (field: string) => String(data.get(field) || "").trim();
@@ -28,7 +30,7 @@ export function AccessRequestForm({siteKey, ready}: {siteKey: string; ready: boo
           fullName:value("fullName"), email:value("email"), mobile:value("mobile"),
           requestedRole:role, purpose:value("purpose"),
           consent: data.get("consent") === "on",
-          website:value("website"), turnstileToken:value("cf-turnstile-response"),
+          website:value("website"), turnstileToken:securityToken,
         }),
       });
       if (!response.ok) {
@@ -40,7 +42,7 @@ export function AccessRequestForm({siteKey, ready}: {siteKey: string; ready: boo
     } catch {setError("Connection failed. Please try again.");}
     finally {
       setBusy(false);
-      (window as Window & {turnstile?: {reset: () => void}}).turnstile?.reset();
+      setSecurityReset(value => value + 1);
     }
   }
 
@@ -84,15 +86,12 @@ export function AccessRequestForm({siteKey, ready}: {siteKey: string; ready: boo
     <div className="absolute -left-[10000px]" aria-hidden="true">
       <label>Leave this empty <input type="text" name="website" tabIndex={-1} autoComplete="off"/></label>
     </div>
-    {ready && siteKey && <div>
-      <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" strategy="afterInteractive"/>
-      <div className="cf-turnstile" data-sitekey={siteKey} data-action="staff-access-request"/>
-    </div>}
+    {ready && <TurnstileChallenge action="staff-access-request" onToken={setSecurityToken} resetKey={securityReset} />}
     {!ready && <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
       Access requests are temporarily unavailable while security verification is being configured.
     </p>}
     {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
-    <button type="submit" disabled={busy||!ready}
+    <button type="submit" disabled={busy||!ready||!securityToken}
       className="min-h-11 w-full rounded-xl bg-blue-700 px-5 text-sm font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50">
       {busy?"Submitting…":"Submit access request"}
     </button>

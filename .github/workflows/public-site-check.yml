@@ -1,8 +1,9 @@
-name: Public Website Checks
+name: ERP checks and releases
 on:
   push:
-    branches: [master, dev, feature/public_site_port, feature/erp_access_lifecycle]
+    branches: [master, dev]
   pull_request:
+    branches: [dev]
   workflow_dispatch:
     inputs:
       deploy_confirmation:
@@ -32,6 +33,10 @@ jobs:
           chmod 600 .env
       - name: Generate Cloudflare Worker types
         run: pnpm run cf-typegen
+      - name: Verify shared request protection and challenge failures
+        run: node scripts/test-request-protection.mjs
+      - name: Verify shared development seed and guarded legacy database retirement
+        run: node scripts/test-development-seed.mjs
       - name: Verify types
         run: pnpm exec tsc --noEmit
       - name: Verify pinned original ERP architecture contract
@@ -143,6 +148,9 @@ jobs:
           done
           curl -fsS "http://localhost:4173/request-access" > /tmp/access-request-page.html
           grep -q "Request staff access" /tmp/access-request-page.html
+
+          curl -fsS http://localhost:4173/api/security/challenge > /tmp/local-security-config.json
+          node -e 'const x=require("/tmp/local-security-config.json");if(x.required!==false||x.ready!==true)process.exit(1);'
 
           # Anonymous access requests only create review records, never a login.
           anonymous_queue=$(curl -sS -o /tmp/private-access-queue.json -w '%{http_code}' \
@@ -1392,7 +1400,7 @@ jobs:
     permissions:
       contents: read
     concurrency:
-      group: sohojac-production-deploy
+      group: sohojac-shared-d1-release
       cancel-in-progress: false
     env:
       CF_SEND_TELEMETRY: "false"
@@ -1520,11 +1528,17 @@ jobs:
               exit 1
             fi
           done
+          # Prove the deployed proxy guards auth before the credential handler.
+          curl -fsS --max-time 15 "$BETTER_AUTH_URL/api/security/challenge" > /tmp/security-readiness.json
+          node -e 'const x=require("/tmp/security-readiness.json");if(x.required!==true||x.ready!==true||!x.siteKey)process.exit(1);'
+          denied=$(curl -sS --max-time 15 -o /dev/null -w '%{http_code}' -X POST "$BETTER_AUTH_URL/api/auth/sign-in/email" -H "Origin: $BETTER_AUTH_URL" -H "Content-Type: application/json" --data '{}')
+          test "$denied" = "403" || { echo "::error::Unverified sign-in returned HTTP $denied instead of 403"; exit 1; }
+          echo "Production Turnstile configuration ready; unverified sign-in denied."
           echo "All private ERP endpoints reject anonymous access."
           echo "Site healthy; unauthenticated prospect access denied."
 
   dev_release:
-    name: Deploy isolated dev preview to Cloudflare
+    name: Deploy dev preview using shared sohojac D1
     needs: build
     if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
     runs-on: ubuntu-latest
@@ -1532,7 +1546,7 @@ jobs:
     permissions:
       contents: read
     concurrency:
-      group: sohojac-dev-deploy
+      group: sohojac-shared-d1-release
       cancel-in-progress: false
     env:
       CF_SEND_TELEMETRY: "false"
@@ -1574,24 +1588,26 @@ jobs:
           run_install: false
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
-      - name: Locate or provision independent development D1 and URL
+      - name: Confirm shared sohojac D1 and resolve dev URL
         id: target
-        run: node scripts/provision-dev-cloudflare.mjs
+        run: node scripts/prepare-dev-deployment.mjs
       - name: Capture verified dev D1 recovery point
-        run: node scripts/capture-d1-recovery.mjs "$SOHOJAC_DEV_D1_ID"
+        run: node scripts/capture-d1-recovery.mjs "$SOHOJAC_D1_ID"
       - name: Preserve dev recovery bookmark
         uses: actions/upload-artifact@v4
         with:
           name: dev-d1-recovery-${{ github.sha }}
           path: ${{ runner.temp }}/sohojac-d1-recovery.json
           retention-days: 7
-      - name: Apply pending migrations ONLY to development D1
+      - name: Apply pending migrations to the one shared D1
         run: |
           set -euo pipefail
-          test "$SOHOJAC_DEV_D1_ID" != "d6f3e4e9-2190-43bf-bc90-969687f6db78"
+          test "$SOHOJAC_D1_ID" = "d6f3e4e9-2190-43bf-bc90-969687f6db78"
           node scripts/check-d1-migrations.mjs
-          pnpm exec cf d1 migrations list "$SOHOJAC_DEV_D1_ID" --mode staging
-          printf 'y\n' | pnpm exec cf d1 migrations apply "$SOHOJAC_DEV_D1_ID" --mode staging
+          pnpm exec cf d1 migrations list "$SOHOJAC_D1_ID" --mode staging
+          printf 'y\n' | pnpm exec cf d1 migrations apply "$SOHOJAC_D1_ID" --mode staging
+      - name: Apply repeatable user-authorized development seed
+        run: node scripts/seed-development.mjs
       - name: Rebuild tested source with staging Cloudflare configuration
         run: |
           set -euo pipefail
@@ -1634,21 +1650,15 @@ jobs:
           private_code=$(curl --silent --show-error --max-time 15 -o /dev/null -w '%{http_code}' "$BETTER_AUTH_URL/api/staff/students")
           test "$private_code" = "401"
           echo "Staging ERP deployed: $BETTER_AUTH_URL"
-          echo "Dev has an independent D1 and needs its own OWNER setup; no production records were copied."
+          echo "Dev and main share sohojac D1 and existing accounts; no second database or owner is created."
 
-  dev_cleanup:
-    name: Prune safely merged, obsolete feature branches
-    needs: [build, dev_release]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Check out exact deployed dev commit
-        uses: actions/checkout@v4
+      - name: Retire former dev-only database after verified Worker rebinding
+        run: node scripts/retire-legacy-dev-database.mjs
+      - name: Preserve former dev database retirement bookmark
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          persist-credentials: false
-      - name: Delete only integrated branches with unchanged observed SHA
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: node scripts/prune-integrated-dev-branches.mjs
+          name: retired-dev-d1-recovery-${{ github.sha }}
+          path: ${{ runner.temp }}/retired-dev-d1-recovery.json
+          retention-days: 7
+          if-no-files-found: ignore
