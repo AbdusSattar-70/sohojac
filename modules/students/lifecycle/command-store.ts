@@ -28,7 +28,7 @@ export const studentBusinessDate = () => new Date().toLocaleDateString("en-CA", 
   timeZone: "Asia/Dhaka",
 });
 const yearKey = (batch: string, offering: string) =>
-  `COALESCE(${batch}.year_id,${offering}.academic_year_id,'name:'||${offering}.academic_year_name)`;
+  `COALESCE(${batch}.year_id,${offering}.academic_year_id,CASE WHEN ${offering}.operation_kind='TRAINING' OR length(trim(${offering}.academic_year_name))=0 THEN 'offering:'||${offering}.id ELSE 'name:'||${offering}.academic_year_name END)`;
 const openAdmission = "NOT IN ('CANCELLED','REJECTED')";
 
 async function student(id: string) {
@@ -37,7 +37,7 @@ async function student(id: string) {
 }
 async function activeBatch(id: string) {
   return env.DB.prepare([
-    "SELECT b.id,b.offering_id,b.capacity,", yearKey("b", "o"), "AS year_key",
+    "SELECT b.id,b.offering_id,min(b.capacity,12) AS capacity,", yearKey("b", "o"), "AS year_key",
     "FROM academy_batches b JOIN public_programme_offerings o ON o.id=b.offering_id",
     "WHERE b.id=? AND b.status='ACTIVE' AND o.is_active=1",
     "AND (o.offering_status IS NULL OR o.offering_status='ACTIVE')",
@@ -119,7 +119,7 @@ export async function executeStudentCommand(
         "AND (f.effective_from IS NULL OR f.effective_from<=?)",
         "AND (f.effective_to IS NULL OR f.effective_to>=?)",
         "AND length(trim(s.guardian_name))>0 AND length(trim(s.guardian_mobile))>0",
-        "AND b.capacity>(SELECT COUNT(*) FROM academy_enrollments e WHERE e.batch_id=b.id AND e.status='ACTIVE')",
+        "AND min(b.capacity,12)>(SELECT COUNT(*) FROM academy_enrollments e WHERE e.batch_id=b.id AND e.status='ACTIVE')",
         "AND NOT EXISTS(SELECT 1 FROM academy_enrollments e JOIN academy_batches eb ON eb.id=e.batch_id",
         "JOIN public_programme_offerings eo ON eo.id=eb.offering_id WHERE e.student_id=s.id AND e.status='ACTIVE'",
         "AND", yearKey("eb", "eo"), "=", yearKey("b", "o"), ")",
@@ -166,7 +166,7 @@ export async function executeStudentCommand(
           "WHERE e.id=? AND e.version=? AND e.status='WITHDRAWN' AND e.ended_on=?",
           "AND a.version=? AND a.status='ENROLLED' AND b.status='ACTIVE' AND o.is_active=1",
           "AND (o.offering_status IS NULL OR o.offering_status='ACTIVE')",
-          "AND b.capacity>(SELECT COUNT(*) FROM academy_enrollments en WHERE en.batch_id=b.id AND en.status='ACTIVE')",
+          "AND min(b.capacity,12)>(SELECT COUNT(*) FROM academy_enrollments en WHERE en.batch_id=b.id AND en.status='ACTIVE')",
         ].join(" ")).bind(enrollmentId, destination.id, enrollment.id, enrollment.version + 1, today, admission.version),
         env.DB.prepare([
           "UPDATE academy_admissions SET batch_id=?,version=version+1,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')",
@@ -246,7 +246,14 @@ export async function executeEnrollmentClosure(
   if (!before) return { ok: false, message: "Enrollment not found for this student." };
   if (before.status !== "ACTIVE") return { ok: true, message: "Enrollment is already closed." };
   const today = studentBusinessDate();
-  if (before.enrolled_at.slice(0, 10) > today) {
+  const start = new Date(before.enrolled_at);
+  if (Number.isNaN(start.getTime())) {
+    return { ok: false, message: "Enrollment start date is unavailable. Verify its recorded history before closure." };
+  }
+  const startsOn = /^\d{4}-\d{2}-\d{2}$/.test(before.enrolled_at)
+    ? before.enrolled_at
+    : start.toLocaleDateString("en-CA", { timeZone: "Asia/Dhaka" });
+  if (startsOn > today) {
     return { ok: false, message: "Enrollment start is in the future. Cancel the admission instead." };
   }
   const closureId = crypto.randomUUID();
