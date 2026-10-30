@@ -153,3 +153,13 @@ Record actual dev/main release evidence in the phase PR before marking this corr
 - [Final dev run 41105286069](https://github.com/AbdusSattar-70/sohojac/actions/runs/41105286069) deployed `6b59a376ed6c8e25002cbd7c2ed59fc2f62498b6`. [Final main run 41105806134](https://github.com/AbdusSattar-70/sohojac/actions/runs/41105806134) deployed `06c667c0c76cc412babf9db7917ab038d8211abd`, completing the correction phase with successful health/security checks.
 
 Phase 2 remains next. Subject-master reconciliation and Classes 1–3 offering subjects remain Phase 3 work.
+
+## Phase 1D: clear offering subjects and publication eligibility
+
+Subject rows for different grades were shown with identical names/codes. Preserve their IDs and class/group
+relationships, expose those labels, scope choices to the offering context and use searchable checkboxes.
+Existing out-of-context links remain visible for explicit review/removal, rather than silent data loss.
+Draft/retired publication controls explain their prerequisite beside the switches. Attempting a blocked
+selection produces an immediate accessible alert and a link to the exact offering's Fee Plan or reactivation.
+An intake flag on an inactive offering is shown as pending activation rather than misleadingly Open.
+No database reset, deletions or fee changes are required. Record actual release evidence in the phase PR.

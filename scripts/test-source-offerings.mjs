@@ -175,3 +175,12 @@ test("fee form defaults preserve the monthly/non-monthly due-day invariant",()=>
  assert.equal(defaultDueDay('TERM',null),null);assert.equal(defaultDueDay('ONE_TIME',null),null);
  assert.equal(defaultDueDay('TERM',15),null);assert.equal(defaultDueDay('ONE_TIME',15),null);
 });
+
+test("inactive linked subjects can be retained or removed without blocking content edits, but cannot be newly assigned",async()=>{
+ const offering=await actions.createProgrammeOffering(create());await actions.publishFeePlan(fee(offering.reference));
+ assert.equal((await actions.updateProgrammeOfferingPublicControls(publicInput(offering.reference))).ok,true);
+ db.exec("UPDATE academy_subjects SET active=0 WHERE id='physics'");
+ assert.equal((await actions.updateProgrammeOfferingPublicControls(publicInput(offering.reference,{showcaseTitle:'Updated content'}))).ok,true);
+ assert.equal((await actions.updateProgrammeOfferingPublicControls(publicInput(offering.reference,{subjectIds:[]}))).ok,true);
+ assert.equal((await actions.updateProgrammeOfferingPublicControls(publicInput(offering.reference))).ok,false);
+});
