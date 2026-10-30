@@ -228,7 +228,7 @@ export function OperatorBatchForm({
 }) {
   const router = useRouter();
   const [name, setName] = useState("");
-  const [codeSuffix] = useState(() => crypto.randomUUID().replaceAll("-", "").slice(0, 5).toUpperCase());
+  const [codeSuffix, setCodeSuffix] = useState(() => crypto.randomUUID().replaceAll("-", "").slice(0, 5).toUpperCase());
   const [capacity, setCapacity] = useState(String(Math.min(12, capacityLimit)));
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
@@ -258,7 +258,9 @@ export function OperatorBatchForm({
         return;
       }
       request.current = null;
-      setMessage({ ok: true, text: "Batch created as planned. Activate it to make its seats available." });
+      setName("");
+      setCodeSuffix(crypto.randomUUID().replaceAll("-", "").slice(0, 5).toUpperCase());
+      setMessage({ ok: true, text: "Batch created as planned. Activate it below before accepting students." });
       router.refresh();
       onSaved();
     });
