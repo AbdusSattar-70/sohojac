@@ -32,6 +32,7 @@ export const manageMasterRecordSchema = z
   .object({
     entity: z.enum(masterEntities),
     id: z.union([z.string().uuid(), z.literal("")]).optional(),
+    expectedVersion: z.number().int().min(1).optional(),
     code: z.string().optional(),
     name: z.string().optional(),
     description: z.string().optional(),
@@ -45,6 +46,9 @@ export const manageMasterRecordSchema = z
   })
   .superRefine((value, ctx) => {
     if (value.entity === "academic_year") {
+      if (value.id && !value.expectedVersion) {
+        ctx.addIssue({code:"custom",path:["expectedVersion"],message:"Year revision missing. Refresh the register before editing."});
+      }
       if (!value.name || value.name.trim().length < 2) {
         ctx.addIssue({ code: "custom", path: ["name"], message: "Year name is required." });
       }

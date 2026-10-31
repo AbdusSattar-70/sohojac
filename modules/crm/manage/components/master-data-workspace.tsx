@@ -74,6 +74,7 @@ const sections: {
 
 type Row = {
   id: string;
+  version?: number;
   code?: string | null;
   name: string;
   description?: string | null;
@@ -90,6 +91,7 @@ function rowsFor(entity: MasterEntity, data: ManageCrmOverview): Row[] {
     case "academic_year":
       return data.years.map((y) => ({
         id: y.id,
+        version: y.version,
         name: y.name,
         starts_on: y.starts_on,
         ends_on: y.ends_on,
@@ -171,6 +173,7 @@ function fromRow(entity: MasterEntity, row: Row): ManageMasterRecordInput {
   return {
     entity,
     id: row.id,
+    expectedVersion: entity === "academic_year" ? row.version : undefined,
     code: row.code ?? "",
     name: row.name ?? "",
     description: row.description ?? "",
@@ -478,6 +481,9 @@ function MasterRecordForm({
 
         <input type="hidden" {...register("entity")} />
         <input type="hidden" {...register("id")} />
+        {entity === "academic_year" && isEdit && (
+          <input type="hidden" {...register("expectedVersion", { valueAsNumber: true })} />
+        )}
 
         <div className="grid gap-4 sm:grid-cols-2">
           {entity !== "academic_year" && entity !== "school" && (

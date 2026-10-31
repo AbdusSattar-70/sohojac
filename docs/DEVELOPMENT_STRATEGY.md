@@ -36,7 +36,7 @@ The [verified dev deployment on commit `a971a790`](https://github.com/AbdusSatta
 | **C1a — Correct fifth-step completion** | **Deployed to dev** | [PR #55](https://github.com/AbdusSattar-70/sohojac/pull/55): the Review check is tied to actual live intake, not the first four steps only. |
 | **C2a — Global subject directory and repository cleanup** | **Deployed to dev** | Single `academic_subjects` read model, read-only legacy association audit, retired new class-specific subject creation. Verified deployment on `dev`. |
 | **C2b — Subject identity cutover** | **Read-only impact audit in development** | `feature/c2b-subject-impact-review` adds original-ID offering/public JSON evidence and assessment/session text-label inventory. Actual identity crosswalk, approval, forward migration and consumer cutover are still outstanding. No name-based joins or data rewrite. |
-| **C3 — Master-data concurrency** | Planned | Named permissions and optimistic version checks for academic years, subjects, classes, groups and programmes; regression tests for conflicting saves. |
+| **C3 — Master-data concurrency** | **C3a in development** | Academic-year editor now carries the authoritative D1 version to the permission-gated save; stale edits fail without an audit entry. Remaining class/group/subject/programme versioning and reconciliation are C3b. |
 | **C4 — Operator daily journeys** | Planned | Admission and returning student, due follow-up and receipts, teacher session/attendance/marks, role/desktop/mobile testing. |
 | **C5 — Finance/reports and messages** | Planned | Whole-ledger aggregates rather than latest-200 headlines; reconciled reports, SMS outbox/retries, recovery drill, accessibility/performance checks. |
 | **Production acceptance** | **Not authorized** | Owner must manually test and approve the exact dev revision. No automatic merge or production release. |
@@ -44,6 +44,10 @@ The [verified dev deployment on commit `a971a790`](https://github.com/AbdusSatta
 ### C2b implementation boundary — dependency inventory before any rekey
 
 The impact review lists every legacy offering/subject FK by original ID, shows whether the stored public-card JSON contains that ID, and identifies text-only assessment/session records. This is evidence collection, not the approved ID crosswalk. Session titles and assessment subject strings are not canonical foreign keys; they cannot be auto-joined by title. Production may have different data from development. Review all consumers and mapping decisions before writing new migrations or changing public cards. CI runs this inventory against disposable canonical SQLite with duplicate subject labels and separate public/non-public offerings.
+
+## C3a — Academic year conflict handling
+
+The existing academic-year API already used `version` checks, but the Academic Setup Server Action discarded the version and could overwrite another staff member's save. C3a carries the displayed version through the editor into a conditional `UPDATE ... WHERE id=? AND version=?`, with an explicit stale-edit error. The insert/update audit remains conditional on an actual saved row. Rejected edits preserve the year and do not produce fabricated audit events. Other master tables do not yet have the same protections; C3b requires a reviewed forward migration and version checks in each writer.
 
 ## C2 — Subject master policy
 

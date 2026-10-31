@@ -18,8 +18,8 @@ function plan(v:ManageMasterRecordInput,id:string):Planned{
   case "academic_year":
    // Existing D1 requires an internal code. The original ERP did not.
    return isEdit
-    ? {table:tables[v.entity],sql:"UPDATE academic_years SET title=?,starts_on=?,ends_on=?,status=?,version=version+1 WHERE id=?",
-       args:[name,v.startsOn||null,v.endsOn||null,flag?"ACTIVE":"DRAFT",id]}
+    ? {table:tables[v.entity],sql:"UPDATE academic_years SET title=?,starts_on=?,ends_on=?,status=?,version=version+1 WHERE id=? AND version=?",
+       args:[name,v.startsOn||null,v.endsOn||null,flag?"ACTIVE":"DRAFT",id,v.expectedVersion??-1]}
     : {table:tables[v.entity],sql:"INSERT INTO academic_years (id,code,title,starts_on,ends_on,status) VALUES (?,?,?,?,?,?)",
        args:[id,"YR-"+id.slice(0,8).toUpperCase(),name,v.startsOn||null,v.endsOn||null,flag?"ACTIVE":"DRAFT"]};
   case "class":
@@ -84,6 +84,9 @@ export async function manageCrmMasterRecord(input:ManageMasterRecordInput):Promi
   if(v.entity==="academic_year" && v.id && before &&
       (before as {status?:string}).status==="CLOSED")
     return {ok:false,error:"This academic year was permanently closed; the closure cannot be reversed."};
+  if(v.entity==="academic_year" && v.id && before &&
+      (before as {version?:number}).version!==v.expectedVersion)
+    return {ok:false,error:"Another staff member changed this year. Refresh and reopen it before saving.",field:"expectedVersion"};
   const result=await env.DB.batch([
    env.DB.prepare(p.sql).bind(...p.args),
    env.DB.prepare("INSERT INTO erp_audit_events (id,entity_type,entity_id,action,actor_id,reason,before_json,after_json) "+
@@ -92,7 +95,9 @@ export async function manageCrmMasterRecord(input:ManageMasterRecordInput):Promi
      context.profileId,v.reason,JSON.stringify(before),JSON.stringify(v)),
   ]);
   if(result[0].meta.changes!==1||result[1].meta.changes!==1)
-   return {ok:false,error:"Save not confirmed. Refresh before retrying."};
+   return {ok:false,error:v.entity==="academic_year" && Boolean(v.id)
+    ?"This academic year changed while you were saving. Refresh and reopen before retrying."
+    :"Save not confirmed. Refresh before retrying."};
   const persisted=await env.DB.prepare("SELECT id FROM "+p.table+" WHERE id=?").bind(id).first<{id:string}>();
   if(!persisted)return {ok:false,error:"Save not confirmed. Refresh before retrying."};
   return {ok:true,reference:(v.id?"UPDATE:":"CREATE:")+id};
