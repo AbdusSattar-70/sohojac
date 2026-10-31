@@ -61,3 +61,9 @@ For each deployment, preserve the Actions URL, exact SHA, D1 name/UUID, schema c
 ## Held SMS queue: not a delivery system
 
 The sixth forward-only migration adds `guardian_message_outbox`. Staff with `audit.view` can review and stage consent-attested predefined templates with stable request IDs through `/api/staff/messages`. The recipient is resolved from student data and no phone numbers are returned. All messages remain `HELD` and `delivered:false`; no real SMS is sent. Provider dispatch, opt-out, delivery callbacks, staging allowlists and cost controls are separate release gates.
+
+## C6 recovery rehearsal versus real D1 Time Travel restore
+
+CI now runs `node scripts/rehearse-d1-local-recovery.mjs` against disposable synthetic SQLite data. It applies the complete forward migration set, snapshots the database, deliberately changes a student and deletes a held message **in the disposable source only**, reopens the backup, and checks recovered student/message records, foreign keys and integrity. It does not access Cloudflare, production, development D1, or real guardian records.
+
+An actual **Cloudflare D1 Time Travel restore is NOT verified** by that test. For any real incident, the owner must separately authorize environment-specific recovery, record the D1 name/UUID and Worker binding, export/record the pre-change recovery bookmark, stop writes, preview the restore target and confirm provider retention limits, restore to an isolated validation copy where possible, verify row counts/audit/ledger reconciliation, and only then authorize any live recovery action. Never point the development Worker to production D1 or overwrite production to test a backup. A bookmark is not proof of successful restoration.
