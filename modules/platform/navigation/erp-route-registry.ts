@@ -412,8 +412,7 @@ export const implementedErpRoutes = [
  "/dashboard/attendance", "/dashboard/teacher",
  "/dashboard/finance/fee-plans", "/dashboard/finance/cost-per-student", "/dashboard/finance/collections",
  "/dashboard/finance/billing", "/dashboard/finance/receivables", "/dashboard/finance/expenses",
- "/dashboard/finance/reports", "/dashboard/staff/access",
- "/dashboard/staff/directory", "/dashboard/staff/teachers"
+ "/dashboard/finance/reports", "/dashboard/staff/teachers"
 ] as const;
 const available=new Set<string>(implementedErpRoutes);
 export function isAvailableErpRoute(href:string){return available.has(href);}
