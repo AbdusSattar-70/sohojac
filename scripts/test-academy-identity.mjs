@@ -16,3 +16,24 @@ test('identity is never seeded by migration',()=>{assert.equal(db.prepare('SELEC
 test('permissions, origin and bounded input reject without writing',async()=>{permissions=[];assert.equal((await save(input)).ok,false);permissions=['system.settings.manage'];origin='https://attacker.invalid';assert.equal((await save(input)).ok,false);origin='https://academy.invalid';assert.equal((await save({...input,name:'X'})).ok,false);assert.equal(db.prepare('SELECT COUNT(*) n FROM academy_branches').get().n,0)});
 test('confirmed campus keeps its permanent identity across rename and retries',async()=>{assert.equal((await save(input)).ok,true);const id=db.prepare("SELECT id FROM academy_branches WHERE code='MAIN'").get().id;assert.equal((await save({...input,branch_name:'Renamed Campus'})).ok,true);assert.equal((await save({...input,branch_name:'Renamed Campus'})).ok,true);assert.equal(db.prepare('SELECT COUNT(*) n FROM academy_branches').get().n,1);assert.equal(db.prepare("SELECT id FROM academy_branches WHERE code='MAIN'").get().id,id);assert.equal(db.prepare('SELECT name FROM academy_identity').get().name,input.name)});
 test('audit failure rolls back identity and campus together',async()=>{failAudit=true;assert.equal((await save(input)).ok,false);assert.equal(db.prepare('SELECT COUNT(*) n FROM academy_identity').get().n,0);assert.equal(db.prepare('SELECT COUNT(*) n FROM academy_branches').get().n,0)});
+
+test('academy identity is a one-time completed record, not a repeated settings task',async()=>{
+ const querySource=stripTypeScriptTypes(
+  fs.readFileSync('modules/platform/setup/identity-queries.ts','utf8'),{mode:'strip'}
+ ).replace(/^import .*;\r?\n/gm,'').replace('export async function','async function');
+ const readIdentity=new Function('env','requirePermission',querySource+';return getAcademyIdentity')(
+  {DB:{prepare(sql){return {async first(){return db.prepare(sql).get()??null}}}}},
+  async()=>{}
+ );
+ const before=await readIdentity();
+ assert.equal(before.confirmed,false);
+ assert.equal(before.name,'');
+ assert.equal((await save(input)).ok,true);
+ const confirmed=await readIdentity();
+ assert.equal(confirmed.confirmed,true);
+ assert.equal(confirmed.name,input.name);
+ assert.equal(confirmed.branchName,input.branch_name);
+ assert.equal((await save({...input,branch_name:'Updated Main Campus'})).ok,true);
+ assert.equal((await readIdentity()).confirmed,true);
+ assert.equal(db.prepare("SELECT COUNT(*) n FROM academy_identity WHERE id='academy'").get().n,1);
+});
