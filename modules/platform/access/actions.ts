@@ -5,6 +5,7 @@ import {headers} from "next/headers";
 import {revalidatePath} from "next/cache";
 import {getErpContext} from "@/modules/platform/auth/erp-context";
 import {sendStaffEmail,staffMailConfigured,staffMailRecipientAllowed} from "@/lib/staff-mail";
+import {buildStaffInvitationEmail} from "@/lib/staff-invitation-template";
 
 const roles=z.enum(["ADMIN","OPERATOR","TEACHER","ACCOUNTANT"]);
 const reviewSchema=z.object({
@@ -124,11 +125,20 @@ export async function reviewStaffAccess(input:unknown){
   const url=new URL(h.get("origin")!);
   const link=url.origin+"/accept-invitation?token="+encodeURIComponent(token);
   try{
+   const invitation=buildStaffInvitationEmail({
+    recipientName:row.full_name,
+    verifiedRole:row.assigned_role!,
+    actionUrl:link,
+    supportEmail:"info@sohojac.com",
+    address:env.STAFF_EMAIL_POSTAL_ADDRESS ?? "",
+    expiresInHours:24,
+   });
    await sendStaffEmail({
     recipient:row.email,
-    subject:"Sohoj Academy — your staff access invitation",
-    text:"Your staff access request was verified. Set your password within 24 hours:\n"+link+
-     "\n\nIf you did not request access, notify Sohoj Academy.",
+    subject:invitation.subject,
+    text:invitation.text,
+    html:invitation.html,
+    replyTo:"info@sohojac.com",
     idempotencyKey:"staff-invite-"+inviteId
    });
   }catch{return {ok:false,message:"Invitation was created, but delivery failed. Retry the verified request after cooldown."};}

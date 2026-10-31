@@ -51,7 +51,7 @@ jobs:
           node --test scripts/test-payment-commands.mjs scripts/test-collection-retry-ui.mjs scripts/test-expense-commands.mjs scripts/test-batch-command-adapters.mjs
           node --test scripts/test-finance-theme.mjs scripts/test-cost-per-student.mjs
           node --test scripts/test-batch-operator-ui.mjs
-          node --test scripts/test-programme-launch.mjs scripts/test-academic-onboarding-ux.mjs scripts/test-single-staff-access-flow.mjs scripts/test-staff-mail-setup.mjs
+          node --test scripts/test-programme-launch.mjs scripts/test-academic-onboarding-ux.mjs scripts/test-single-staff-access-flow.mjs scripts/test-staff-mail-setup.mjs scripts/test-staff-invitation-template.mjs
       - name: Route and identity contracts
         run: |
           node scripts/check-staff-number-parity.mjs
@@ -93,6 +93,7 @@ jobs:
       # Empty values intentionally keep sending disabled until configured.
       DEV_STAFF_EMAIL_FROM: ${{ vars.DEV_STAFF_EMAIL_FROM }}
       DEV_STAFF_EMAIL_ALLOWLIST: ${{ vars.DEV_STAFF_EMAIL_ALLOWLIST }}
+      DEV_STAFF_EMAIL_POSTAL_ADDRESS: ${{ vars.DEV_STAFF_EMAIL_POSTAL_ADDRESS }}
       DEV_RESEND_API_KEY: ${{ secrets.DEV_RESEND_API_KEY }}
       CF_SEND_TELEMETRY: "false"
     steps:

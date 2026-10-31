@@ -51,6 +51,10 @@ export default defineConfig(({ mode }) => {
           ? { RESEND_API_KEY: bindings.secret() }
           : {}),
         STAFF_EMAIL_FROM: bindings.text(staffEmailFrom),
+        // Public, verified office address for transactional email footer.
+        STAFF_EMAIL_POSTAL_ADDRESS: bindings.text(
+          staging ? process.env.DEV_STAFF_EMAIL_POSTAL_ADDRESS || "" : process.env.STAFF_EMAIL_POSTAL_ADDRESS || "",
+        ),
         // Development sending is restricted to explicit synthetic/test users.
         STAFF_EMAIL_REQUIRE_ALLOWLIST: bindings.text(staging ? "true" : "false"),
         STAFF_EMAIL_ALLOWLIST: bindings.text(
