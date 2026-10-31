@@ -7,5 +7,6 @@ export async function getAcademyIdentity() {
     env.DB.prepare("SELECT name FROM academy_identity WHERE id='academy'").first<{name:string}>(),
     env.DB.prepare("SELECT name FROM academy_branches WHERE code='MAIN'").first<{name:string}>(),
   ]);
-  return { name: identity?.name ?? "", branchName: branch?.name ?? "" };
+  return { name: identity?.name ?? "", branchName: branch?.name ?? "",
+    confirmed: Boolean(identity?.name?.trim() && branch?.name?.trim()) };
 }
