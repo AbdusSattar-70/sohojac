@@ -55,6 +55,10 @@ const entries = [
   { name: "feature/single-subject-master-clean-slate", currentMergedHead: true },
   { name: "feature/c5c-guardian-message-safety", currentMergedHead: true },
   { name: "feature/c6-recovery-rehearsal", currentMergedHead: true },
+  { name: "feature/c7-safe-merged-branch-cleanup", currentMergedHead: true },
+  { name: "feature/c8-contact-safe-messaging", currentMergedHead: true },
+  { name: "feature/c9-operating-cost-per-student", currentMergedHead: true },
+  { name: "feature/c10-guardian-api-acceptance", currentMergedHead: true },
   // Obsolete alternative to rebuilding historical SQL on CI: replaced by the validated canonical baseline.
   { name: "fix/pinned-historical-ci-fixtures", sha: "c039b34beb3bff903320cd0753860e8aa915f1c6", pr: 57, allowSuperseded: true },
 ];
