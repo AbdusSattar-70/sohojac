@@ -46,12 +46,30 @@ export function AccessRequestForm({siteKey, ready}: {siteKey: string; ready: boo
     }
   }
 
-  if(done) return <div role="status" className="space-y-4 rounded-xl border border-green-200 bg-green-50 p-5 text-sm leading-7 text-green-900">
-    <h2 className="text-lg font-extrabold">Request received</h2>
-    <p>If your application is eligible, an administrator will review your identity and responsibilities.
-      This is not a staff account or a promise of access. Approved applicants will receive further instructions.</p>
-    <Link href="/sign-in" className="font-semibold text-blue-700 underline">Return to sign in</Link>
-  </div>;
+  if(done) return <section role="status" aria-live="polite"
+    className="space-y-5 rounded-2xl border border-emerald-400/40 bg-emerald-500/10 p-5 text-sm leading-7 sm:p-6">
+    <div className="flex items-start gap-3">
+      <span aria-hidden="true"
+        className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-400/20 text-xl font-bold text-emerald-200">
+        ✓
+      </span>
+      <div className="space-y-2">
+        <h2 className="text-xl font-bold tracking-tight text-emerald-200">Request received</h2>
+        <p className="leading-7 text-slate-100">
+          Your staff access request has been submitted for administrator review.
+        </p>
+      </div>
+    </div>
+    <p className="text-slate-200">
+      If eligible, you will receive account setup instructions after identity and
+      responsibilities are verified. This confirmation does not create a staff account
+      or guarantee access.
+    </p>
+    <Link href="/sign-in"
+      className="inline-flex min-h-11 items-center rounded-xl border border-emerald-300/40 px-4 font-semibold text-emerald-100 underline-offset-4 hover:bg-emerald-500/10 focus-visible:outline-2 focus-visible:outline-blue-400">
+      Return to sign in
+    </Link>
+  </section>;
 
   return <form className="space-y-5" onSubmit={submit}>
     <div className="grid gap-5 sm:grid-cols-2">
@@ -70,7 +88,7 @@ export function AccessRequestForm({siteKey, ready}: {siteKey: string; ready: boo
       <select value={role} onChange={event=>setRole(event.target.value as StaffRole)} className={input}>
         <option value="TEACHER">Teacher</option>
         <option value="OPERATOR">Operations / Admissions</option>
-        <option value="ACCOUNTANT">Accounts / Finance</option>
+        <option value="ACCOUNTANT" disabled>Accounts / Finance (not yet available)</option>
         <option value="ADMIN">Administration</option>
       </select>
     </label>

@@ -51,7 +51,7 @@ jobs:
           node --test scripts/test-payment-commands.mjs scripts/test-collection-retry-ui.mjs scripts/test-expense-commands.mjs scripts/test-batch-command-adapters.mjs
           node --test scripts/test-finance-theme.mjs scripts/test-cost-per-student.mjs
           node --test scripts/test-batch-operator-ui.mjs
-          node --test scripts/test-programme-launch.mjs scripts/test-academic-onboarding-ux.mjs scripts/test-single-staff-access-flow.mjs
+          node --test scripts/test-programme-launch.mjs scripts/test-academic-onboarding-ux.mjs scripts/test-single-staff-access-flow.mjs scripts/test-staff-mail-setup.mjs
       - name: Route and identity contracts
         run: |
           node scripts/check-staff-number-parity.mjs
@@ -89,7 +89,11 @@ jobs:
       DEV_BETTER_AUTH_SECRET: ${{ secrets.DEV_BETTER_AUTH_SECRET }}
       DEV_TURNSTILE_SECRET_KEY: ${{ secrets.DEV_TURNSTILE_SECRET_KEY }}
       TURNSTILE_SITE_KEY: ${{ vars.DEV_TURNSTILE_SITE_KEY }}
-      STAFF_EMAIL_FROM: ""
+      # Dev-only sender and allowlist are plain variables; key remains a secret.
+      # Empty values intentionally keep sending disabled until configured.
+      DEV_STAFF_EMAIL_FROM: ${{ vars.DEV_STAFF_EMAIL_FROM }}
+      DEV_STAFF_EMAIL_ALLOWLIST: ${{ vars.DEV_STAFF_EMAIL_ALLOWLIST }}
+      DEV_RESEND_API_KEY: ${{ secrets.DEV_RESEND_API_KEY }}
       CF_SEND_TELEMETRY: "false"
     steps:
       - uses: actions/checkout@v4
@@ -144,11 +148,16 @@ jobs:
           node --input-type=module <<'NODE'
           import fs from "node:fs";
           import path from "node:path";
+          const secrets = {
+            BETTER_AUTH_SECRET: process.env.DEV_BETTER_AUTH_SECRET,
+            TURNSTILE_SECRET_KEY: process.env.DEV_TURNSTILE_SECRET_KEY,
+          };
+          // Only include the verified sender's dev-specific key. Never use the
+          // production provider secret and never emit a token in runner logs.
+          if (process.env.DEV_RESEND_API_KEY && process.env.DEV_STAFF_EMAIL_FROM?.trim())
+            secrets.RESEND_API_KEY = process.env.DEV_RESEND_API_KEY;
           fs.writeFileSync(path.join(process.env.RUNNER_TEMP,"sohojac-dev-secrets.json"),
-            JSON.stringify({
-              BETTER_AUTH_SECRET: process.env.DEV_BETTER_AUTH_SECRET,
-              TURNSTILE_SECRET_KEY: process.env.DEV_TURNSTILE_SECRET_KEY,
-            }),{mode:0o600});
+            JSON.stringify(secrets),{mode:0o600});
           NODE
           trap 'rm -f "$RUNNER_TEMP/sohojac-dev-secrets.json"' EXIT
           pnpm exec cf deploy --prebuilt --mode staging --secrets-file "$RUNNER_TEMP/sohojac-dev-secrets.json"

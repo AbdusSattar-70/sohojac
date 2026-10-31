@@ -4,7 +4,7 @@ import {env} from "cloudflare:workers";
 import {headers} from "next/headers";
 import {revalidatePath} from "next/cache";
 import {getErpContext} from "@/modules/platform/auth/erp-context";
-import {sendStaffEmail,staffMailConfigured} from "@/lib/staff-mail";
+import {sendStaffEmail,staffMailConfigured,staffMailRecipientAllowed} from "@/lib/staff-mail";
 
 const roles=z.enum(["ADMIN","OPERATOR","TEACHER","ACCOUNTANT"]);
 const reviewSchema=z.object({
@@ -85,7 +85,9 @@ export async function reviewStaffAccess(input:unknown){
      row.assigned_role!==v.assigned_role)
    return {ok:false,message:"Verify this exact role before sending an invitation."};
   if(!staffMailConfigured())
-   return {ok:false,message:"Staff invitation email is not configured."};
+   return {ok:false,message:"Staff invitation email is not ready. Check Staff & access → Email delivery setup."};
+  if(!staffMailRecipientAllowed(row.email))
+   return {ok:false,message:"This recipient is not in the development email test allowlist. Check email delivery setup."};
   if(row.latest_invite_at&&Date.now()-Date.parse(row.latest_invite_at)<60_000)
    return {ok:false,message:"An invitation was just issued. Retry after a minute."};
   const duplicate=await env.DB.prepare(

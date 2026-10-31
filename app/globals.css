@@ -251,8 +251,10 @@
   color: #fca5a5 !important;
 }
 
+:where(.erp-dark, .staff-auth-dark) [class~="text-green-900"],
 :where(.erp-dark, .staff-auth-dark) [class~="text-green-800"],
 :where(.erp-dark, .staff-auth-dark) [class~="text-green-700"],
+:where(.erp-dark, .staff-auth-dark) [class~="text-emerald-900"],
 :where(.erp-dark, .staff-auth-dark) [class~="text-emerald-800"],
 :where(.erp-dark, .staff-auth-dark) [class~="text-emerald-700"] {
   color: #86efac !important;

@@ -93,3 +93,21 @@ To onboard a staff member, direct them to **/sign-in → Request an account** (o
 Use the **Pending setup** and **Completed / closed requests** views for workflow status. The in-app **Account setup and role assignment guide** opens `/dashboard/help/staff-access`; it is restricted to staff with `system.users.manage`. Account delivery requires a configured staff-email provider. If no requests are visible, check the selected status view; the interface distinguishes empty pending requests from empty history.
 
 **Do not use manual staff creation.** Its former standalone directory and API have been removed, and the two outdated staff access URLs only redirect to the single authoritative page. Existing verified staff can still be viewed, corrected or deactivated in the Staff section. The deletion is application code only; no existing staff, membership, enrolment, audit records or D1 migrations are removed.
+
+## Development staff invitation email — Resend setup
+
+Previously the `dev` deployment forcibly set `STAFF_EMAIL_FROM` to an empty string and did not bind `RESEND_API_KEY`, so **every** invitation failed with “Staff invitation email is not configured.” The Worker now supports optional, environment-specific transactional email with safe defaults. No production mail credentials are inherited or copied, and no new email is sent merely by deploying code.
+
+A repository owner must perform the provider-side setup. In [Resend Domains](https://resend.com/domains), verify the sending domain using exactly the DNS entries Resend supplies (SPF/DKIM, plus DMARC recommended). Create a restricted sending-only API key scoped to the verified domain. In GitHub **Settings → Secrets and variables → Actions** configure:
+
+| Name | Storage | Example / purpose |
+|---|---|---|
+| `DEV_RESEND_API_KEY` | Actions **secret** | Restricted Resend sending key; never include it in Git or chat |
+| `DEV_STAFF_EMAIL_FROM` | Actions **variable** | `Sohoj Academy <info@sohojac.com>` **only after sender domain verification** |
+| `DEV_STAFF_EMAIL_ALLOWLIST` | Actions **variable** | Comma-separated approved **test inboxes**; never guardian/staff production lists |
+
+The `dev` Actions workflow conditionally adds `RESEND_API_KEY` to the Cloudflare staging Worker **secrets file** and the sender/allowlist to its staging bindings. All three are required for the **Staff & access → Staff invitation email** indicator to say “Configuration ready — delivery not yet tested.” A missing or malformed value safely disables delivery rather than creating invitation tokens. Unallowlisted recipients are rejected *before* issuing a token. Even when the indicator reads ready, verify actual domain DNS and delivery with a permitted test inbox; the indicator alone cannot prove Resend accepted or delivered a message. For production use independently scoped production secrets with an owner-approved release; never reuse `DEV_RESEND_API_KEY`.
+
+If a request is marked VERIFIED but its assigned role is ACCOUNTANT, **do not attempt invitation yet**: the current D1 membership constraint and security rules do not support an ACCOUNTANT login. Never auto-map ACCOUNTANT to OPERATOR because OPERATOR can have unrelated access. If the person's real responsibilities truly match a currently supported role, the reviewer may explicitly update and reverify that role; otherwise keep the request open until the accountant role is safely implemented. New public signups no longer advertise unsupported accountant activation, and previously stored requests are preserved.
+
+The dark-only staff-access request confirmation now uses light legible text on an understated green-tinted panel instead of dark green text on dark green. This is part of the regression suite, not an email-delivery claim.
