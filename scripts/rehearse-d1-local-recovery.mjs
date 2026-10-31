@@ -41,7 +41,7 @@ try{
   .get("student-rehearsal").full_name,"Synthetic student");
  assert.equal(restored.prepare("SELECT status FROM guardian_message_outbox WHERE id=?")
   .get("held-rehearsal").status,"HELD");
- assert.equal(restored.prepare("SELECT COUNT(*) n FROM sqlite_schema WHERE name='guardian_sms_optouts'").get().n,1);
+ assert.equal(restored.prepare("SELECT COUNT(*) n FROM sqlite_schema WHERE name='guardian_message_outbox'").get().n,1);
  console.log("PASS local SQLite recovery rehearsal: snapshot survived simulated edits and deletion;");
  console.log("foreign keys, integrity and held outbox were preserved. No D1 Time Travel restore performed.");
 }finally{
