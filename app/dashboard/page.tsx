@@ -16,6 +16,8 @@ import { getDashboardOverview } from "@/modules/dashboard/queries";
 import { getDailyWorkOverview } from "@/modules/dashboard/daily-work-queries";
 import { DailyWorkPanel } from "@/components/dashboard/daily-work-panel";
 import { requirePermission } from "@/modules/platform/auth/erp-context";
+import { getAcademyIdentity } from "@/modules/platform/setup/identity-queries";
+import { AcademyIdentityForm } from "@/modules/platform/setup/identity-form";
 
 export default async function DashboardPage({
   searchParams,
@@ -25,7 +27,11 @@ export default async function DashboardPage({
   const context = await requirePermission("dashboard.view");
   const home = workspaceHome(context);
   if (home !== "/dashboard") redirect(home);
-  const [overview,daily] = await Promise.all([getDashboardOverview(context),getDailyWorkOverview(context)]);
+  const [overview,daily,identity] = await Promise.all([
+    getDashboardOverview(context),
+    getDailyWorkOverview(context),
+    context.permissions.includes("system.settings.manage") ? getAcademyIdentity() : Promise.resolve(null),
+  ]);
   const dueFollowups = daily.queues.find((item) => item.id === "followups")?.count ?? null;
   const { access } = await searchParams;
 
@@ -74,6 +80,16 @@ export default async function DashboardPage({
         title="Digital Campus"
         description="A concise view of work that needs attention. Every number comes from the same governed ERP records used by the underlying workflows."
       />
+
+      {identity && !identity.confirmed && (
+        <section aria-labelledby="first-time-academy-heading" className="space-y-4">
+          <div className="space-y-1">
+            <h2 id="first-time-academy-heading" className="text-lg font-semibold">Welcome — complete your academy setup</h2>
+            <p className="text-sm text-muted-foreground">Confirm the academy name and main campus once. This first-run setup disappears after you save it; you can edit the details later in Academic Setup.</p>
+          </div>
+          <AcademyIdentityForm name={identity.name} branchName={identity.branchName} />
+        </section>
+      )}
 
       <DailyWorkPanel work={daily} />
 
