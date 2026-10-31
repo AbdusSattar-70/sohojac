@@ -21,7 +21,7 @@ export function MessageSafetyWorkspace({messages,students,canManage}:{
   try{
    const response=await fetch(url,{method:"POST",headers:{"content-type":"application/json"},
     credentials:"same-origin",body:JSON.stringify(body)});
-   const value=await response.json().catch(()=>({error:"Unexpected response"}));
+   const value=(await response.json().catch(()=>({error:"Unexpected response"}))) as {error?:string};
    if(!response.ok)throw Error(String(value.error??"Action was not confirmed"));
    setFeedback(url.endsWith("opt-out")
     ?"Guardian opted out; any held requests were cancelled.": "Held message cancelled.");
