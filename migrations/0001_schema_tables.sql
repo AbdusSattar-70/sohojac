@@ -193,8 +193,6 @@ CREATE TABLE academic_subjects (
   id TEXT PRIMARY KEY NOT NULL,
   code TEXT NOT NULL UNIQUE,
   title TEXT NOT NULL,
-  class_grade INTEGER CHECK(class_grade BETWEEN 1 AND 12),
-  group_name TEXT,
   active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1))
 );
 
@@ -371,22 +369,13 @@ CREATE TABLE academy_assessment_results (
   UNIQUE(assessment_id,enrollment_id)
 );
 
-CREATE TABLE academy_subjects (
-  id TEXT PRIMARY KEY NOT NULL,
-  code TEXT NOT NULL CHECK(length(code) BETWEEN 2 AND 16),
-  name TEXT NOT NULL CHECK(length(name) BETWEEN 2 AND 120),
-  class_grade INTEGER NOT NULL CHECK(class_grade BETWEEN 4 AND 12),
-  group_name TEXT NOT NULL CHECK(group_name IN ('GENERAL','SCIENCE','BUSINESS','HUMANITIES')),
-  active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1)),
-  version INTEGER NOT NULL DEFAULT 1 CHECK(version>=1),
-  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  UNIQUE(code,class_grade,group_name)
-);
-
+-- A Subject is defined exactly once, independently of Classes and Groups.
+-- An offering merely references a global Subject; it never copies the entity.
 CREATE TABLE academy_offering_subjects (
   offering_id TEXT NOT NULL REFERENCES public_programme_offerings(id) ON DELETE RESTRICT,
-  subject_id TEXT NOT NULL REFERENCES academy_subjects(id) ON DELETE RESTRICT,
-  assigned_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), sort_order INTEGER NOT NULL DEFAULT 0,
+  subject_id TEXT NOT NULL REFERENCES academic_subjects(id) ON DELETE RESTRICT,
+  assigned_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  sort_order INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY(offering_id,subject_id)
 );
 

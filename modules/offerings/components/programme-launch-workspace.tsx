@@ -301,7 +301,7 @@ export function ProgrammeLaunchWorkspace({
                 </div> : !canManage ? <p className="text-sm">Programme management permission is required to publish.</p> : (
                   <div className="space-y-4">
                     <OperatorPublicationForm key={selected.id + ":" + selected.version} offering={selected}
-                      linkedSubjectIds={linkedSubjectIds} seatsAvailable={readiness?.openSeats ?? 0}
+                      linkedSubjectIds={linkedSubjectIds} subjects={data.subjects} seatsAvailable={readiness?.openSeats ?? 0}
                       feeReady={feeReady} onSaved={() => {
                         setStage("REVIEW");
                         setNotification("Website settings saved. Confirm that the programme is publicly available.");

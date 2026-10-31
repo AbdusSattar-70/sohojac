@@ -1,4 +1,4 @@
-import type {OfferingSubjectOption} from "@/lib/offering-subject-options";
+type OfferingSubjectOption = { id: string; code: string; name: string; active?: number };
 import type {PublicOfferingCard} from "./types";
 import {env} from "cloudflare:workers";
 import {getErpContext,requirePermission} from "@/modules/platform/auth/erp-context";
@@ -52,7 +52,7 @@ async function catalogue(){
 }
 async function subjectLinks(){
  const [subjects,links]=await Promise.all([
-  env.DB.prepare("SELECT id,code,name,class_grade,group_name,active FROM academy_subjects WHERE active=1 OR id IN (SELECT subject_id FROM academy_offering_subjects) ORDER BY name,class_grade,group_name,id").all<OfferingSubjectOption>(),
+  env.DB.prepare("SELECT id,code,title AS name,active FROM academic_subjects WHERE active=1 OR id IN (SELECT subject_id FROM academy_offering_subjects) ORDER BY active DESC,title,code,id").all<OfferingSubjectOption>(),
   env.DB.prepare("SELECT offering_id,subject_id,sort_order FROM academy_offering_subjects ORDER BY offering_id,sort_order,subject_id").all<{offering_id:string;subject_id:string;sort_order:number}>()
  ]);
  return {subjects:subjects.results??[],offeringSubjects:links.results??[]};

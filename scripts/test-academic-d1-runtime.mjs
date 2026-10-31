@@ -1,4 +1,3 @@
-import { seedPublicCatalogue } from "./public-catalogue-seed.mjs";
 import { batchOfferingReadySql } from "../lib/academic-offering-readiness.ts";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -6,7 +5,6 @@ import { createRequire, stripTypeScriptTypes } from "node:module";
 import { test } from "node:test";
 import { z } from "zod";
 import { freshDevBootstrapSql } from "./canonical-dev-bootstrap.mjs";
-import { historicalPublicCataloguePrerequisiteSql } from "./fixtures/historical-public-catalogue.mjs";
 const local = createRequire(import.meta.url);
 const { Miniflare, convertV4MiniflareOptions } = createRequire(
   local.resolve("cf"),
@@ -195,24 +193,8 @@ test("actual D1 binding supports draft → fee publication → public controls �
       ).n,
       0,
     );
-    await assert.rejects(
-      seedPublicCatalogue(async (sql) => [await DB.prepare(sql).all()]),
-      /completed foundation reset/,
-    );
-    assert.equal((await DB.prepare("SELECT COUNT(*) n FROM system_maintenance_operations WHERE id='foundation-reset-20261030-v1'").first()).n,0);
-    // Historical public-catalogue tests use explicit disposable prerequisites.
-    // The actual fresh dev bootstrap deliberately has no such reset marker.
-    await DB.prepare(historicalPublicCataloguePrerequisiteSql).run();
-    assert.equal(
-      (await seedPublicCatalogue(async (sql) => [await DB.prepare(sql).all()]))
-        .applied,
-      true,
-    );
-    assert.equal(
-      (await seedPublicCatalogue(async (sql) => [await DB.prepare(sql).all()]))
-        .applied,
-      false,
-    );
+    // No historical sample-catalogue seed is needed for a fresh ERP.
+    assert.equal((await DB.prepare("SELECT COUNT(*) n FROM academy_offering_subjects").first()).n,0);
   } finally {
     await mf.dispose();
   }

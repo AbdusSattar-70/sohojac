@@ -37,12 +37,11 @@ const ICON_LABELS: Record<(typeof SHOWCASE_ICON_VALUES)[number], string> = {
 export function PublicControlsForm({
   offering,
   linkedSubjectIds,
+  subjects,
   onSuccess,
 }: {
   offering: OfferingRow;
-  /** Accepted during component migration; subject assignments are not edited here. */
-  subjects?: OfferingOverview["subjects"];
-  allowSubjectEditing?: boolean;
+  subjects: OfferingOverview["subjects"];
   linkedSubjectIds: string[];
   onSuccess?: () => void;
 }) {
@@ -95,6 +94,7 @@ export function PublicControlsForm({
     },
   });
 
+  const selectedSubjectIds = useWatch({ control, name: "subjectIds" }) ?? [];
   const isVisible = useWatch({ control, name: "isWebsiteVisible" });
   const useWatchAccepting = useWatch({
     control,
@@ -543,9 +543,47 @@ export function PublicControlsForm({
               />
             )}
           </ErpFormField>
-          {/* Subject/curriculum assignments are deliberately not edited here.
-             The current linked IDs are retained in the submitted payload so
-             changing public copy cannot silently remove teaching associations. */}
+          <div className="sm:col-span-2 space-y-3 rounded-xl border border-border bg-background p-4" data-global-subject-picker>
+            <div>
+              <h3 className="text-sm font-semibold">Subjects included (optional)</h3>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                Choose subjects from the one academy-wide directory. The same subject can be used in any class, programme or batch.
+                Leave all unchecked for a whole-programme offering without an individual-subject list.
+              </p>
+            </div>
+            {subjects.length ? (
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {subjects.map((subject) => {
+                  const checked = selectedSubjectIds.includes(subject.id);
+                  return (
+                    <label key={subject.id} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-border px-3 py-2 text-sm">
+                      <input
+                        type="checkbox"
+                        className="size-4 shrink-0 accent-primary"
+                        checked={checked}
+                        disabled={pending || (subject.active === 0 && !checked)}
+                        onChange={(event) => {
+                          const next = event.target.checked
+                            ? [...selectedSubjectIds, subject.id]
+                            : selectedSubjectIds.filter((id) => id !== subject.id);
+                          setValue("subjectIds", next, { shouldDirty: true, shouldValidate: true });
+                        }}
+                      />
+                      <span className="min-w-0 break-words">
+                        {subject.name}
+                        {subject.active === 0 ? <span className="ml-1 text-xs text-muted-foreground">(inactive; remove if no longer needed)</span> : null}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No subjects yet. Add them in Academic Setup → Subjects.
+              </p>
+            )}
+            {errors.subjectIds?.message && <p role="alert" className="text-sm text-destructive">{errors.subjectIds.message}</p>}
+          </div>
           <ErpFormField
             id={`${offering.id}-reason`}
             label="Reason"

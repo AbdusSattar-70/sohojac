@@ -1,7 +1,5 @@
 -- Canonical fresh-development reference seed (no sample people or payments).
--- Academic subjects are a single global catalogue. Do NOT pre-create duplicate
--- grade-specific academy_subjects rows; the legacy table remains for migration
--- compatibility until the curriculum model is replaced.
+-- Subjects are one reusable master entity, independent of classes and groups.
 -- Reentrant INSERT OR IGNORE statements preserve staff edits.
 -- Editable reference data. No invented people, applications, prices or transactions.
 INSERT OR IGNORE INTO academy_classes(id,code,name,sort_order) VALUES ('4d521c63-9dc5-5651-b2d3-9e787510040a','CLASS1','Class 1',1);

@@ -62,7 +62,7 @@ CREATE INDEX idx_academy_assessments_batch ON academy_assessments(batch_id,held_
 
 CREATE INDEX idx_result_enrollment ON academy_assessment_results(enrollment_id);
 
-CREATE INDEX idx_academy_subjects_grade ON academy_subjects(class_grade,group_name,active);
+CREATE INDEX idx_offering_subjects_subject ON academy_offering_subjects(subject_id);
 
 CREATE INDEX idx_teacher_active_batches
 ON academy_batch_teachers(teacher_user_id,active,batch_id);

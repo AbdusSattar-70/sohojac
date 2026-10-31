@@ -38,11 +38,11 @@ jobs:
         run: pnpm run cf-typegen
       - name: Environment isolation and non-destructive migrations
         run: |
-          node --test scripts/test-canonical-baseline.mjs scripts/test-environment-isolation.mjs scripts/test-dev-reference-bootstrap.mjs scripts/test-canonical-subject-directory.mjs scripts/test-subject-impact-audit.mjs scripts/test-master-year-version.mjs scripts/test-branch-prune.mjs
+          node --test scripts/test-canonical-baseline.mjs scripts/test-environment-isolation.mjs scripts/test-dev-reference-bootstrap.mjs scripts/test-single-subject-master.mjs scripts/test-master-year-version.mjs scripts/test-branch-prune.mjs
           node scripts/check-d1-migrations.mjs
       - name: Business logic and security regressions
         run: |
-          node --test scripts/test-request-protection.mjs scripts/test-academic-d1-runtime.mjs scripts/test-public-catalogue.mjs scripts/test-offering-subject-options.mjs
+          node --test scripts/test-request-protection.mjs scripts/test-academic-d1-runtime.mjs
           node --test scripts/test-academy-identity.mjs scripts/test-student-lifecycle.mjs scripts/test-student-profile.mjs
           node --test scripts/test-source-offerings.mjs scripts/test-source-batches.mjs scripts/test-admission-fee-concurrency.mjs scripts/test-finance-receivables.mjs scripts/test-retired-admission-mutations.mjs
           node --test scripts/test-payment-commands.mjs scripts/test-collection-retry-ui.mjs scripts/test-expense-commands.mjs scripts/test-batch-command-adapters.mjs
@@ -61,7 +61,7 @@ jobs:
           DB=d6f3e4e9-2190-43bf-bc90-969687f6db78
           pnpm exec cf d1 migrations apply "$DB" --dir migrations --local --persist-to .cloudflare/state
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "$(sed '/^[[:space:]]*--/d' seeds/dev-reference.sql)"
-          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "$(sed '/^[[:space:]]*--/d' scripts/fixtures/local-legacy-offerings.sql)"
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "$(sed '/^[[:space:]]*--/d' scripts/fixtures/local-subject-offerings.sql)"
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "INSERT INTO staff_owner_setup (id,email,display_name,token,expires_at) VALUES ('first-owner','staff-ci@example.invalid','Synthetic Staff Owner','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',strftime('%Y-%m-%dT%H:%M:%fZ','now','+30 minutes'))" >/tmp/sohojac-setup.json
       - name: Build and validate Cloudflare Worker
         run: |
@@ -111,6 +111,8 @@ jobs:
           latest=$(git ls-remote https://github.com/AbdusSattar-70/sohojac.git refs/heads/dev | cut -f1)
           test "$latest" = "$GITHUB_SHA"
       - run: pnpm install --frozen-lockfile
+      - name: One-time owner-approved reset of obsolete mock-only dev D1
+        run: node scripts/reset-obsolete-dev-d1.mjs
       - name: Create or confirm independent dev D1
         run: node scripts/prepare-dev-deployment.mjs
       - name: Verify dev database identity before any migration
@@ -153,7 +155,7 @@ jobs:
         run: node scripts/enable-dev-worker.mjs
       - name: Verify actual deployed Worker D1 binding
         run: node scripts/verify-release-target.mjs development --worker
-      - name: Verify four canonical migrations and existing dev reference data
+      - name: Verify four clean dev migrations and one global Subject master
         run: node scripts/verify-canonical-dev-state.mjs
       - name: Smoke-check dev without logging in or creating real financial data
         run: |

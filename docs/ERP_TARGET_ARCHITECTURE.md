@@ -1,5 +1,7 @@
 # Sohojac target architecture — enterprise-grade controls, coaching-centre simplicity
 
+> **Owner's newer development decision (31 Oct 2026):** Subjects are one simple reusable master entity in `academic_subjects`, independent of class/group. The old `academy_subjects` and legacy subject audit are retired on `dev` via migration 0005; discard historical plans below that call for keeping class-specific subject masters or completing an ID crosswalk. No production migration has been approved. See DEVELOPMENT_STRATEGY.md.
+
 > **Design reference / audit, not a release log.** Some sections describe the inspected pre-redesign baseline and future target. Actual completed work, dev database isolation, four-file migrations, guided launch and subject-directory progress are tracked in [DEVELOPMENT_STRATEGY.md](./DEVELOPMENT_STRATEGY.md). Do not interpret old "pending" wording as current deployment status.
 
 **Status:** Proposed Architecture RFC, **not implemented**  
