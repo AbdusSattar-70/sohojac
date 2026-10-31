@@ -25,6 +25,10 @@ const entries=[
  ["feature/single-subject-master-clean-slate","cccd0a20c4682581ec3f07276a261abbe48e2565",60,true],
  ["feature/c5c-guardian-message-safety","a77d677e2e0314ce77d4a839c7de8c88daa9d65d",66,true],
  ["feature/c6-recovery-rehearsal","2af822ec615c42f62c2fb386ca86e05a2c571cf2",67,true],
+ ["feature/c7-safe-merged-branch-cleanup","49540f050f487056057f1e132e5532acf449e442",68,true],
+ ["feature/c8-contact-safe-messaging","027971422b5a168f49ad0709ea1185f3731c6dcd",69,true],
+ ["feature/c9-operating-cost-per-student","7cd69f58584a1b1d6986b0f6a397847ff5be68c7",70,true],
+ ["feature/c10-guardian-api-acceptance","f11d5e6f4294b14a2d55ef6458d590e28b0759c6",71,true],
 ];
 async function simulate({env={},open=[],changed={},missing=[]}={}){
  const deletes=[],messages=[];
