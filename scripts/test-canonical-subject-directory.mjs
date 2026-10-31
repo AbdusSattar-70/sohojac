@@ -72,6 +72,11 @@ test("UI reads canonical global subjects with named master-data permission and h
   assert.match(page,/not automatically merged/);
   assert.doesNotMatch(page,/SubjectsRegister/);
   assert.match(api,/Class-specific subject creation is retired/);
+  assert.match(api,/legacyReadOnly:true/);
+  const verify = readFileSync("scripts/verify-canonical-dev-state.mjs","utf8");
+  assert.doesNotMatch(verify,/row\.class_duplicated_subjects\s*!==\s*0/);
+  assert.match(verify,/Existing legacy subject master rows preserved/);
+
   assert.match(api,/\},410\)/);
   assert.doesNotMatch(api,/INSERT INTO academy_subjects/);
 });
