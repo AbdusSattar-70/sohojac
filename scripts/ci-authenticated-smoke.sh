@@ -428,7 +428,7 @@ second_now_active=$(curl -sS -o /tmp/ci-second-activate.json -w '%{http_code}' \
   -b /tmp/staff-ci-cookies "http://localhost:4173/api/staff/academic-years")
 echo "ERP D1 workflow second_now_active: $second_now_active"
 test "$second_now_active" = "200"
-node -e 'const a=require("/tmp/ci-second-activate.json").items; if(a.filter(x=>x.status==="ACTIVE").length!==1||a.filter(x=>x.status==="CLOSED").length!==1)process.exit(1);'
+node -e 'const a=require("/tmp/ci-second-activate.json").items;const c=a.filter(x=>["CI2026","CI2027"].includes(x.code));if(c.length!==2||c.find(x=>x.code==="CI2026")?.status!=="CLOSED"||c.find(x=>x.code==="CI2027")?.status!=="ACTIVE")process.exit(1);'
 teacher_year_read=$(curl -sS -o /tmp/ci-teacher-years.json -w '%{http_code}' \
   -b /tmp/teacher-ci-cookies "http://localhost:4173/api/staff/academic-years")
 echo "ERP D1 workflow teacher_year_read: $teacher_year_read"
@@ -440,7 +440,7 @@ teacher_year_write=$(curl -sS -o /tmp/ci-teacher-year-denied.json -w '%{http_cod
 echo "ERP D1 workflow teacher_year_write: $teacher_year_write"
 test "$teacher_year_write" = "403"
 pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
-  --sql "SELECT (SELECT COUNT(*) FROM academic_years WHERE status='ACTIVE'),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type='academic_year')" > /tmp/ci-academic-audit.json
+  --sql "SELECT (SELECT COUNT(*) FROM academic_years WHERE status='ACTIVE' AND code='CI2027'),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type='academic_year')" > /tmp/ci-academic-audit.json
 node -e 'const n=require("/tmp/ci-academic-audit.json")[0]?.results?.rows?.[0];if(n?.[0]!==1||n?.[1]!==5)process.exit(1);'
 
 pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
