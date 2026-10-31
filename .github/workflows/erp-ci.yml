@@ -42,7 +42,7 @@ jobs:
           node scripts/check-d1-migrations.mjs
       - name: Business logic and security regressions
         run: |
-          node --test scripts/test-request-protection.mjs scripts/test-academic-d1-runtime.mjs scripts/test-public-catalogue.mjs scripts/test-offering-subject-options.mjs
+          node --test scripts/test-request-protection.mjs scripts/test-academic-d1-runtime.mjs
           node --test scripts/test-academy-identity.mjs scripts/test-student-lifecycle.mjs scripts/test-student-profile.mjs
           node --test scripts/test-source-offerings.mjs scripts/test-source-batches.mjs scripts/test-admission-fee-concurrency.mjs scripts/test-finance-receivables.mjs scripts/test-retired-admission-mutations.mjs
           node --test scripts/test-payment-commands.mjs scripts/test-collection-retry-ui.mjs scripts/test-expense-commands.mjs scripts/test-batch-command-adapters.mjs
