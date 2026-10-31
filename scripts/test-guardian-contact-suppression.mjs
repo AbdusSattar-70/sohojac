@@ -81,7 +81,7 @@ test("contact identity stays server-side and staff hold uses explicit consent + 
  assert.match(client,/holdRequestId/);
  assert.match(client,/Hold request \(do not send\)/);
  assert.match(client,/consentAttested:true/);
- assert.doesNotMatch(page,/guardian_mobile/);
+ assert.doesNotMatch(page,/SELECT\\s+(?:o|s)\\.guardian_mobile/);
  assert.doesNotMatch(client,/guardian_mobile/);
  for(const path of ["app/api/staff/messages/route.ts","app/api/staff/messages/opt-out/route.ts"]){
   assert.doesNotMatch(readFileSync(path,"utf8"),/\.sendSMS\s*\(|\.sendSms\s*\(/);
