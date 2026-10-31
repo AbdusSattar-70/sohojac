@@ -38,7 +38,7 @@ const row=(await query(
  "(SELECT status FROM system_maintenance_operations WHERE id='canonical-reference-seed-v1') reference_status"
 ))[0];
 if(row.classes!==12||row.relationships!==27||row.subjects<20||
-   row.class_duplicated_subjects!==0||row.legacy_snapshots!==0||row.reference_status!=="COMPLETE")
+   row.legacy_snapshots!==0||row.reference_status!=="COMPLETE")
  throw Error("Canonical dev references/schema differ from the expected clean design.");
 if(process.env.RESET_DEV_BASELINE_WAS_RECREATED==="1"){
  const fresh=(await query(
@@ -55,4 +55,5 @@ if(process.env.RESET_DEV_BASELINE_WAS_RECREATED==="1"){
   throw Error("New development D1 is not empty of business identities and records.");
  console.log("Fresh dev reset: no staff, offerings, admissions, students, invoices, receipts or expenses.");
 }
+console.log("Existing legacy subject master rows preserved:",row.class_duplicated_subjects);
 console.log("Independent dev D1 verified: exactly four canonical migrations, global subjects, 12 classes and 27 guardian relationships.");

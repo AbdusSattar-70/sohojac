@@ -48,7 +48,7 @@ jobs:
         run: pnpm run cf-typegen
       - name: Environment isolation and non-destructive migrations
         run: |
-          node --test scripts/test-canonical-baseline.mjs scripts/test-environment-isolation.mjs scripts/test-dev-reference-bootstrap.mjs scripts/test-dev-reset.mjs
+          node --test scripts/test-canonical-baseline.mjs scripts/test-environment-isolation.mjs scripts/test-dev-reference-bootstrap.mjs scripts/test-canonical-subject-directory.mjs scripts/test-branch-prune.mjs
           node scripts/check-d1-migrations.mjs
       - name: Business logic and security regressions
         run: |
@@ -119,10 +119,6 @@ jobs:
           latest=$(git ls-remote https://github.com/AbdusSattar-70/sohojac.git refs/heads/dev | cut -f1)
           test "$latest" = "$GITHUB_SHA"
       - run: pnpm install --frozen-lockfile
-      - name: Reset original development D1 exactly once for canonical schema
-        env:
-          CANONICAL_DEV_RESET_APPROVAL: RESET_OLD_SOHOJAC_DEV_ONCE
-        run: node scripts/reset-old-dev-d1-once.mjs
       - name: Create or confirm independent dev D1
         run: node scripts/prepare-dev-deployment.mjs
       - name: Verify dev database identity before any migration
@@ -165,6 +161,8 @@ jobs:
         run: node scripts/enable-dev-worker.mjs
       - name: Verify actual deployed Worker D1 binding
         run: node scripts/verify-release-target.mjs development --worker
+      - name: Verify four canonical migrations and existing dev reference data
+        run: node scripts/verify-canonical-dev-state.mjs
       - name: Smoke-check dev without logging in or creating real financial data
         run: |
           set -euo pipefail
@@ -174,6 +172,27 @@ jobs:
           code=$(curl --silent --show-error -o /dev/null -w '%{http_code}' "$BETTER_AUTH_URL/api/staff/students")
           test "$code" = "401"
           echo "Isolated dev release verified for manual owner review. No master promotion performed."
+
+  branch_housekeeping:
+    name: Retire verified closed feature branches only
+    needs: development
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Delete only verified closed-PR heads, never dev/master
+        run: node scripts/prune-closed-feature-branches.mjs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
 
   production:
     name: Manually approved production release — sohojac only

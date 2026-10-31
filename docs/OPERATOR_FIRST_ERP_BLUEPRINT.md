@@ -1,5 +1,7 @@
 # Sohojac: operator-first ERP — pinpoint audit and redesign blueprint
 
+> **Design reference / audit, not a release log.** Some sections describe the inspected pre-redesign baseline and future target. Actual completed work, dev database isolation, four-file migrations, guided launch and subject-directory progress are tracked in [DEVELOPMENT_STRATEGY.md](./DEVELOPMENT_STRATEGY.md). Do not interpret old "pending" wording as current deployment status.
+
 **Review date:** 31 October 2026  
 **Repository:** AbdusSattar-70/sohojac, inspected at master commit d53101c7032b60e61428b77ad02ed17709993a89  
 **Document status:** Proposed product and engineering strategy; **review-only, no runtime changes authorized by this document**  

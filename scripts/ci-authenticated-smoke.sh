@@ -1103,11 +1103,14 @@ teacher_subject=$(curl -sS -o /tmp/ci-teacher-subject.json -w '%{http_code}' -b 
 test "$teacher_subject" = "403"
 curl -fsS -b /tmp/staff-ci-cookies "http://localhost:4173/api/staff/subjects" > /tmp/ci-subject-baseline.json
 node -e 'const d=require("/tmp/ci-subject-baseline.json");if(d.items.filter(x=>x.class_grade===10).length!==4||d.links.filter(x=>x.offering_id==="sa-ssc-science").length!==4)process.exit(1);'
-create_subject=$(curl -sS -o /tmp/ci-created-subject.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/subjects" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"code":"ENG","name":"English","classGrade":10,"group":"GENERAL","reason":"Add common subject to academy catalogue"}')
-echo "Subject creation HTTP: $create_subject"
-if [ "$create_subject" != "201" ]; then cat /tmp/ci-created-subject.json; fi
-test "$create_subject" = "201"
-subject_id=$(node -e 'process.stdout.write(require("/tmp/ci-created-subject.json").id)')
+# New grade-specific master creation is retired: the global academic_subjects
+# directory is the only master writer. Test 410 and then create a synthetic
+# *historical fixture directly in LOCAL disposable SQLite* solely to verify
+# existing offering-subject linking still preserves its old IDs and public JSON.
+legacy_create=$(curl -sS -o /tmp/ci-created-subject.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/subjects" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"code":"ENG","name":"English","classGrade":10,"group":"GENERAL","reason":"Should be created globally instead"}')
+test "$legacy_create" = "410"
+pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "INSERT INTO academy_subjects(id,code,name,class_grade,group_name) VALUES('ci-legacy-subject','ENG','English',10,'GENERAL')" >/tmp/ci-local-legacy-subject.json
+subject_id="ci-legacy-subject"
 ssc_offering_version=$(node -e 'const d=require("/tmp/ci-subject-baseline.json");process.stdout.write(String(d.offerings.find(o=>o.id==="sa-ssc-science").version))')
 subject_link=$(curl -sS -o /tmp/ci-subject-link.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/subjects/assignment" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"offeringId\":\"sa-ssc-science\",\"subjectId\":\"$subject_id\",\"expectedOfferingVersion\":$ssc_offering_version,\"action\":\"ADD\",\"reason\":\"Offer the added English subject\"}")
 echo "Subject assignment HTTP: $subject_link"
@@ -1123,8 +1126,11 @@ subject_unlink=$(curl -sS -o /tmp/ci-subject-unlink.json -w '%{http_code}' -b /t
 test "$subject_unlink" = "200"
 subject_page=$(curl -sS -o /tmp/ci-subject-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/academics/subjects")
 test "$subject_page" = "200"
+grep -q "Subject Directory" /tmp/ci-subject-page.html
+teacher_subject_page=$(curl -sS --max-time 20 -o /dev/null -w '%{http_code}' -b /tmp/teacher-ci-cookies "http://localhost:4173/dashboard/academics/subjects")
+test "$teacher_subject_page" != "200"
 pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT json_array_length(subjects_json) FROM public_programme_offerings WHERE id='sa-ssc-science'),(SELECT COUNT(*) FROM academy_subjects),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type IN ('academy_subject','offering_subject'))" > /tmp/ci-subject-final.json
-node -e 'const x=require("/tmp/ci-subject-final.json")[0]?.results?.rows?.[0];if(x?.[0]!==4||x?.[1]!==5||x?.[2]!==3)process.exit(1);'
+node -e 'const x=require("/tmp/ci-subject-final.json")[0]?.results?.rows?.[0];if(x?.[0]!==4||x?.[1]!==5||x?.[2]!==2)process.exit(1);'
 
 echo 'CI entering teacher class scoping checks'
 

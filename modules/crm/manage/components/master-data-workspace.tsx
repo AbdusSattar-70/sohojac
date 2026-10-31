@@ -187,12 +187,14 @@ function fromRow(entity: MasterEntity, row: Row): ManageMasterRecordInput {
 export function MasterDataWorkspace({
   data,
   canManage,
+  initialEntity = "class",
 }: {
   data: ManageCrmOverview;
   canManage: boolean;
+  initialEntity?: MasterEntity;
 }) {
   const { locale } = useLanguage();
-  const [entity, setEntity] = useState<MasterEntity>("class");
+  const [entity, setEntity] = useState<MasterEntity>(initialEntity);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [notice, setNotice] = useState("");

@@ -14,7 +14,7 @@ Cloudflare-native public website and staff ERP for Sohoj Academy, implemented as
 
 Do **not** automatically merge `dev` into `master`. Production requires a reviewed, merged master revision and a GitHub Actions manual dispatch with `APPROVE_SOHOJAC_PRODUCTION` and the exact master commit SHA. A green CI run does not replace the owner's manual review of dev.
 
-The new CI file is `.github/workflows/erp-ci.yml`. Before any dev migration, its deployment script provisions/verifies exact `sohojac_dev` D1 name and UUID, refusing to use the production ID. All staff credentials, Turnstile keys, provider notifications, recovery points and data are independent. Dev DB creation happens **only after the feature branch merges to `dev` and Cloudflare secrets are available**; this branch alone does not create or reset any remote resource.
+The new CI file is `.github/workflows/erp-ci.yml`. Before any dev migration, its deployment script provisions/verifies exact `sohojac_dev` D1 name and UUID, refusing to use the production ID. All staff credentials, Turnstile keys, provider notifications, recovery points and data are independent. The `dev` Worker is already bound to independent D1 `sohojac_dev`. Each approved `dev` merge runs schema checks, a dev-only release and an actual Worker binding verification. No feature branch can reset a remote database.
 
 ## Local development
 
@@ -33,7 +33,7 @@ Run disposable local migrations/tests; never run remote migrations from a featur
 
 **New development migration model:** only **four canonical SQL files** live directly under `migrations/`. They are a verified snapshot of the final schema and real finance account masters, with no historical rebuild patches, demo offerings, students or payments. The **36 unchanged production migration files** are archived at `migrations/history/`; `master` keeps its applied history and will use `--dir migrations/history` only after separate owner approval. Development uses `--dir migrations`. See [Fresh dev first owner](docs/DEV_FIRST_OWNER.md).
 
-The original, isolated `sohojac_dev` database is reset **one time** to adopt this clean baseline, never production. Its new UUID is independently re-verified, fresh migrations are applied, and reference-only seed runs. No automatic production schema replacement is permitted.
+The one-time development reset was completed and verified in [dev release #41137793638](https://github.com/AbdusSattar-70/sohojac/actions/runs/41137793638). The reset script is retired; subsequent deployments preserve existing developer accounts, student records and financial test history. There is **no automatic production schema replacement**.
 
 ## Design and operations
 
@@ -43,4 +43,4 @@ The original, isolated `sohojac_dev` database is reset **one time** to adopt thi
 - [Security, release and recovery runbook](docs/OPERATIONS.md)
 - [Fresh development database and first-owner setup](docs/DEV_FIRST_OWNER.md)
 
-**Current status:** This is a feature branch for the first infrastructure/UX slice, not an already verified dev deployment, not a finished finance redesign, and not a claim of enterprise certification. Never commit real secrets or copy student/guardian/financial production data into development.
+**Current status (31 Oct 2026):** `dev` is deployed with four canonical migrations and permissioned payment, expense, batch and guided Programme Launch workflows. The next slice adds an owner-only global [Subject Directory](app/dashboard/academics/subjects/page.tsx) and a read-only legacy-link audit. The original class-specific subject writer is retired; existing linked records remain for a verified crosswalk. This is not a completed curriculum migration or enterprise certification. Never commit real secrets, copy production data to dev or promote to `master` without manual owner approval.

@@ -1,5 +1,7 @@
 # Source student lifecycle release
 
+> **Historical identity / migration preservation record.** Source and recovery constraints below are retained as evidence. The current isolated D1 deployment state, four-file development baseline and promotion policy are defined in [DEVELOPMENT_STRATEGY.md](./DEVELOPMENT_STRATEGY.md) and [OPERATIONS.md](./OPERATIONS.md). Do not run old migrations or resets from this file.
+
 Source: `sohoj-academy@f46b61611edce0a82f69e349bb89269329233b62`,
 `student_command`, `student_profile_workspace`, `close_student_enrollment`
 and the student branch of `record_lifecycle_command`.

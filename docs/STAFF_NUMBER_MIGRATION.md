@@ -1,5 +1,7 @@
 # Original Sohoj Academy permanent staff identities
 
+> **Historical identity / migration preservation record.** Source and recovery constraints below are retained as evidence. The current isolated D1 deployment state, four-file development baseline and promotion policy are defined in [DEVELOPMENT_STRATEGY.md](./DEVELOPMENT_STRATEGY.md) and [OPERATIONS.md](./OPERATIONS.md). Do not run old migrations or resets from this file.
+
 Historical mapping/identity contract. Current implementation and release status are in [the development strategy](DEVELOPMENT_STRATEGY.md).
 
 

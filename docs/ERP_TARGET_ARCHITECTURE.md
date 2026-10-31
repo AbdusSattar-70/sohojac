@@ -1,5 +1,7 @@
 # Sohojac target architecture — enterprise-grade controls, coaching-centre simplicity
 
+> **Design reference / audit, not a release log.** Some sections describe the inspected pre-redesign baseline and future target. Actual completed work, dev database isolation, four-file migrations, guided launch and subject-directory progress are tracked in [DEVELOPMENT_STRATEGY.md](./DEVELOPMENT_STRATEGY.md). Do not interpret old "pending" wording as current deployment status.
+
 **Status:** Proposed Architecture RFC, **not implemented**  
 **Reviewed:** 31 October 2026  
 **Code baseline:** `master@d53101c7032b60e61428b77ad02ed17709993a89` (read-only source inspection)  
@@ -337,7 +339,7 @@ Before defining uptime or response-time SLOs, instrument actual request latency,
 
 ## 12. Architecture Decision Records (proposed)
 
-- **ADR-001 — Keep one modular monolith, with separate environment databases.** Cloudflare D1 `sohojac_dev` for `dev`; `sohojac` for `master`. **New owner decision accepted 31 October 2026; deployment reconfiguration pending.**
+- **ADR-001 — Keep one modular monolith, with separate environment databases.** Cloudflare D1 `sohojac_dev` for `dev`; `sohojac` for `master`. **Dev/prod separation deployed and verified 31 October 2026; manual production promotion remains owner-controlled.**
 - **ADR-002 — One canonical command per business mutation.** Benefit: same permissions/invariants for Server Actions and REST; high priority.
 - **ADR-003 — Canonical global subjects + programme curriculum.** Benefit: no duplicate grade-based subject names; needs careful ID migration.
 - **ADR-004 — Programme Intake owns eligibility, price versions and batches.** Benefit: beginner-friendly configuration; implement incrementally through current offering IDs.
