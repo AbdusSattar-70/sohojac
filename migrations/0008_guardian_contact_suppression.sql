@@ -66,3 +66,24 @@ CREATE TRIGGER guardian_sms_contact_change_cancels_held
      cancel_reason='Guardian contact changed'
    WHERE status='HELD' AND student_id=NEW.id;
  END;
+-- Backfilled refusals predate the AFTER INSERT trigger, so cancel any
+-- pre-existing held requests under them and preserve the original actor.
+UPDATE guardian_message_outbox
+SET status='CANCELLED',
+    cancelled_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+    cancelled_by=(
+      SELECT g.recorded_by FROM academy_students s
+      JOIN guardian_sms_contact_suppressions g ON g.guardian_mobile=s.guardian_mobile
+      WHERE s.id=guardian_message_outbox.student_id
+    ),
+    cancel_reason='Guardian contact opted out'
+WHERE status='HELD' AND EXISTS (
+  SELECT 1 FROM academy_students s
+  JOIN guardian_sms_contact_suppressions g ON g.guardian_mobile=s.guardian_mobile
+  WHERE s.id=guardian_message_outbox.student_id
+);
+INSERT OR IGNORE INTO erp_audit_events(id,entity_type,entity_id,action,actor_id,reason)
+SELECT 'sms-cancel-'||o.id,'guardian_message',o.id,'CANCELLED',o.cancelled_by,o.cancel_reason
+FROM guardian_message_outbox o
+WHERE o.status='CANCELLED' AND o.cancel_reason='Guardian contact opted out'
+  AND o.cancelled_by IS NOT NULL;
