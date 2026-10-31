@@ -12,10 +12,11 @@ const expected = [
   "0005_master_versions.sql",
   "0006_guardian_message_outbox.sql",
   "0007_guardian_sms_optout.sql",
+  "0008_guardian_contact_suppression.sql",
 ];
 test("new development has four clean foundation migrations plus forward-only concurrency and guardian outbox migrations with one global Subject entity", () => {
   assert.deepEqual(names,expected);
-  assert.equal(readdirSync("migrations").filter(f => /^\d{4}_.*\.sql$/.test(f)).length,7);
+  assert.equal(readdirSync("migrations").filter(f => /^\d{4}_.*\.sql$/.test(f)).length,8);
 });
 test("fresh canonical database has final domain schema and no historical records", () => {
   const db=new DatabaseSync(":memory:");
