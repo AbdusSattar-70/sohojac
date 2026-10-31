@@ -10,10 +10,11 @@ const expected = [
   "0003_domain_guards.sql",
   "0004_finance_reference.sql",
   "0005_master_versions.sql",
+  "0006_guardian_message_outbox.sql",
 ];
-test("new development has four clean foundation migrations plus one forward concurrency migration with one global Subject entity", () => {
+test("new development has four clean foundation migrations plus forward-only concurrency and guardian outbox migrations with one global Subject entity", () => {
   assert.deepEqual(names,expected);
-  assert.equal(readdirSync("migrations").filter(f => /^\d{4}_.*\.sql$/.test(f)).length,5);
+  assert.equal(readdirSync("migrations").filter(f => /^\d{4}_.*\.sql$/.test(f)).length,6);
 });
 test("fresh canonical database has final domain schema and no historical records", () => {
   const db=new DatabaseSync(":memory:");
