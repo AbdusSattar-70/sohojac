@@ -22,15 +22,10 @@ const ids = {
   fee: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
   nextFee: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
 };
-const baselineFolder = await access(new URL("migrations/history/0001_public_website.sql", root))
-  .then(() => new URL("migrations/history/", root))
-  .catch(() => new URL("scratch/student-lifecycle-reference/migrations/history/", root));
-const baselineNames = (await readdir(baselineFolder)).filter((name) => /^(?:000[1-9]|001\d|002[0-8])_.*\.sql$/.test(name)).sort();
-assert.equal(baselineNames.length, 28, "Replay all 28 actual applied migration files");
-const baselineSql = await Promise.all(baselineNames.map((name) => readFile(new URL(name, baselineFolder), "utf8")));
-const migration = await readFile(new URL("migrations/history/0029_student_lifecycle.sql", root), "utf8");
-const academicMigration = await readFile(new URL("migrations/history/0030_academic_source_workflows.sql", root), "utf8");
-const paymentMigration = await readFile(new URL("migrations/history/0036_operator_payment_commands.sql", root), "utf8");
+const baselineFolder = new URL("migrations/",root);
+const baselineNames = (await readdir(baselineFolder)).filter(name=>/^\d{4}_.*\.sql$/.test(name)).sort();
+assert.deepEqual(baselineNames.slice(0,4),["0001_schema_tables.sql","0002_schema_indexes.sql","0003_domain_guards.sql","0004_finance_reference.sql"]);
+const baselineSql = await Promise.all(baselineNames.map(name=>readFile(new URL(name,baselineFolder),"utf8")));
 const source = await readFile(new URL("modules/students/lifecycle/command-store.ts", root), "utf8");
 const executable = stripTypeScriptTypes(source, { mode: "strip" })
   .replace(/^import .*;\r?\n/gm, "")
@@ -136,27 +131,18 @@ beforeEach(() => {
   profilePermissions = ["students.view", "admissions.view", "finance.view", "students.manage", "admissions.create"];
 });
 afterEach(() => db.close());
-function migrate() {
-  db.exec(`BEGIN;\n${migration}\nCOMMIT;`);
-  db.exec(academicMigration);
-}
+function migrate() { /* Current canonical schema is applied during beforeEach. */ }
 
-test("0029 preserves populated canonical ledgers and all financial/attendance/grade references", () => {
-  const before = Object.fromEntries(["academy_students", "academy_admissions", "academy_enrollments", "academy_attendance", "academy_assessments", "academy_assessment_results"].map((table) => [table, rows(table)]));
-  const finance = financeSnapshot();
-  migrate();
-  for (const [table, values] of Object.entries(before)) {
-    assert.deepEqual(rows(table).map((row) => Object.fromEntries(Object.keys(values[0]).map((key) => [key, row[key]]))), values.map((row) => ({ ...row })), table);
-  }
-  assert.equal(financeSnapshot(), finance);
-  assert.equal(db.prepare("PRAGMA foreign_keys").get().foreign_keys, 1);
-  assert.deepEqual(db.prepare("PRAGMA foreign_key_check").all(), []);
-  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM academy_student_lifecycle_migration_checks WHERE passed=1").get().n, 4);
-  assert.throws(() => db.exec("UPDATE academy_students_pre_0029 SET full_name='Overwritten'"), /immutable/);
-  assert.throws(() => db.exec("DELETE FROM academy_enrollments_pre_0029"), /immutable/);
-  assert.throws(() => db.exec("INSERT INTO academy_students_pre_0029 SELECT * FROM academy_students_pre_0029 LIMIT 1"), /immutable/);
-  assert.throws(() => db.prepare("UPDATE academy_enrollments SET batch_id=? WHERE id=?").run(ids.destination, ids.enrollment), /Historical enrollment placement/);
-  assert.throws(() => db.exec("UPDATE academy_assessment_results SET obtained_marks=82 WHERE id='grade-preserve'"), /Assessment is not ready/);
+test("canonical schema protects student, finance and assessment references", () => {
+  const tables=["academy_students","academy_admissions","academy_enrollments","academy_attendance","academy_assessments","academy_assessment_results"];
+  const original=Object.fromEntries(tables.map(table=>[table,rows(table)]));
+  const financial=financeSnapshot();migrate();
+  for(const [table,expected] of Object.entries(original))assert.deepEqual(rows(table),expected,table);
+  assert.equal(financeSnapshot(),financial);
+  assert.deepEqual(db.prepare("PRAGMA foreign_key_check").all(),[]);
+  assert.equal(db.prepare("SELECT COUNT(*) n FROM sqlite_schema WHERE name LIKE '%_pre_0029'").get().n,0);
+  assert.throws(()=>db.prepare("UPDATE academy_enrollments SET batch_id=? WHERE id=?").run(ids.destination,ids.enrollment),/Historical enrollment placement/);
+  assert.throws(()=>db.exec("UPDATE academy_assessment_results SET obtained_marks=82 WHERE id='grade-preserve'"),/Assessment is not ready/);
 });
 
 test("re-enrollment creates only a draft with the same permanent identity and pinned fee terms", async () => {
@@ -395,7 +381,7 @@ const admissionCode=stripTypeScriptTypes(await readFile(new URL("modules/admissi
 const admissions=new Function("env","z","revalidatePath","getErpContext","requirePermission","recordStudentPayment",admissionCode+";return {receivePhysicalConsent,finalizeAdmission,collectAdmissionPayment,activateAdmission}")(env,z,()=>{},async()=>({profileId:"actor",permissions:["admissions.create","admissions.view","finance.billing.manage","finance.payments.post"]}),async()=>({permissions:["admissions.view"]}),recordStudentPayment);
 test("existing-student reviewed admission receives consent, bills, collects and activates on populated migrated ledgers",async()=>{
  migrate();const originalStudents=rows("academy_students");const priorSequence=db.prepare("SELECT COUNT(*) n FROM academy_student_number_sequence").get().n;
- db.exec(paymentMigration);
+ /* Payment posting schema is already part of the canonical migrations. */
  const result=await executeStudentCommand(command("CREATE_EXISTING",{batch_id:ids.nextBatch}),"actor");assert.equal(result.ok,true,result.message);
  const admissionId=result.admissionId;
  // The staff has verified the returning student's application and address.

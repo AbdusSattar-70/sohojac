@@ -49,9 +49,8 @@ function fee(id,overrides={}){return {offeringId:id,requestId:uuid(),expectedVer
 function count(table){return db.prepare("SELECT COUNT(*) AS n FROM "+table).get().n;}
 beforeEach(()=>{
  db?.close();db=new DatabaseSync(":memory:");db.exec("PRAGMA foreign_keys=ON");
- const base=fs.existsSync("migrations/history/0001_public_website.sql")?"migrations/history":"scratch/ci-migrations";
- for(const file of fs.readdirSync(base).filter(n=>/^\d{4}_.*\.sql$/.test(n)&&Number(n.slice(0,4))<=28).sort())db.exec(fs.readFileSync(path.join(base,file),"utf8"));
- db.exec(fs.readFileSync("migrations/history/0030_academic_source_workflows.sql","utf8"));
+ for(const file of fs.readdirSync("migrations").filter(n=>/^\d{4}_.*\.sql$/.test(n)).sort())db.exec(fs.readFileSync("migrations/"+file,"utf8"));
+ db.exec(fs.readFileSync("scripts/fixtures/local-legacy-offerings.sql","utf8"));
  db.prepare('INSERT INTO "user"(id,name,email,"createdAt","updatedAt") VALUES (?,?,?,?,?)').run(ids.user,"Synthetic Owner","source-owner@example.invalid",0,0);
  db.prepare("INSERT INTO academy_branches(id,code,name) VALUES (?,?,?)").run(ids.branch,"MAIN","Verified Main Branch");
  db.prepare("INSERT INTO academy_programmes(id,code,name) VALUES (?,?,?)").run(ids.program,"SCIENCE","Science Preparation");
