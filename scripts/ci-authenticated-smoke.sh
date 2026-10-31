@@ -1235,6 +1235,23 @@ node -e 'const r=require("/tmp/ci-enrolled-parity.json")[0]?.results?.rows?.[0];
   }'
 echo 'Original Admissions full D1 workflow verified with real ledger transactions.'
 
+# C4/C5: staff-only Today and reconciled management report HTTP smoke.
+today_status=$(curl -sS -o /tmp/ci-today.html -w '%{http_code}' -b /tmp/staff-ci-cookies \
+  "http://localhost:4173/dashboard/today")
+test "$today_status" = "200"
+grep -q "What needs attention" /tmp/ci-today.html
+anon_today=$(curl -sS -o /dev/null -w '%{http_code}' \
+  "http://localhost:4173/dashboard/today")
+test "$anon_today" != "200"
+report_status=$(curl -sS -o /tmp/ci-reconciled-report.json -w '%{http_code}' -b /tmp/staff-ci-cookies \
+  "http://localhost:4173/api/staff/reports?month=2026-10")
+test "$report_status" = "200"
+node -e 'const r=require("/tmp/ci-reconciled-report.json");for(const k of ["ledgerBalanced","postedJournalCount","unbalancedJournalCount","unallocatedReceiptCount","paymentMethods"]){if(!(k in r))throw Error("Missing report reconciliation field: "+k)}if(!Array.isArray(r.paymentMethods))process.exit(1)'
+anon_report=$(curl -sS -o /dev/null -w '%{http_code}' \
+  "http://localhost:4173/api/staff/reports?month=2026-10")
+test "$anon_report" = "401"
+echo "C4 Today + C5 reconciled reports verified with real authenticated local HTTP."
+
 # Revoking a staff membership removes access even with a live
 # Better Auth session cookie; do not rely on client-side role state.
 pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
