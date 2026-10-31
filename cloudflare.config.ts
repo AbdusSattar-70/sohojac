@@ -4,6 +4,15 @@ import { bindings, defineConfig, defineWorker } from "cf/config";
 export default defineConfig(({ mode }) => {
   const staging = mode === "staging";
   const database = resolveDatabaseTarget(staging ? "staging" : "production", process.env.SOHOJAC_DEV_D1_ID);
+  // Only opt in after a sender AND provider key are present. Dev and production
+  // use separate GitHub secrets; the sender is a non-secret deployment variable.
+  const staffEmailFrom = staging
+    ? (process.env.DEV_STAFF_EMAIL_FROM || "").trim()
+    : (process.env.STAFF_EMAIL_FROM || "").trim();
+  const staffEmailKeyConfigured = staging
+    ? Boolean(process.env.DEV_RESEND_API_KEY)
+    : Boolean(process.env.RESEND_API_KEY);
+
   if (
     staging &&
     (!process.env.BETTER_AUTH_URL ||
@@ -35,15 +44,17 @@ export default defineConfig(({ mode }) => {
         TURNSTILE_SECRET_KEY: bindings.secret(),
         // Auth is intentionally unavailable until BETTER_AUTH_SECRET is configured.
         BETTER_AUTH_SECRET: bindings.secret(),
-        // Staff-only transactional recovery and invitation email delivery.
-        // Staff transactional email is an optional integration.
-        // It stays unavailable until a verified sender and secret are configured.
-        // Never declare a mandatory secret when mail delivery is not activated.
-        ...(!staging && process.env.STAFF_EMAIL_FROM
+        // A Resend binding exists ONLY when this environment has both inputs.
+        // Dev secrets and sender are not inherited from production. Never put
+        // the API key into a plaintext bindings.text or checked-in config.
+        ...(staffEmailFrom && staffEmailKeyConfigured
           ? { RESEND_API_KEY: bindings.secret() }
           : {}),
-        STAFF_EMAIL_FROM: bindings.text(
-          staging ? "" : process.env.STAFF_EMAIL_FROM || "",
+        STAFF_EMAIL_FROM: bindings.text(staffEmailFrom),
+        // Development sending is restricted to explicit synthetic/test users.
+        STAFF_EMAIL_REQUIRE_ALLOWLIST: bindings.text(staging ? "true" : "false"),
+        STAFF_EMAIL_ALLOWLIST: bindings.text(
+          staging ? process.env.DEV_STAFF_EMAIL_ALLOWLIST || "" : "",
         ),
         BETTER_AUTH_URL: bindings.text(
           process.env.BETTER_AUTH_URL || "https://sohojac.com",
