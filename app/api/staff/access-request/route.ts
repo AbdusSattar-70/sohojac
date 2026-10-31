@@ -8,7 +8,7 @@ const requestSchema = z.object({
   fullName: z.string().trim().min(2).max(160),
   email: z.email().max(254).transform(s => s.toLowerCase()),
   mobile: z.string().trim().regex(/^01[3-9][0-9]{8}$/),
-  requestedRole: z.enum(["ADMIN", "OPERATOR", "TEACHER", "ACCOUNTANT"]),
+  requestedRole: z.enum(["ADMIN", "OPERATOR", "TEACHER"]),
   purpose: z.string().trim().min(5).max(500),
   consent: z.literal(true),
   website: z.string().max(120).default(""),
