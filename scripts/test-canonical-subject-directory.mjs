@@ -63,6 +63,12 @@ test("UI reads canonical global subjects with named master-data permission and h
   assert.match(query,/legacySubjectUsageSql/);
   assert.doesNotMatch(query,/env\.DB\.(?:batch|exec)/);
   assert.match(page,/getCanonicalSubjectDirectory/);
+  assert.match(page,/settings\?section=subject/);
+  const settingsPage = readFileSync("app/dashboard/academics/settings/page.tsx","utf8");
+  const editor = readFileSync("modules/crm/manage/components/master-data-workspace.tsx","utf8");
+  assert.match(settingsPage,/initialEntity=\{section === "subject"/);
+  assert.match(editor,/initialEntity\?: MasterEntity/);
+
   assert.match(page,/not automatically merged/);
   assert.doesNotMatch(page,/SubjectsRegister/);
   assert.match(api,/Class-specific subject creation is retired/);
