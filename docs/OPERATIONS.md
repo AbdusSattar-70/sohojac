@@ -85,3 +85,11 @@ Open `/dashboard/finance/cost-per-student` as an OWNER/ADMIN with `accounting.vi
 Subjects are maintained in the single Academic Setup workspace. An old Subjects bookmark resolves to that tab; there is no separate Subjects menu item. The dashboard shows the academy identity form only while the first confirmation is missing. After saving, the prompt disappears; use Academic Setup > Edit academy details for a deliberate change.
 
 The Programme Launch Review step shows a success message only when fees are effective, an active batch has open seats, the public card is visible and intake is open. Staff can then verify the public page, review enquiries, start authorised admissions or schedule classes. Finish returns to the dashboard without unpublishing the offering.
+
+## Staff onboarding — single access-request workflow
+
+To onboard a staff member, direct them to **/sign-in → Request an account** (opens the Turnstile-protected `/request-access` form). This creates only a pending request. In **/dashboard/staff**, an owner/admin reviews the applicant's identity and responsibilities, chooses a supported role and records a justification before issuing the secure email invitation. The applicant accepts the link to create a password and an authenticated staff identity; the permanent staff number is assigned automatically by D1, not typed or allocated by an operator.
+
+Use the **Pending setup** and **Completed / closed requests** views for workflow status. The in-app **Account setup and role assignment guide** opens `/dashboard/help/staff-access`; it is restricted to staff with `system.users.manage`. Account delivery requires a configured staff-email provider. If no requests are visible, check the selected status view; the interface distinguishes empty pending requests from empty history.
+
+**Do not use manual staff creation.** Its former standalone directory and API have been removed, and the two outdated staff access URLs only redirect to the single authoritative page. Existing verified staff can still be viewed, corrected or deactivated in the Staff section. The deletion is application code only; no existing staff, membership, enrolment, audit records or D1 migrations are removed.
