@@ -15,6 +15,16 @@ const entries=[
  ["fix/programme-launch-final-readiness","c750eca7b79cb1f04536c4fee516f8224f185fd9",55,true],
  ["feature/operator-first-subject-catalogue","aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",56,true],
  ["fix/pinned-historical-ci-fixtures","c039b34beb3bff903320cd0753860e8aa915f1c6",57,false],
+ ["feature/c2b-subject-impact-review","ed042dbdb9c3a519938083c730a1203af89c27cb",58,true],
+ ["feature/c3-academic-year-conflict-guards","e7930924054194614fcd7bce129bf2a1907570e7",59,true],
+ ["feature/c3b-master-data-versions","9b1a06f3a648cf7ec3d7ce1fdd0e02bf1a2bbb62",61,true],
+ ["feature/c4-today-daily-work","9945994a3d056d179520dc4bfb5226ac6e215b33",62,true],
+ ["feature/c5a-finance-reconciliation","8cb91b4963e4490031e0dc6e5bde35b5f886a52e",63,true],
+ ["feature/c5b-safe-sms-outbox","d4f055874dfc152ec08df8202416c32166ec0ca3",65,true],
+ ["feature/fix-dev-clean-schema-guard","defe8f47b6614b24afa00498fb8d884e825ca7f4",64,true],
+ ["feature/single-subject-master-clean-slate","cccd0a20c4682581ec3f07276a261abbe48e2565",60,true],
+ ["feature/c5c-guardian-message-safety","a77d677e2e0314ce77d4a839c7de8c88daa9d65d",66,true],
+ ["feature/c6-recovery-rehearsal","2af822ec615c42f62c2fb386ca86e05a2c571cf2",67,true],
 ];
 async function simulate({env={},open=[],changed={},missing=[]}={}){
  const deletes=[],messages=[];
@@ -53,7 +63,7 @@ async function simulate({env={},open=[],changed={},missing=[]}={}){
 test("only exact verified closed PR heads are deleted, never master or dev",async()=>{
  const r=await simulate();
  assert.equal(r.error,undefined);
- assert.equal(r.deletes.length,7);
+ assert.equal(r.deletes.length,entries.length);
  assert(!r.deletes.includes("dev")&&!r.deletes.includes("master"));
 });
 test("open PR and changed branch SHA are protected against cleanup",async()=>{
