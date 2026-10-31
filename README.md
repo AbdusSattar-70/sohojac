@@ -33,7 +33,7 @@ Run disposable local migrations/tests; never run remote migrations from a featur
 
 **Development migrations:** four clean SQL files, with **one global Subject master directly in the initial schema**. The independently named development D1 can be recreated because its data is mock; doing so resets the dev owner account and all mock records. Development uses `--dir migrations` on its own `sohojac_dev` database. Production retains its independent history and database; do not apply development migrations to production. See [Fresh dev first owner](docs/DEV_FIRST_OWNER.md).
 
-The one-time development reset was completed and verified in [dev release #41137793638](https://github.com/AbdusSattar-70/sohojac/actions/runs/41137793638). The reset script is retired; subsequent deployments preserve existing developer accounts, student records and financial test history. There is **no automatic production schema replacement**.
+The owner approved a one-time rebuild of the isolated `sohojac_dev` mock database for a clean, four-migration Subject design. That reset discards the dev OWNER login and all mock data, so [first-owner setup](docs/DEV_FIRST_OWNER.md) must be repeated after release. An already clean D1 is not reset again. Production remains independent and unchanged.
 
 ## Design and operations
 

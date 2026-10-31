@@ -2,7 +2,7 @@
 
 **Environment:** `dev` Worker at https://sohojac-dev.a90-sattar.workers.dev  
 **Database:** independent Cloudflare D1 **`sohojac_dev`**, **not `sohojac`**  
-**Status:** use these steps **after** the canonical reset and successful dev deployment.
+**Status:** repeat this first-owner setup after the owner-authorized mock dev reset in PR #60 successfully deploys. Earlier development credentials no longer exist.
 
 The new development D1 intentionally has **no staff, students, guardians, enquiries,
 admissions, receipts, expenses, public programme offerings or batches**. It starts
