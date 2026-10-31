@@ -45,7 +45,7 @@ test("Academic Setup propagates version and Server Action uses a CAS guard and n
  const action=readFileSync("modules/crm/manage/actions.ts","utf8");
  assert.match(schema,/expectedVersion/);
  assert.match(q,/created_at,version FROM academic_years/);
- assert.match(ui,/expectedVersion: entity === "academic_year"/);
+ assert.match(ui,/expectedVersion: row.version/);
  assert.match(ui,/register\("expectedVersion"/);
  assert.match(action,/WHERE id=\? AND version=\?/);
  assert.match(action,/v\.expectedVersion/);

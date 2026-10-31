@@ -38,7 +38,7 @@ jobs:
         run: pnpm run cf-typegen
       - name: Environment isolation and non-destructive migrations
         run: |
-          node --test scripts/test-canonical-baseline.mjs scripts/test-environment-isolation.mjs scripts/test-dev-reference-bootstrap.mjs scripts/test-single-subject-master.mjs scripts/test-master-year-version.mjs scripts/test-branch-prune.mjs
+          node --test scripts/test-canonical-baseline.mjs scripts/test-environment-isolation.mjs scripts/test-dev-reference-bootstrap.mjs scripts/test-single-subject-master.mjs scripts/test-master-year-version.mjs scripts/test-master-entity-versions.mjs scripts/test-branch-prune.mjs
           node scripts/check-d1-migrations.mjs
       - name: Business logic and security regressions
         run: |
@@ -155,7 +155,7 @@ jobs:
         run: node scripts/enable-dev-worker.mjs
       - name: Verify actual deployed Worker D1 binding
         run: node scripts/verify-release-target.mjs development --worker
-      - name: Verify four clean dev migrations and one global Subject master
+      - name: Verify five migrations and global Subject concurrency
         run: node scripts/verify-canonical-dev-state.mjs
       - name: Smoke-check dev without logging in or creating real financial data
         run: |
