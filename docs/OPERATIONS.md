@@ -79,3 +79,9 @@ A refusal applies to **all students sharing the same guardian mobile number**. E
 ## C9 management cost per active student
 
 Open `/dashboard/finance/cost-per-student` as an OWNER/ADMIN with `accounting.view`. The current-month, Bangladesh-local snapshot reads all recorded operating expenses (paisa integer) and the distinct current active enrolled student roster. It shows expense category counts, a zero-denominator “Not available” state and an explicit warning that payroll, salary, unposted liabilities and other non-operating costs are not included. This is not a complete academy-level cost allocation, a statutory P&L, or a student profitability claim. No finance records are changed.
+
+## Academic setup and programme launch UX
+
+Subjects are maintained in the single Academic Setup workspace. An old Subjects bookmark resolves to that tab; there is no separate Subjects menu item. The dashboard shows the academy identity form only while the first confirmation is missing. After saving, the prompt disappears; use Academic Setup > Edit academy details for a deliberate change.
+
+The Programme Launch Review step shows a success message only when fees are effective, an active batch has open seats, the public card is visible and intake is open. Staff can then verify the public page, review enquiries, start authorised admissions or schedule classes. Finish returns to the dashboard without unpublishing the offering.
