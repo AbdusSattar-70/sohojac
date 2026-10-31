@@ -1276,6 +1276,10 @@ grep -q "SA-ENQ-" /tmp/sohojac-enquiry.json
 pnpm exec cf d1 raw "$DB" --sql "SELECT COUNT(*) AS n FROM public_enquiries" --local --persist-to .cloudflare/state >/tmp/enquiry-count.json
 node -e 'const fs = require("node:fs"); const data = JSON.parse(fs.readFileSync("/tmp/enquiry-count.json", "utf8")); const count = data[0]?.results?.rows?.[0]?.[0]; if (count !== 2) { console.error("Expected public smoke + historical review fixture (2 enquiries); got", count); process.exit(1); } console.log("D1 write verified: public smoke plus historical review fixture");'
 
+# Earlier CI tests need the synthetic offering open for admissions and fee checks.
+# Explicitly close only the disposable local catalogue before testing closed-intake rejection.
+pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
+  --sql "UPDATE public_programme_offerings SET is_accepting_applications=0,application_state='CLOSED' WHERE id='sa-ssc-science'" > /tmp/ci-closed-offering.json
 # An admission request must never be accepted while applications are closed.
 admission_status=$(curl -sS -o /tmp/enquiry-closed.json -w '%{http_code}' -X POST "http://localhost:4173/api/enquiries" \
   -H "Content-Type: application/json" \
