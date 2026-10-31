@@ -3,7 +3,7 @@ import {readdirSync,readFileSync} from "node:fs";
 import {DatabaseSync} from "node:sqlite";
 // Fresh development has four clean source migrations; no legacy subject schema.
 const names=readdirSync("migrations").filter(x=>/^\d{4}_[a-z0-9_-]+\.sql$/.test(x)).sort();
-assert.deepEqual(names,["0001_schema_tables.sql","0002_schema_indexes.sql","0003_domain_guards.sql","0004_finance_reference.sql"]);
+assert.deepEqual(names,["0001_schema_tables.sql","0002_schema_indexes.sql","0003_domain_guards.sql","0004_finance_reference.sql","0005_master_versions.sql"]);
 const db=new DatabaseSync(":memory:");
 try{
   db.exec("PRAGMA foreign_keys=ON");
@@ -17,10 +17,12 @@ try{
   for(const table of ["user","staff_owner_setup","academic_subjects","academy_offering_subjects","academy_students","academy_admissions","finance_invoices","finance_payments","finance_accounts"])
     assert(tables.has(table),"Missing table "+table);
   assert(!tables.has("academy_subjects"));
-  assert.deepEqual(db.prepare("PRAGMA table_info(academic_subjects)").all().map(r=>r.name),["id","code","title","active"]);
+  assert.deepEqual(db.prepare("PRAGMA table_info(academic_subjects)").all().map(r=>r.name),["id","code","title","active","version"]);
+  for(const table of ["academy_classes","academic_groups","academic_subjects","academy_programmes","academy_schools","academy_lead_sources","academy_guardian_relationships"])
+    assert(db.prepare("PRAGMA table_info("+table+")").all().some(r=>r.name==="version"),"Missing version on "+table);
   assert(db.prepare("PRAGMA foreign_key_list(academy_offering_subjects)").all().some(r=>r.table==="academic_subjects"&&r.from==="subject_id"));
   assert.deepEqual(db.prepare("PRAGMA foreign_key_check").all(),[]);
   assert.equal(db.prepare("SELECT COUNT(*) n FROM academy_students").get().n,0);
   assert.equal(db.prepare("SELECT COUNT(*) n FROM finance_payments").get().n,0);
-  console.log("Four clean development migrations: one reusable global Subject, no legacy master.");
+  console.log("Five development migrations: global Subject and concurrency-protected academic master data.");
 }finally{db.close();}

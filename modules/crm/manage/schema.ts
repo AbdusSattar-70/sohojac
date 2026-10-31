@@ -45,10 +45,10 @@ export const manageMasterRecordSchema = z
     reason,
   })
   .superRefine((value, ctx) => {
+    if (value.id && !value.expectedVersion) {
+      ctx.addIssue({code:"custom",path:["expectedVersion"],message:"This record changed or its revision is unavailable. Refresh the register before editing."});
+    }
     if (value.entity === "academic_year") {
-      if (value.id && !value.expectedVersion) {
-        ctx.addIssue({code:"custom",path:["expectedVersion"],message:"Year revision missing. Refresh the register before editing."});
-      }
       if (!value.name || value.name.trim().length < 2) {
         ctx.addIssue({ code: "custom", path: ["name"], message: "Year name is required." });
       }

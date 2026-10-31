@@ -102,6 +102,7 @@ function rowsFor(entity: MasterEntity, data: ManageCrmOverview): Row[] {
         id: c.id,
         code: c.code,
         name: c.name,
+        version: c.version,
         sort_order: c.sort_order,
         is_active: c.is_active,
       }));
@@ -110,6 +111,7 @@ function rowsFor(entity: MasterEntity, data: ManageCrmOverview): Row[] {
         id: g.id,
         code: g.code,
         name: g.name,
+        version: g.version,
         is_active: g.is_active,
       }));
     case "subject":
@@ -117,6 +119,7 @@ function rowsFor(entity: MasterEntity, data: ManageCrmOverview): Row[] {
         id: s.id,
         code: s.code,
         name: s.name,
+        version: s.version,
         is_active: s.is_active,
       }));
     case "program":
@@ -124,6 +127,7 @@ function rowsFor(entity: MasterEntity, data: ManageCrmOverview): Row[] {
         id: p.id,
         code: p.code,
         name: p.name,
+        version: p.version,
         description: p.description,
         is_active: p.is_active,
       }));
@@ -131,6 +135,7 @@ function rowsFor(entity: MasterEntity, data: ManageCrmOverview): Row[] {
       return data.schools.map((s) => ({
         id: s.id,
         name: s.name,
+        version: s.version,
         area_id: s.area_id,
         is_verified: s.is_verified,
         is_active: s.is_active,
@@ -140,6 +145,7 @@ function rowsFor(entity: MasterEntity, data: ManageCrmOverview): Row[] {
         id: s.id,
         code: s.code,
         name: s.name,
+        version: s.version,
         is_active: s.is_active,
       }));
     case "guardian_relationship":
@@ -147,6 +153,7 @@ function rowsFor(entity: MasterEntity, data: ManageCrmOverview): Row[] {
         id: r.id,
         code: r.code,
         name: r.name,
+        version: r.version,
         is_active: r.is_active,
       }));
   }
@@ -173,7 +180,7 @@ function fromRow(entity: MasterEntity, row: Row): ManageMasterRecordInput {
   return {
     entity,
     id: row.id,
-    expectedVersion: entity === "academic_year" ? row.version : undefined,
+    expectedVersion: row.version,
     code: row.code ?? "",
     name: row.name ?? "",
     description: row.description ?? "",
@@ -481,7 +488,7 @@ function MasterRecordForm({
 
         <input type="hidden" {...register("entity")} />
         <input type="hidden" {...register("id")} />
-        {entity === "academic_year" && isEdit && (
+        {isEdit && (
           <input type="hidden" {...register("expectedVersion", { valueAsNumber: true })} />
         )}
 
