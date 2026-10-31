@@ -2,7 +2,7 @@ import {env} from "cloudflare:workers";
 import {requirePermission} from "@/modules/platform/auth/erp-context";
 
 type Base={id:string;name:string;is_active:number|boolean;created_at?:string};
-type Years=Base & {starts_on:string|null;ends_on:string|null;created_at:string};
+type Years=Base & {starts_on:string|null;ends_on:string|null;created_at:string;version:number};
 type Classes=Base & {code:string;sort_order:number;created_at:string};
 type Group=Base & {code:string};
 type Program=Base & {code:string;description:string|null;created_at:string};
@@ -16,7 +16,7 @@ function active<T extends Base>(rows:T[]):(Omit<T,"is_active">&{is_active:boolea
 export async function getManageCrmOverview(){
  await requirePermission("system.master_data.manage");
  const [years,classes,groups,subjects,programs,schools,areas,sources,relationships]=await Promise.all([
-  env.DB.prepare("SELECT id,title AS name,starts_on,ends_on,(status='ACTIVE') AS is_active,created_at FROM academic_years ORDER BY starts_on DESC").all<Years>(),
+  env.DB.prepare("SELECT id,title AS name,starts_on,ends_on,(status='ACTIVE') AS is_active,created_at,version FROM academic_years ORDER BY starts_on DESC").all<Years>(),
   env.DB.prepare("SELECT id,code,name,sort_order,is_active,created_at FROM academy_classes ORDER BY sort_order,name").all<Classes>(),
   env.DB.prepare("SELECT id,code,name,is_active FROM academic_groups ORDER BY name").all<Group>(),
   env.DB.prepare("SELECT id,code,title AS name,active AS is_active,'' AS created_at FROM academic_subjects ORDER BY title").all<Source>(),
