@@ -26,9 +26,9 @@ if(metadata?.name!==databaseTargets.development.name||metadata?.uuid!==id)
  throw Error("Refusing to verify unexpected D1 identity.");
 const query=async sql=>(await call("/query",{sql,params:[]}))[0].results;
 const recorded=(await query("SELECT name FROM d1_migrations ORDER BY name")).map(x=>x.name);
-const expected=["0001_schema_tables.sql","0002_schema_indexes.sql","0003_domain_guards.sql","0004_finance_reference.sql","0005_master_versions.sql","0006_guardian_message_outbox.sql","0007_guardian_sms_optout.sql"];
+const expected=["0001_schema_tables.sql","0002_schema_indexes.sql","0003_domain_guards.sql","0004_finance_reference.sql","0005_master_versions.sql","0006_guardian_message_outbox.sql","0007_guardian_sms_optout.sql","0008_guardian_contact_suppression.sql"];
 if(JSON.stringify(recorded)!==JSON.stringify(expected))
- throw Error("Development D1 does not have the seven development migrations.");
+ throw Error("Development D1 does not have the eight development migrations.");
 const row=(await query(
  "SELECT (SELECT COUNT(*) FROM academy_classes) classes,"+
  "(SELECT COUNT(*) FROM academy_guardian_relationships) relationships,"+
@@ -56,4 +56,4 @@ if(process.env.RESET_DEV_BASELINE_WAS_RECREATED==="1"){
  console.log("Fresh dev reset: no staff, offerings, admissions, students, invoices, receipts or expenses.");
 }
 if(row.old_subject_tables!==0)throw Error("Legacy subject definition table must not exist.");
-console.log("Independent dev D1 verified: seven migrations and one global subject master, global subjects, 12 classes and 27 guardian relationships.");
+console.log("Independent dev D1 verified: eight migrations and one global subject master, global subjects, 12 classes and 27 guardian relationships.");
