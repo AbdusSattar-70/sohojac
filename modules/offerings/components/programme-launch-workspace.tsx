@@ -40,6 +40,7 @@ function Badge({ done, text }: { done: boolean; text: string }) {
 
 export function ProgrammeLaunchWorkspace({
   data, batches, initialOfferingId, today, canManage, canBill, canViewFees,
+  canStartAdmissions, canViewEnquiries, canScheduleClasses,
 }: {
   data: OfferingOverview;
   batches: AdmissionWorkspace;
@@ -48,13 +49,15 @@ export function ProgrammeLaunchWorkspace({
   canManage: boolean;
   canBill: boolean;
   canViewFees: boolean;
+  canStartAdmissions: boolean;
+  canViewEnquiries: boolean;
+  canScheduleClasses: boolean;
 }) {
   const [selectedId, setSelectedId] = useState(() =>
     data.offerings.some((x) => x.id === initialOfferingId)
       ? initialOfferingId!
       : (data.offerings.find((x) => x.status !== "RETIRED")?.id ?? "")
   );
-  const [stage, setStage] = useState<LaunchStage>("PROGRAMME");
   const [creating, setCreating] = useState(() => data.offerings.length === 0);
   const [notification, setNotification] = useState("");
   const selected = data.offerings.find((x) => x.id === selectedId);
@@ -66,6 +69,8 @@ export function ProgrammeLaunchWorkspace({
   const readiness = selected
     ? getProgrammeLaunchReadiness(selected, batches.batches, feeReady, today)
     : null;
+  // A previously launched programme opens at its finished review, not step one.
+  const [stage, setStage] = useState<LaunchStage>(() => readiness?.publishReady ? "REVIEW" : "PROGRAMME");
   const activePlan = selected && canViewFees
     ? data.plans.find((plan) => plan.offering_id === selected.id && plan.status === "ACTIVE")
     : null;
@@ -78,7 +83,12 @@ export function ProgrammeLaunchWorkspace({
     setCreating(false);
     setShowFeeEditor(false);
     setNotification("");
-    setStage("PROGRAMME");
+    const next = data.offerings.find((row) => row.id === id);
+    const nextFeeReady = Boolean(next && batches.offerings.find((row) => row.id === id)?.feeReady);
+    const nextReadiness = next
+      ? getProgrammeLaunchReadiness(next, batches.batches, nextFeeReady, today)
+      : null;
+    setStage(nextReadiness?.publishReady ? "REVIEW" : "PROGRAMME");
   };
   const completed = readiness?.completed ?? [false, false, false, false];
 
@@ -322,33 +332,70 @@ export function ProgrammeLaunchWorkspace({
               </div>
               {!selected || !readiness ? <p className="text-sm">Choose a programme first.</p> : (
                 <div className="space-y-5">
-                  <div className={`rounded-xl border p-4 ${readiness.publishReady
-                    ? "border-emerald-500/40 bg-emerald-500/10"
-                    : "border-border bg-muted/30"}`}>
-                    <p className="font-semibold">{readiness.publishReady ? "Live & accepting applications" : "Setup not yet complete"}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {readiness.publishReady
-                        ? `${selected.name} is published with ${readiness.openSeats} open seats and its application intake is open.`
-                        : "Complete the outstanding items before advertising open admission."}
-                    </p>
-                  </div>
-                  {readiness.blockers.length > 0 && (
-                    <ul className="space-y-2 text-sm">
-                      {readiness.blockers.map((blocker) => <li key={blocker} className="flex gap-2"><span aria-hidden="true">•</span><span>{blocker}</span></li>)}
-                    </ul>
+                  {readiness.publishReady ? (
+                    <section aria-label="Programme launch completed" role="status"
+                      className="space-y-5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-5">
+                      <div className="space-y-2">
+                        <p className="text-2xl font-bold text-emerald-300">
+                          Congratulations! Your programme is launched.
+                        </p>
+                        <p className="text-sm leading-6 text-foreground">
+                          <strong>{selected.name}</strong> is live on the website, accepting applications,
+                          and has {readiness.openSeats} open {readiness.openSeats === 1 ? "seat" : "seats"}.
+                          The five-step launch is complete.
+                        </p>
+                      </div>
+                      <div className="space-y-3">
+                        <h3 className="font-semibold">Recommended next steps</h3>
+                        <ol className="list-decimal space-y-2 pl-5 text-sm">
+                          <li>Verify the public programme card and admission interest form.</li>
+                          {canViewEnquiries && <li>Monitor and respond to new enquiries.</li>}
+                          {canStartAdmissions && <li>Begin verified admissions and enrolment.</li>}
+                          {canScheduleClasses && <li>Schedule the first teaching sessions.</li>}
+                        </ol>
+                        <div className="flex flex-wrap gap-3">
+                          <Link href="/" target="_blank" rel="noopener noreferrer" className={secondaryButton}>Open public website</Link>
+                          <Link href={`/interest?intent=admission&offering=${encodeURIComponent(selected.id)}`}
+                            target="_blank" rel="noopener noreferrer" className={secondaryButton}>Check admission form</Link>
+                          {canViewEnquiries && <Link href="/dashboard/crm/prospects" className={secondaryButton}>Review enquiries</Link>}
+                          {canStartAdmissions && <Link href="/dashboard/admissions?start=staff" className={secondaryButton}>Start an admission</Link>}
+                          {canScheduleClasses && <Link href="/dashboard/academics/routine" className={secondaryButton}>Schedule classes</Link>}
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3 border-t border-emerald-500/20 pt-4">
+                        <Link href="/dashboard" className={primaryButton}>Finish &amp; return to dashboard</Link>
+                        {canManage && <button type="button" className={secondaryButton}
+                          onClick={() => {
+                            setCreating(true);
+                            setSelectedId("");
+                            setShowFeeEditor(false);
+                            setNotification("");
+                            setStage("PROGRAMME");
+                          }}>Launch another programme</button>}
+                      </div>
+                    </section>
+                  ) : (
+                    <>
+                      <div className="rounded-xl border border-border bg-muted/30 p-4">
+                        <p className="font-semibold">Setup not yet complete</p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          Complete the outstanding items before advertising open admission.
+                        </p>
+                      </div>
+                      {readiness.blockers.length > 0 && (
+                        <ul className="space-y-2 text-sm">
+                          {readiness.blockers.map((blocker) => (
+                            <li key={blocker} className="flex gap-2"><span aria-hidden="true">•</span><span>{blocker}</span></li>
+                          ))}
+                        </ul>
+                      )}
+                      <div className="flex flex-wrap gap-3">
+                        <button type="button" className={primaryButton}
+                          onClick={() => setStage(readiness.stage)}>Continue required setup</button>
+                        <Link className={secondaryButton} href="/dashboard/academics/offerings">Advanced offering register</Link>
+                      </div>
+                    </>
                   )}
-                  <div className="flex flex-wrap gap-3">
-                    {readiness.publishReady ? (
-                      <>
-                        <Link href="/" target="_blank" rel="noopener noreferrer" className={primaryButton}>Verify live public website</Link>
-                        <Link href={`/interest?intent=admission&offering=${encodeURIComponent(selected.id)}`}
-                          target="_blank" rel="noopener noreferrer" className={secondaryButton}>Inspect admission interest form</Link>
-                      </>
-                    ) : (
-                      <button type="button" className={primaryButton} onClick={() => setStage(readiness.stage)}>Continue required setup</button>
-                    )}
-                    <Link className={secondaryButton} href="/dashboard/academics/offerings">Advanced offering register</Link>
-                  </div>
                 </div>
               )}
             </>
