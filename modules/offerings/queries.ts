@@ -1,4 +1,4 @@
-import type {OfferingSubjectOption} from "@/lib/offering-subject-options";
+type OfferingSubjectOption = { id: string; code: string; name: string; active?: number };
 import type {PublicOfferingCard} from "./types";
 import {env} from "cloudflare:workers";
 import {getErpContext,requirePermission} from "@/modules/platform/auth/erp-context";
