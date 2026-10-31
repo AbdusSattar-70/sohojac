@@ -15,8 +15,9 @@ export default async function GuardianMessagesPage(){
    "ORDER BY o.created_at DESC,o.id DESC LIMIT 100").all<OutboxItem>(),
   env.DB.prepare(
    "SELECT s.id,s.student_no,s.full_name,"+
-   "CASE WHEN p.student_id IS NULL THEN 0 ELSE 1 END AS opted_out "+
+   "CASE WHEN p.student_id IS NOT NULL OR g.guardian_mobile IS NOT NULL THEN 1 ELSE 0 END AS opted_out "+
    "FROM academy_students s LEFT JOIN guardian_sms_optouts p ON p.student_id=s.id "+
+   "LEFT JOIN guardian_sms_contact_suppressions g ON g.guardian_mobile=s.guardian_mobile "+
    "WHERE s.merged_into_id IS NULL AND s.status='ACTIVE' "+
    "ORDER BY s.created_at DESC,s.id DESC LIMIT 300").all<StudentChoice>()
  ]);
