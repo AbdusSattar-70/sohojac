@@ -7,7 +7,12 @@ import { getManageCrmOverview } from "@/modules/crm/manage/queries";
 import { requirePermission } from "@/modules/platform/auth/erp-context";
 import { can } from "@/types/erp";
 
-export default async function AcademicSettingsPage() {
+export default async function AcademicSettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{section?: string}>;
+}) {
+  const {section} = await searchParams;
   const context = await requirePermission("system.master_data.manage");
   const data = await getManageCrmOverview();
   const canManage = can(context, "system.master_data.manage");
@@ -37,7 +42,7 @@ export default async function AcademicSettingsPage() {
 
       {identity && <AcademyIdentityForm {...identity} />}
 
-      <MasterDataWorkspace data={data} canManage={canManage} />
+      <MasterDataWorkspace data={data} canManage={canManage} initialEntity={section === "subject" ? "subject" : "class"} />
     </div>
   );
 }
