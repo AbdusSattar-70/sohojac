@@ -83,6 +83,12 @@ export default async function StaffAccountGuide() {
             and <code className="mx-1">DEV_STAFF_EMAIL_ALLOWLIST</code> containing a comma-separated
             list of your approved test inboxes. Avoid real guardian or staff recipients in development.
           </li>
+          <li>For the email signature, you may also set the optional Actions variable
+            <code className="mx-1">DEV_STAFF_EMAIL_POSTAL_ADDRESS</code> to your verified,
+            public office address. It appears in the invitation footer. If it is not
+            configured, the footer only states the general location, Jamalpur, Bangladesh;
+            the application does not invent a street address.
+          </li>
           <li>After the next successful <code>dev</code> deployment, open the Staff &amp; access
             page and check the three configuration indicators. They show configured values,
             <strong> not</strong> that the provider delivered a message.
