@@ -13,6 +13,7 @@ const ownerCommands = [
   "staff.manage",
   "workforce.manage",
   "audit.view",
+  "communications.manage",
   "system.users.manage",
   "system.settings.manage",
   "crm.prospects.manage",
