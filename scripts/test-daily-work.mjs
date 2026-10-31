@@ -22,8 +22,9 @@ test("Today's work queues use full-register counts, never recent record limits",
   assert.equal(count(db,dailyWorkSql.enquiries),261);
   db.prepare("UPDATE public_enquiries SET status='CONTACTED' WHERE id='enquiry-0'").run();
   assert.equal(count(db,dailyWorkSql.enquiries),260);
-  db.prepare("INSERT INTO academy_prospects(id,status,next_follow_up_at) VALUES(?,? ,date('now','+6 hours','-1 day'))")
-    .run("enquiry-0","CONTACTED");
+  const changed=db.prepare("UPDATE academy_prospects SET status='CONTACTED',next_follow_up_at=date('now','+6 hours','-1 day') WHERE id=?")
+    .run("enquiry-0");
+  assert.equal(changed.changes,1,"public enquiry trigger should create its Prospect record");
   assert.equal(count(db,dailyWorkSql.followups),1);
   db.prepare("UPDATE academy_prospects SET status='LOST' WHERE id='enquiry-0'").run();
   assert.equal(count(db,dailyWorkSql.followups),0);
