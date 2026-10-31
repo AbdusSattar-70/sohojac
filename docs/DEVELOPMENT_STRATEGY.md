@@ -84,3 +84,7 @@ Forward-only migration `0008_guardian_contact_suppression.sql` prevents the exis
 ## C9 — Operating cost per active student (month-to-date)
 
 A management-only read-only card reports all-record `finance_operating_expenses` for the current Bangladesh calendar month divided by **distinct currently active enrolled students**. The denominator is a current roster snapshot, not a historical monthly average; duplicate active batch enrollments never double-count a student. An empty roster returns “Not available” instead of a fake zero. Categories, source counts, timescope and exclusions are shown. Payroll, compensation, unpaid liabilities, capital expenditure and non-operating costs are **not** covered. The figure is labelled a partial recorded operating-cost metric, never full cost/profit or break-even; future allocations require genuine payroll and cost records.
+
+## C11 — Verified feature branch housekeeping
+
+After each successful `dev` deployment, the existing noncritical housekeeping job can retire historical C7–C10 branches **only** when GitHub reports a closed merged PR into `dev`, the branch still points to that PR's exact head SHA, and no open PR uses it. This preserves `master`, `dev`, current work, divergent refs and open PRs. Removing a Git ref does not remove the reviewed commits or modify D1.
