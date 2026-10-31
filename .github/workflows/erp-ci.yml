@@ -38,7 +38,7 @@ jobs:
         run: pnpm run cf-typegen
       - name: Environment isolation and non-destructive migrations
         run: |
-          node --test scripts/test-canonical-baseline.mjs scripts/test-environment-isolation.mjs scripts/test-dev-reference-bootstrap.mjs scripts/test-single-subject-master.mjs scripts/test-daily-work.mjs scripts/test-master-year-version.mjs scripts/test-master-entity-versions.mjs scripts/test-report-reconciliation.mjs scripts/test-branch-prune.mjs
+          node --test scripts/test-canonical-baseline.mjs scripts/test-environment-isolation.mjs scripts/test-dev-reference-bootstrap.mjs scripts/test-single-subject-master.mjs scripts/test-daily-work.mjs scripts/test-master-year-version.mjs scripts/test-master-entity-versions.mjs scripts/test-report-reconciliation.mjs scripts/test-dev-release-no-reset.mjs scripts/test-branch-prune.mjs
           node scripts/check-d1-migrations.mjs
       - name: Business logic and security regressions
         run: |
@@ -111,8 +111,6 @@ jobs:
           latest=$(git ls-remote https://github.com/AbdusSattar-70/sohojac.git refs/heads/dev | cut -f1)
           test "$latest" = "$GITHUB_SHA"
       - run: pnpm install --frozen-lockfile
-      - name: One-time owner-approved reset of obsolete mock-only dev D1
-        run: node scripts/reset-obsolete-dev-d1.mjs
       - name: Create or confirm independent dev D1
         run: node scripts/prepare-dev-deployment.mjs
       - name: Verify dev database identity before any migration
