@@ -14,6 +14,11 @@ export function MessageSafetyWorkspace({messages,students,canManage}:{
  const [studentId,setStudentId]=useState("");
  const [reason,setReason]=useState("");
  const [busy,setBusy]=useState(false);
+ const [queueStudent,setQueueStudent]=useState("");
+ const [templateKey,setTemplateKey]=useState("GENERAL_REMINDER");
+ const [consentAttested,setConsentAttested]=useState(false);
+ // Preserve this identity on network errors so retry cannot enqueue twice.
+ const [holdRequestId,setHoldRequestId]=useState("");
  const [feedback,setFeedback]=useState("");
  const [error,setError]=useState("");
  async function post(url:string,body:unknown){
@@ -34,6 +39,25 @@ export function MessageSafetyWorkspace({messages,students,canManage}:{
   if(!canManage||busy||reason.trim().length<10||!studentId)return;
   void post("/api/staff/messages/opt-out",{studentId,reason:reason.trim()});
  }
+ async function holdRequest(e:FormEvent<HTMLFormElement>){
+  e.preventDefault();
+  if(!canManage||busy||!queueStudent||!consentAttested)return;
+  const requestId=holdRequestId||crypto.randomUUID();
+  setHoldRequestId(requestId);
+  setBusy(true);setFeedback("");setError("");
+  try{
+   const response=await fetch("/api/staff/messages",{
+    method:"POST",credentials:"same-origin",headers:{"content-type":"application/json"},
+    body:JSON.stringify({studentId:queueStudent,templateKey,requestId,consentAttested:true})
+   });
+   const value=(await response.json().catch(()=>({error:"Unexpected response"}))) as {error?:string;status?:string};
+   if(!response.ok)throw Error(String(value.error??"Unable to confirm held request"));
+   setHoldRequestId("");setConsentAttested(false);
+   setFeedback("Message request is held. No SMS was sent.");
+   router.refresh();
+  }catch(e){setError(e instanceof Error?e.message:"Unable to confirm held request. Retry with the same identity.");}
+  finally{setBusy(false);}
+ }
  return <main className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
   <header className="space-y-2">
    <Link href="/dashboard/governance/audit" className="text-sm text-muted-foreground underline">← Audit trail</Link>
@@ -47,6 +71,41 @@ export function MessageSafetyWorkspace({messages,students,canManage}:{
   </section>
   {error&&<p role="alert" className="rounded-lg border border-red-600/40 p-3 text-sm text-red-300">{error}</p>}
   {feedback&&<p role="status" className="rounded-lg border p-3 text-sm">{feedback}</p>}
+  <section className="space-y-3 rounded-xl border p-4">
+   <h2 className="font-semibold">Hold a message request</h2>
+   <p className="text-sm text-muted-foreground">This records intent for staff review only; it does not send SMS.
+    Confirm the guardian has explicitly agreed to this specific communication before staging a request.
+    No message text or recipient number is accepted from the browser.</p>
+   {canManage?<form onSubmit={holdRequest} className="grid gap-3 sm:grid-cols-2">
+    <label className="space-y-1 text-sm">Active student
+     <select required value={queueStudent} onChange={e=>{setQueueStudent(e.target.value);setHoldRequestId("");}}
+      className="block w-full rounded-md border bg-background p-2">
+      <option value="">Select student</option>
+      {students.map(student=><option value={student.id} key={student.id} disabled={!!student.opted_out}>
+       {student.student_no} — {student.full_name}{student.opted_out?" (SMS declined)":""}
+      </option>)}
+     </select>
+    </label>
+    <label className="space-y-1 text-sm">Approved template type
+     <select value={templateKey} onChange={e=>{setTemplateKey(e.target.value);setHoldRequestId("");}}
+      className="block w-full rounded-md border bg-background p-2">
+      <option value="GENERAL_REMINDER">General reminder</option>
+      <option value="ADMISSION_FOLLOWUP">Admission follow-up</option>
+     </select>
+    </label>
+    <label className="flex items-start gap-2 text-sm sm:col-span-2">
+     <input type="checkbox" required checked={consentAttested}
+      onChange={e=>setConsentAttested(e.target.checked)} className="mt-1"/>
+     <span>I verified the guardian's consent to receive this communication.
+      I understand this request will remain held and no SMS will be sent.</span>
+    </label>
+    <button type="submit" disabled={busy||!queueStudent||!consentAttested}
+     className="rounded-md border bg-secondary px-4 py-2 text-sm font-semibold disabled:opacity-50">
+     Hold request (do not send)</button>
+    {holdRequestId&&<p className="self-center text-xs text-muted-foreground">
+     A previous attempt was not confirmed. Retrying uses the same request ID.</p>}
+   </form>:<p className="text-sm text-muted-foreground">Request creation requires communications.manage.</p>}
+  </section>
   <section className="space-y-3 rounded-xl border p-4">
    <h2 className="font-semibold">Guardian opt-out</h2>
    <p className="text-sm text-muted-foreground">Record a guardian's refusal or withdrawal of SMS consent.
