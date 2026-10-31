@@ -19,7 +19,7 @@ export async function GET(request:Request){
         .all<{offering_id:string;subject_id:string}>(),
     ]);
     return privateJson({items:subjects.results??[],offerings:offerings.results??[],
-      links:links.results??[],canEdit:["OWNER","ADMIN"].includes(staff.role)});
+      links:links.results??[],canEdit:false,legacyReadOnly:true});
   }catch{return privateJson({error:"Subject catalogue unavailable"},503);}
 }
 /**
