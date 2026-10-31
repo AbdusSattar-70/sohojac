@@ -94,7 +94,7 @@ test("guided launch is permission-scoped, non-destructive and connected to the r
   assert(forms.includes("intentFor(request.current, signature)"));
   assert(forms.includes("const [subjectIds, setSubjectIds]"));
   assert(forms.includes("data-launch-subjects"));
-  assert(workspace.includes("subjects={data.subjects}"));
+  assert(component.includes("subjects={data.subjects}"));
   assert(forms.includes('disabled={!visible || (!canOpen && !accepting)}'));
   assert(component.includes('inactiveLabel="Activate batch"'));
   // The fifth review step must be checked for a ready, live offering; it
