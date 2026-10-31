@@ -23,7 +23,7 @@ The development branch keeps four canonical SQL migrations and no old SQL archiv
 
 The authorized one-time development reset **already happened** and was verified in [release #41137793638](https://github.com/AbdusSattar-70/sohojac/actions/runs/41137793638). The original dev D1 UUID `f6331cbc-fff5-43be-9588-2269d8942342` was replaced by the current dev UUID; its one-time deletion script is now **retired from code and CI**. Ordinary feature deployments must **preserve** the dev OWNER, student records and payments. Development's `seeds/dev-reference.sql` inserts classes, guardian relationships and global subjects idempotently; it does not generate real people, financial postings or demo programmes. A previously completed seed does not run over staff edits.
 
-Historical student identity and accounting-preservation guarantees remain in [the student lifecycle release record](./STUDENT_LIFECYCLE_RELEASE_PLAN.md); permanent staff ID contracts remain in [staff identity migration history](./STAFF_NUMBER_MIGRATION.md). These are intentionally retained; do not treat them as instructions to rerun old data migrations.
+Staff numbering, student identity and financial preservation are now verified against the active canonical schema and domain regression tests. Superseded migration release plans can still be read in Git history; they are not current development instructions.
 
 ## GitHub Actions release and branch cleanup
 
