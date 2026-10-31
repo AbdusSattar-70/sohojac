@@ -34,12 +34,16 @@ The [verified dev deployment on commit `a971a790`](https://github.com/AbdusSatta
 | **2 — Payment / expense / batch commands** | **Deployed to dev** | [PR #52](https://github.com/AbdusSattar-70/sohojac/pull/52): stable request identities, permission checks, balanced journals, 12-seat and version guards; full operation acceptance remains owner-led. |
 | **C1 — Guided Programme Launch** | **Deployed to dev** | [PR #54](https://github.com/AbdusSattar-70/sohojac/pull/54): coaching draft → fee plan → batch activation → website/intake → readiness. |
 | **C1a — Correct fifth-step completion** | **Deployed to dev** | [PR #55](https://github.com/AbdusSattar-70/sohojac/pull/55): the Review check is tied to actual live intake, not the first four steps only. |
-| **C2a — Global subject directory and repository cleanup** | **Implementing on `feature/operator-first-subject-catalogue`** | One global `academic_subjects` read model, read-only legacy association audit, retire new class-specific subject creation, remove obsolete reset/UI/hash-parity artifacts and completed PR branches. **CI and deployment still pending.** |
-| **C2b — Subject identity cutover** | **Not implemented** | Inventory every legacy subject ID and teaching/public consumer, explicitly approve crosswalk, forward-migrate and reconcile links. No name-based implicit merges or record deletion. |
+| **C2a — Global subject directory and repository cleanup** | **Deployed to dev** | Single `academic_subjects` read model, read-only legacy association audit, retired new class-specific subject creation. Verified deployment on `dev`. |
+| **C2b — Subject identity cutover** | **Read-only impact audit in development** | `feature/c2b-subject-impact-review` adds original-ID offering/public JSON evidence and assessment/session text-label inventory. Actual identity crosswalk, approval, forward migration and consumer cutover are still outstanding. No name-based joins or data rewrite. |
 | **C3 — Master-data concurrency** | Planned | Named permissions and optimistic version checks for academic years, subjects, classes, groups and programmes; regression tests for conflicting saves. |
 | **C4 — Operator daily journeys** | Planned | Admission and returning student, due follow-up and receipts, teacher session/attendance/marks, role/desktop/mobile testing. |
 | **C5 — Finance/reports and messages** | Planned | Whole-ledger aggregates rather than latest-200 headlines; reconciled reports, SMS outbox/retries, recovery drill, accessibility/performance checks. |
 | **Production acceptance** | **Not authorized** | Owner must manually test and approve the exact dev revision. No automatic merge or production release. |
+
+### C2b implementation boundary — dependency inventory before any rekey
+
+The impact review lists every legacy offering/subject FK by original ID, shows whether the stored public-card JSON contains that ID, and identifies text-only assessment/session records. This is evidence collection, not the approved ID crosswalk. Session titles and assessment subject strings are not canonical foreign keys; they cannot be auto-joined by title. Production may have different data from development. Review all consumers and mapping decisions before writing new migrations or changing public cards. CI runs this inventory against disposable canonical SQLite with duplicate subject labels and separate public/non-public offerings.
 
 ## C2 — Subject master policy
 

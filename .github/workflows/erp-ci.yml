@@ -38,7 +38,7 @@ jobs:
         run: pnpm run cf-typegen
       - name: Environment isolation and non-destructive migrations
         run: |
-          node --test scripts/test-canonical-baseline.mjs scripts/test-environment-isolation.mjs scripts/test-dev-reference-bootstrap.mjs scripts/test-canonical-subject-directory.mjs scripts/test-branch-prune.mjs
+          node --test scripts/test-canonical-baseline.mjs scripts/test-environment-isolation.mjs scripts/test-dev-reference-bootstrap.mjs scripts/test-canonical-subject-directory.mjs scripts/test-subject-impact-audit.mjs scripts/test-branch-prune.mjs
           node scripts/check-d1-migrations.mjs
       - name: Business logic and security regressions
         run: |
