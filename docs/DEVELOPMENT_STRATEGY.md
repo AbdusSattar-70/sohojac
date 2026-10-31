@@ -76,3 +76,7 @@ Forward migration `0007_guardian_sms_optout.sql` adds immutable per-student SMS 
 ## C6 — Recovery drill boundary
 
 Quality CI includes a deterministic local SQLite backup/restore rehearsal with synthetic records, live-schema migration application, an intentionally damaged source, and restored foreign-key/integrity checks. This is a repeatable *local recovery drill*, not evidence that Cloudflare D1 Time Travel itself has been restored or that production recovery is ready. The production restore procedure and an operator-driven Cloudflare-specific drill remain gated by explicit approval, independent DB safety and ledger verification.
+
+## C9 — Operating cost per active student (month-to-date)
+
+A management-only read-only card reports all-record `finance_operating_expenses` for the current Bangladesh calendar month divided by **distinct currently active enrolled students**. The denominator is a current roster snapshot, not a historical monthly average; duplicate active batch enrollments never double-count a student. An empty roster returns “Not available” instead of a fake zero. Categories, source counts, timescope and exclusions are shown. Payroll, compensation, unpaid liabilities, capital expenditure and non-operating costs are **not** covered. The figure is labelled a partial recorded operating-cost metric, never full cost/profit or break-even; future allocations require genuine payroll and cost records.
