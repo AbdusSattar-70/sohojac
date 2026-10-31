@@ -8,9 +8,11 @@ export async function GET(request:Request){
   const staff=await getStaffAccess(request.url,request.headers);
   if(!staff)return privateJson({error:"Authentication required"},401);
   if(!["OWNER","ADMIN"].includes(staff.role))return privateJson({error:"Access denied"},403);
-  const month=new URL(request.url).searchParams.get("month")||new Intl.DateTimeFormat("en-CA",{
-    timeZone:"Asia/Dhaka",year:"numeric",month:"2-digit"
-  }).format(new Date()).replace(/\//g,"-");
+  const academyMonth=()=>{
+    const parts=new Intl.DateTimeFormat("en-US",{timeZone:"Asia/Dhaka",year:"numeric",month:"2-digit"}).formatToParts(new Date());
+    return (parts.find(p=>p.type==="year")?.value??"")+"-"+(parts.find(p=>p.type==="month")?.value??"");
+  };
+  const month=new URL(request.url).searchParams.get("month")||academyMonth();
   if(!monthPattern.test(month))return privateJson({error:"Month must be YYYY-MM"},400);
   try{
     const [
