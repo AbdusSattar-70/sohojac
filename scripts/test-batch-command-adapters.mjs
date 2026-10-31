@@ -51,7 +51,7 @@ beforeEach(()=>{
  db?.close();db=new DatabaseSync(":memory:");db.exec("PRAGMA foreign_keys=ON");
  for(const file of fs.readdirSync("migrations").filter(n=>/^\d{4}_.*\.sql$/.test(n)).sort())
    db.exec(fs.readFileSync("migrations/"+file,"utf8"));
- db.exec(fs.readFileSync("scripts/fixtures/local-legacy-offerings.sql","utf8"));
+ db.exec(fs.readFileSync("scripts/fixtures/local-subject-offerings.sql","utf8"));
  for(const id of [uid,other])db.prepare('INSERT INTO "user"(id,name,email,"createdAt","updatedAt") VALUES (?,?,?,?,?)').run(id,"Synthetic operator",id+"@example.invalid",0,0);
  db.prepare("INSERT INTO academy_branches(id,code,name) VALUES (?,'PARITY','Verified Campus')").run(branch);
  db.prepare("INSERT INTO academy_programmes(id,code,name) VALUES (?,'PARITY','Verified Programme')").run(programme);
