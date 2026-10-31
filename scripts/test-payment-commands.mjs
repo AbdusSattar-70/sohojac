@@ -38,7 +38,7 @@ beforeEach(()=>{
  db=new DatabaseSync(path.join(folder,"ledger.sqlite"));files=[db];db.exec("PRAGMA foreign_keys=ON");
 
  for(const file of fs.readdirSync("migrations").filter(n=>/^\d{4}_.*\.sql$/.test(n)).sort())db.exec(fs.readFileSync("migrations/"+file,"utf8"));
- db.exec(fs.readFileSync("scripts/fixtures/local-legacy-offerings.sql","utf8"));
+ db.exec(fs.readFileSync("scripts/fixtures/local-subject-offerings.sql","utf8"));
  for(const [id,role]of[[owner,"OWNER"],[operator,"OPERATOR"]]){
   db.prepare('INSERT INTO "user"(id,name,email,"createdAt","updatedAt","emailVerified") VALUES (?,?,?,?,?,1)')
    .run(id,id,id+"@example.invalid",0,0);
