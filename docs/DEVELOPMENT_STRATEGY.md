@@ -72,3 +72,7 @@ The sixth forward-only migration creates a held-only guardian message outbox. PO
 ## C5c — Guardian message safety controls (31 October 2026)
 
 Forward migration `0007_guardian_sms_optout.sql` adds immutable per-student SMS opt-out and cancellation attribution without resetting development data. Staff with the new named `communications.manage` permission can cancel held requests and record opt-out. The database blocks new held messages for an opted-out student, even if a stale request races with a suppression write. A new dark-only staff workspace at `/dashboard/governance/messages` shows the latest held/cancelled requests without disclosing mobile numbers. **No provider is active; every message remains held or cancelled.** Template content/approval, external guardian consent verification, sending, retries, delivery callbacks and cost controls remain unfinished.
+
+## C6 — Recovery drill boundary
+
+Quality CI includes a deterministic local SQLite backup/restore rehearsal with synthetic records, live-schema migration application, an intentionally damaged source, and restored foreign-key/integrity checks. This is a repeatable *local recovery drill*, not evidence that Cloudflare D1 Time Travel itself has been restored or that production recovery is ready. The production restore procedure and an operator-driven Cloudflare-specific drill remain gated by explicit approval, independent DB safety and ledger verification.

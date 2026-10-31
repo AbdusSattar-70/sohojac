@@ -41,6 +41,8 @@ jobs:
           node --test scripts/test-canonical-baseline.mjs scripts/test-environment-isolation.mjs scripts/test-dev-reference-bootstrap.mjs scripts/test-single-subject-master.mjs scripts/test-daily-work.mjs scripts/test-master-year-version.mjs scripts/test-master-entity-versions.mjs scripts/test-report-reconciliation.mjs scripts/test-dev-release-no-reset.mjs scripts/test-branch-prune.mjs
           node scripts/check-d1-migrations.mjs
           node --test scripts/test-guardian-message-outbox.mjs scripts/test-guardian-message-safety.mjs
+      - name: Rehearse isolated local database recovery (no Cloudflare calls)
+        run: node scripts/rehearse-d1-local-recovery.mjs
       - name: Business logic and security regressions
         run: |
           node --test scripts/test-request-protection.mjs scripts/test-academic-d1-runtime.mjs

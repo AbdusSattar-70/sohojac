@@ -65,3 +65,9 @@ The sixth forward-only migration adds `guardian_message_outbox`. Staff with `aud
 ## C5c guardian SMS safety and opt-out
 
 Migration 0007 is forward-only and does not reset mock dev data. The owner has `communications.manage` by default; other staff require an explicit named grant. Review staged messages at `/dashboard/governance/messages`. An authorised staff member may cancel a held message, or record a guardian opt-out (student + reason). Opt-out permanently suppresses future enqueues for that student and cancels existing held requests; re-enabling requires a separate approved process, not a hidden toggle. Do not use the outbox as evidence of SMS delivery. Provider sending, retries and callback verification are not enabled; no actual SMS should be sent during development acceptance.
+
+## C6 recovery rehearsal versus real D1 Time Travel restore
+
+CI now runs `node scripts/rehearse-d1-local-recovery.mjs` against disposable synthetic SQLite data. It applies the complete forward migration set, snapshots the database, deliberately changes a student and deletes a held message **in the disposable source only**, reopens the backup, and checks recovered student/message records, foreign keys and integrity. It does not access Cloudflare, production, development D1, or real guardian records.
+
+An actual **Cloudflare D1 Time Travel restore is NOT verified** by that test. For any real incident, the owner must separately authorize environment-specific recovery, record the D1 name/UUID and Worker binding, export/record the pre-change recovery bookmark, stop writes, preview the restore target and confirm provider retention limits, restore to an isolated validation copy where possible, verify row counts/audit/ledger reconciliation, and only then authorize any live recovery action. Never point the development Worker to production D1 or overwrite production to test a backup. A bookmark is not proof of successful restoration.
