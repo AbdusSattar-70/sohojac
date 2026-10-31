@@ -16,6 +16,13 @@ export default async function AcademicSettingsPage({
   const {section, identity: identityMode} = await searchParams;
   const validSections: MasterEntity[] = ["academic_year", "class", "group", "subject", "program", "school", "lead_source", "guardian_relationship"];
   const selectedEntity: MasterEntity = validSections.find((entry) => entry === section) ?? "class";
+  const sectionTitles: Record<MasterEntity, string> = {
+    academic_year: "Academic years", class: "Classes", group: "Groups",
+    subject: "Subjects", program: "Programmes", school: "Schools",
+    lead_source: "Lead sources", guardian_relationship: "Guardian relationships",
+  };
+  const contextualTitle = section && validSections.includes(selectedEntity)
+    ? sectionTitles[selectedEntity] : "Academic & registration settings";
   const context = await requirePermission("system.master_data.manage");
   const data = await getManageCrmOverview();
   const canManage = can(context, "system.master_data.manage");
@@ -26,8 +33,10 @@ export default async function AcademicSettingsPage({
     <div className="space-y-7">
       <PageHeader
         eyebrow="Academic setup"
-        title="Academic & registration settings"
-        description="Manage classes, subjects, years, programmes and reusable registration lists. Public forms use these lists; they are not website content. Deactivate rather than delete so history stays intact."
+        title={contextualTitle}
+        description={selectedEntity === "subject" && section === "subject"
+          ? "Manage each subject once for use across classes and programmes. Select subjects in teaching plans without duplicating master records."
+          : "Manage classes, subjects, years, programmes and reusable registration lists. Public forms use these lists; they are not website content. Deactivate rather than delete so history stays intact."}
       />
 
       {identity && !identity.confirmed && (
