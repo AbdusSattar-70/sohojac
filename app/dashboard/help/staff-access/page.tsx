@@ -56,6 +56,48 @@ export default async function StaffAccountGuide() {
           </li>
         ))}
       </ol>
+      <section id="email-delivery" aria-labelledby="staff-email-setup-heading"
+        className="scroll-mt-24 space-y-4 rounded-2xl border border-border bg-card p-5">
+        <h2 id="staff-email-setup-heading" className="text-lg font-semibold">
+          Configure staff invitation email for development
+        </h2>
+        <p className="text-sm leading-6 text-muted-foreground">
+          Resend is the transactional email provider. The public request form can collect
+          applications without it, but secure invitations cannot be sent until the sender
+          domain and deployment secrets are configured. Never paste an email API key
+          into this page, a pull request or an application record.
+        </p>
+        <ol className="list-decimal space-y-3 pl-5 text-sm leading-6">
+          <li>In <a href="https://resend.com/domains" target="_blank" rel="noopener noreferrer"
+            className="font-semibold text-primary underline underline-offset-4">Resend Domains</a>,
+            add and verify the sending domain. Copy only the DNS entries supplied by Resend into
+            your Cloudflare DNS. SPF and DKIM must pass; use DMARC as recommended by the provider.
+          </li>
+          <li>Create a Resend API key with sending-only access, scoped to the verified domain.
+            In the Sohojac GitHub repository under Settings → Secrets and variables → Actions,
+            save it as the <code>DEV_RESEND_API_KEY</code> repository secret.
+          </li>
+          <li>Add two Actions <strong>variables</strong>:
+            <code className="mx-1">DEV_STAFF_EMAIL_FROM</code> for a verified sender such as
+            <code className="mx-1">Sohoj Academy &lt;info@sohojac.com&gt;</code> (only after domain verification),
+            and <code className="mx-1">DEV_STAFF_EMAIL_ALLOWLIST</code> containing a comma-separated
+            list of your approved test inboxes. Avoid real guardian or staff recipients in development.
+          </li>
+          <li>After the next successful <code>dev</code> deployment, open the Staff &amp; access
+            page and check the three configuration indicators. They show configured values,
+            <strong> not</strong> that the provider delivered a message.
+          </li>
+          <li>Review a real access request and its supported role, then send a single test
+            invitation only to an allowlisted inbox. Verify receipt and activation manually.
+            Existing requests marked as ACCOUNTANT cannot be activated until the finance role
+            policy exists; do not approve another role unless the job actually requires it.
+          </li>
+        </ol>
+        <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-100">
+          Development and production use separate secrets. This setup does not modify
+          the production Worker or production staff invitations.
+        </p>
+      </section>
       <section className="space-y-3 rounded-2xl border border-border bg-card p-5">
         <h2 className="font-semibold">If a request is missing</h2>
         <p className="text-sm leading-6 text-muted-foreground">
