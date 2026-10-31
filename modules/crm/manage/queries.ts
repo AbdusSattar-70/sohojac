@@ -1,7 +1,7 @@
 import {env} from "cloudflare:workers";
 import {requirePermission} from "@/modules/platform/auth/erp-context";
 
-type Base={id:string;name:string;is_active:number|boolean;created_at?:string};
+type Base={id:string;name:string;is_active:number|boolean;created_at?:string;version:number};
 type Years=Base & {starts_on:string|null;ends_on:string|null;created_at:string;version:number};
 type Classes=Base & {code:string;sort_order:number;created_at:string};
 type Group=Base & {code:string};
@@ -17,14 +17,14 @@ export async function getManageCrmOverview(){
  await requirePermission("system.master_data.manage");
  const [years,classes,groups,subjects,programs,schools,areas,sources,relationships]=await Promise.all([
   env.DB.prepare("SELECT id,title AS name,starts_on,ends_on,(status='ACTIVE') AS is_active,created_at,version FROM academic_years ORDER BY starts_on DESC").all<Years>(),
-  env.DB.prepare("SELECT id,code,name,sort_order,is_active,created_at FROM academy_classes ORDER BY sort_order,name").all<Classes>(),
-  env.DB.prepare("SELECT id,code,name,is_active FROM academic_groups ORDER BY name").all<Group>(),
-  env.DB.prepare("SELECT id,code,title AS name,active AS is_active,'' AS created_at FROM academic_subjects ORDER BY title").all<Source>(),
-  env.DB.prepare("SELECT id,code,name,description,active AS is_active,'' AS created_at FROM academy_programmes ORDER BY name").all<Program>(),
-  env.DB.prepare("SELECT id,name,area_id,is_verified,is_active,created_at,updated_at FROM academy_schools ORDER BY name").all<School>(),
-  env.DB.prepare("SELECT id,name,is_active FROM academy_areas WHERE is_active=1 ORDER BY name").all<Area>(),
-  env.DB.prepare("SELECT id,code,name,is_active,created_at FROM academy_lead_sources ORDER BY name").all<Source>(),
-  env.DB.prepare("SELECT id,code,name,is_active,created_at FROM academy_guardian_relationships ORDER BY name").all<Source>(),
+  env.DB.prepare("SELECT id,code,name,sort_order,is_active,created_at,version FROM academy_classes ORDER BY sort_order,name").all<Classes>(),
+  env.DB.prepare("SELECT id,code,name,is_active,version FROM academic_groups ORDER BY name").all<Group>(),
+  env.DB.prepare("SELECT id,code,title AS name,active AS is_active,'' AS created_at,version FROM academic_subjects ORDER BY title").all<Source>(),
+  env.DB.prepare("SELECT id,code,name,description,active AS is_active,'' AS created_at,version FROM academy_programmes ORDER BY name").all<Program>(),
+  env.DB.prepare("SELECT id,name,area_id,is_verified,is_active,created_at,updated_at,version FROM academy_schools ORDER BY name").all<School>(),
+  env.DB.prepare("SELECT id,name,is_active,1 AS version FROM academy_areas WHERE is_active=1 ORDER BY name").all<Area>(),
+  env.DB.prepare("SELECT id,code,name,is_active,created_at,version FROM academy_lead_sources ORDER BY name").all<Source>(),
+  env.DB.prepare("SELECT id,code,name,is_active,created_at,version FROM academy_guardian_relationships ORDER BY name").all<Source>(),
  ]);
  return {
   years:active(years.results??[]),

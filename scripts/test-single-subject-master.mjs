@@ -21,7 +21,7 @@ test("four clean migrations produce one reusable Subject entity with no old mast
   assert(names.has("academy_offering_subjects"),"one many-to-many relationship, not another master");
   assert(!names.has("academy_subjects"),"old per-class subject master must be gone");
   const cols=db.prepare("PRAGMA table_info(academic_subjects)").all().map(x=>x.name);
-  assert.deepEqual(cols,["id","code","title","active"]);
+  assert.deepEqual(cols,["id","code","title","active","version"]);
   assert(db.prepare("PRAGMA foreign_key_list(academy_offering_subjects)").all()
     .some(x=>x.table==="academic_subjects" && x.from==="subject_id"));
   db.exec(readFileSync("seeds/dev-reference.sql","utf8"));
