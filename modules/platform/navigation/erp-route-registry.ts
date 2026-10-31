@@ -82,6 +82,15 @@ export const erpRouteRegistry: ErpRouteDefinition[] = [
     icon: "offerings",
   },
   {
+    id: "cost-per-student",
+    title: "Operating cost per student",
+    eyebrow: "Finance",
+    href: "/dashboard/finance/cost-per-student",
+    navGroup: "Finance",
+    permission: "accounting.view",
+    icon: "accounting",
+  },
+  {
     id: "finance-overview",
     title: "Income, expenses & profit",
     eyebrow: "Finance",
@@ -401,7 +410,7 @@ export const implementedErpRoutes = [
  "/dashboard/academics/subjects", "/dashboard/academics/batches",
  "/dashboard/academics/routine", "/dashboard/academics/assessments",
  "/dashboard/attendance", "/dashboard/teacher",
- "/dashboard/finance/fee-plans", "/dashboard/finance/collections",
+ "/dashboard/finance/fee-plans", "/dashboard/finance/cost-per-student", "/dashboard/finance/collections",
  "/dashboard/finance/billing", "/dashboard/finance/receivables", "/dashboard/finance/expenses",
  "/dashboard/finance/reports", "/dashboard/staff/access",
  "/dashboard/staff/directory", "/dashboard/staff/teachers"

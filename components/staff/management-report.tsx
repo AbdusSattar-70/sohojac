@@ -1,5 +1,6 @@
 "use client";
 import {useCallback,useEffect,useState} from "react";
+import Link from "next/link";
 type Report={
   month:string;billedPaisa:number;collectedPaisa:number;operatingExpensePaisa:number;
   cashMovementPaisa:number;outstandingPaisa:number;activeStudents:number;activeBatches:number;
@@ -44,6 +45,7 @@ export function ManagementReport(){
       <p className="text-xs font-extrabold uppercase tracking-widest text-primary">Management reporting</p>
       <h1 className="mt-1 text-2xl font-extrabold text-foreground">Finance & enrollment overview</h1>
       <p className="mt-2 text-sm text-muted-foreground">Cash collections and operating outflows are shown separately from billed charges. This report is not a profit and loss statement or a revenue-recognition report.</p>
+      <Link className="mt-3 inline-flex rounded-lg border border-border px-3 py-2 text-sm font-semibold" href="/dashboard/finance/cost-per-student">Recorded operating cost per student</Link>
     </header>
     <div className="flex flex-wrap items-end gap-4">
       <label className="text-xs font-bold">Report month
