@@ -23,7 +23,7 @@ export async function POST(request:Request){
   return privateJson({error:"Select a student and provide a reason between 10 and 240 characters."},400);
  try{
   const student=await env.DB.prepare("SELECT id,guardian_mobile FROM academy_students WHERE id=? AND merged_into_id IS NULL")
-   .bind(v.studentId).first<{id:string}>();
+   .bind(v.studentId).first<{id:string;guardian_mobile:string}>();
   if(!student)return privateJson({error:"Student not found"},404);
   const results=await env.DB.batch([
    env.DB.prepare("INSERT OR IGNORE INTO guardian_sms_contact_suppressions(guardian_mobile,source_student_id,reason,recorded_by) VALUES(?,?,?,?)")
