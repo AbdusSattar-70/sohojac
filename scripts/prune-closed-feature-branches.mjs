@@ -43,6 +43,18 @@ const entries = [
   { name: "feature/operator-first-programme-launch", sha: "51c8707f89b20aa1cfc7b30dc54eb3193d976af0", pr: 54 },
   { name: "fix/programme-launch-final-readiness", sha: "c750eca7b79cb1f04536c4fee516f8224f185fd9", pr: 55 },
   { name: "feature/operator-first-subject-catalogue", currentMergedHead: true },
+  // Newer feature branches are eligible only when a merged PR to dev exists
+  // and GitHub verifies the current branch tip is that exact merged PR head.
+  { name: "feature/c2b-subject-impact-review", currentMergedHead: true },
+  { name: "feature/c3-academic-year-conflict-guards", currentMergedHead: true },
+  { name: "feature/c3b-master-data-versions", currentMergedHead: true },
+  { name: "feature/c4-today-daily-work", currentMergedHead: true },
+  { name: "feature/c5a-finance-reconciliation", currentMergedHead: true },
+  { name: "feature/c5b-safe-sms-outbox", currentMergedHead: true },
+  { name: "feature/fix-dev-clean-schema-guard", currentMergedHead: true },
+  { name: "feature/single-subject-master-clean-slate", currentMergedHead: true },
+  { name: "feature/c5c-guardian-message-safety", currentMergedHead: true },
+  { name: "feature/c6-recovery-rehearsal", currentMergedHead: true },
   // Obsolete alternative to rebuilding historical SQL on CI: replaced by the validated canonical baseline.
   { name: "fix/pinned-historical-ci-fixtures", sha: "c039b34beb3bff903320cd0753860e8aa915f1c6", pr: 57, allowSuperseded: true },
 ];
