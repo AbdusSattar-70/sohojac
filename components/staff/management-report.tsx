@@ -20,7 +20,10 @@ function Metric({title,value,detail}:{
   </div>;
 }
 export function ManagementReport(){
-  const [month,setMonth]=useState(()=>new Date().toISOString().slice(0,7));
+  const [month,setMonth]=useState(()=>{
+    const parts=new Intl.DateTimeFormat("en-US",{timeZone:"Asia/Dhaka",year:"numeric",month:"2-digit"}).formatToParts(new Date());
+    return (parts.find(part=>part.type==="year")?.value??"")+"-"+(parts.find(part=>part.type==="month")?.value??"");
+  });
   const [report,setReport]=useState<Report|null>(null);
   const [loading,setLoading]=useState(true),[error,setError]=useState("");
   const refresh=useCallback(async()=>{
