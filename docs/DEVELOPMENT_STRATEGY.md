@@ -68,3 +68,7 @@ Git history preserves the older shared-D1 experiment and prior source-mirroring 
 ## C5b guardian notifications staging
 
 The sixth forward-only migration creates a held-only guardian message outbox. POST `/api/staff/messages` requires named permission, same origin, explicit consent attestation, an existing active student with valid guardian mobile and a unique request ID. No provider or dispatch is activated. Message delivery, opt-out, provider retries and callbacks remain unimplemented and must be reviewed before real messaging. No regular dev release resets existing data.
+
+## C5c — Guardian message safety controls (31 October 2026)
+
+Forward migration `0007_guardian_sms_optout.sql` adds immutable per-student SMS opt-out and cancellation attribution without resetting development data. Staff with the new named `communications.manage` permission can cancel held requests and record opt-out. The database blocks new held messages for an opted-out student, even if a stale request races with a suppression write. A new dark-only staff workspace at `/dashboard/governance/messages` shows the latest held/cancelled requests without disclosing mobile numbers. **No provider is active; every message remains held or cancelled.** Template content/approval, external guardian consent verification, sending, retries, delivery callbacks and cost controls remain unfinished.
