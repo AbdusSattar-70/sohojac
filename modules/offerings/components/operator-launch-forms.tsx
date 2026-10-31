@@ -290,13 +290,14 @@ export function OperatorBatchForm({
 }
 
 /** Small, controlled public launch editor. Keeps every advanced field and
- * existing subject link unchanged, so the guided UI never destroys them.
+ * existing subject definitions globally available in the guided UI.
  */
 export function OperatorPublicationForm({
-  offering, linkedSubjectIds, seatsAvailable, feeReady, onSaved,
+  offering, linkedSubjectIds, subjects, seatsAvailable, feeReady, onSaved,
 }: {
   offering: Offering;
   linkedSubjectIds: string[];
+  subjects: OfferingOverview["subjects"];
   seatsAvailable: number;
   feeReady: boolean;
   onSaved: () => void;
@@ -304,6 +305,7 @@ export function OperatorPublicationForm({
   const router = useRouter();
   const [title, setTitle] = useState(offering.showcase_title ?? offering.name);
   const [description, setDescription] = useState(offering.showcase_description ?? "");
+  const [subjectIds, setSubjectIds] = useState<string[]>(linkedSubjectIds);
   const [visible, setVisible] = useState(offering.is_website_visible);
   const [accepting, setAccepting] = useState(offering.is_accepting_applications);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
@@ -333,7 +335,7 @@ export function OperatorPublicationForm({
       isWebsiteVisible: visible, isAcceptingApplications: accepting,
       applicationsOpenOn: offering.applications_open_on ?? "",
       applicationsCloseOn: offering.applications_close_on ?? "",
-      subjectIds: linkedSubjectIds,
+      subjectIds,
       reason: "Updated website publication after guided programme launch review",
     };
     const signature = JSON.stringify(entry);
@@ -367,6 +369,25 @@ export function OperatorPublicationForm({
               rows={3} required maxLength={400} placeholder="Who this programme is for and what students will learn"/>
           </label>
         </div>
+        <div className="space-y-3 rounded-xl border border-border bg-background p-4" data-launch-subjects>
+          <h3 className="text-sm font-semibold">Subjects (optional)</h3>
+          <p className="text-xs text-muted-foreground">Select from the academy-wide list. The same subject can be used in any class or programme.</p>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {subjects.map((subject) => {
+              const checked = subjectIds.includes(subject.id);
+              return (
+                <label key={subject.id} className="flex min-h-10 items-center gap-2 text-sm">
+                  <input type="checkbox" className="size-4" checked={checked}
+                    disabled={pending || (subject.active === 0 && !checked)}
+                    onChange={(event) => setSubjectIds((current) => event.target.checked
+                      ? [...current, subject.id] : current.filter((id) => id !== subject.id))}/>
+                  <span>{subject.name}{subject.active === 0 ? " (inactive)" : ""}</span>
+                </label>
+              );
+            })}
+          </div>
+          {!subjects.length && <p className="text-xs text-muted-foreground">Add subjects in Academic Setup first.</p>}
+        </div>
         <div className="space-y-3 rounded-xl border border-border bg-muted/40 p-4">
           <label className="flex min-h-10 items-center gap-3 text-sm font-medium">
             <input type="checkbox" checked={visible} onChange={(e) => {
@@ -385,7 +406,7 @@ export function OperatorPublicationForm({
           </p>}
         </div>
         <p className="text-xs text-muted-foreground">
-          Existing Bengali translations, detailed policy, schedule, subject links and application dates stay unchanged.
+          Existing Bengali translations, detailed policy, schedule and application dates stay unchanged.
           Advanced website settings remain available in the offering register.
         </p>
         <Feedback message={message}/>
