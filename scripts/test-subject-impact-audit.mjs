@@ -47,7 +47,7 @@ test("assessment text and teaching session counts remain unmapped and preserve o
  const db=fresh();
  try{
   assert.deepEqual(db.prepare(assessmentSubjectLabelsSql).all(),[]);
-  assert.deepEqual(db.prepare(teachingReferenceCountsSql).get(),{assessments:0,sessions:0});
+  assert.deepEqual(JSON.parse(JSON.stringify(db.prepare(teachingReferenceCountsSql).get())),{assessments:0,sessions:0});
   db.prepare('INSERT INTO "user"(id,name,email,createdAt,updatedAt) VALUES(?,?,?,?,?)')
     .run("test-teacher","Synthetic Teacher","synthetic@example.invalid",1,1);
   db.prepare("INSERT INTO public_programme_offerings(id,code,name) VALUES(?,?,?)")
@@ -57,10 +57,10 @@ test("assessment text and teaching session counts remain unmapped and preserve o
   db.prepare("INSERT INTO academy_assessments(id,batch_id,title,subject,held_on,max_marks,created_by) VALUES(?,?,?,?,?,?,?)")
     .run("assessment-a","batch-a","Term test","Bangla","2026-10-30",100,"test-teacher");
   const snapshot=db.prepare("SELECT id,subject FROM academy_assessments").all();
-  assert.deepEqual(db.prepare(assessmentSubjectLabelsSql).all(),[{
+  assert.deepEqual(JSON.parse(JSON.stringify(db.prepare(assessmentSubjectLabelsSql).all())),[{
     subjectLabel:"Bangla",assessmentCount:1,affectedBatches:1,earliestDate:"2026-10-30",latestDate:"2026-10-30",
   }]);
-  assert.deepEqual(db.prepare(teachingReferenceCountsSql).get(),{assessments:1,sessions:0});
+  assert.deepEqual(JSON.parse(JSON.stringify(db.prepare(teachingReferenceCountsSql).get())),{assessments:1,sessions:0});
   assert.deepEqual(db.prepare("SELECT id,subject FROM academy_assessments").all(),snapshot);
  }finally{db.close();}
 });
