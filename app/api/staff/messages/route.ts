@@ -27,7 +27,7 @@ export async function POST(request:Request){
  let actor;
  try{actor=await getCommandAccess(request);}catch{return privateJson({error:"Permissions unavailable"},503);}
  if(!actor)return privateJson({error:"Authentication required"},401);
- if(!actor.permissions.includes("audit.view"))return privateJson({error:"Access denied"},403);
+ if(!actor.permissions.includes("communications.manage"))return privateJson({error:"Access denied"},403);
  if(!sameOrigin(request))return privateJson({error:"Invalid request origin"},403);
  if(!request.headers.get("content-type")?.toLowerCase().startsWith("application/json"))
   return privateJson({error:"JSON required"},415);
@@ -55,6 +55,9 @@ export async function POST(request:Request){
   ).bind(body.studentId).first<{id:string;guardian_mobile:string}>();
   if(!student||!/^01[3-9][0-9]{8}$/.test(student.guardian_mobile))
    return privateJson({error:"Active student and valid guardian mobile required"},400);
+  const optedOut=await env.DB.prepare("SELECT 1 AS n FROM guardian_sms_optouts WHERE student_id=?")
+   .bind(body.studentId).first();
+  if(optedOut)return privateJson({error:"Guardian has opted out of SMS"},409);
   const id=crypto.randomUUID();
   const results=await env.DB.batch([
    env.DB.prepare("INSERT OR IGNORE INTO guardian_message_outbox (id,request_id,student_id,template_key,consent_attested,created_by) VALUES (?,?,?,?,1,?)")
@@ -71,5 +74,12 @@ export async function POST(request:Request){
   if(!row||row.student_id!==body.studentId||row.template_key!==body.templateKey)
    return privateJson({error:"Request ID collision; use a different ID"},409);
   return privateJson({id:row.id,status:row.status,delivered:false,replayed:!inserted},inserted?201:200);
- }catch{return privateJson({error:"Outbox could not confirm the request. Retry using the same request ID."},503);}
+ }catch{
+  try{
+   const optedOut=await env.DB.prepare("SELECT 1 AS n FROM guardian_sms_optouts WHERE student_id=?")
+    .bind(body.studentId).first();
+   if(optedOut)return privateJson({error:"Guardian has opted out of SMS"},409);
+  }catch{/* Keep fail-closed if D1 is unavailable. */}
+  return privateJson({error:"Outbox could not confirm the request. Retry using the same request ID."},503);
+ }
 }

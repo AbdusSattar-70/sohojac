@@ -976,6 +976,17 @@ test "$owner_audit" = "200"
 node -e 'const x=require("/tmp/ci-owner-audit.json");if(x.items?.length!==2||x.items.some(e=>Object.hasOwn(e,"before_json")||Object.hasOwn(e,"after_json")))process.exit(1);'
 audit_page=$(curl -sS -o /tmp/ci-audit-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/governance/audit")
 test "$audit_page" = "200"
+# C5c: guardian message safety desk is authenticated, permission-gated, and held-only.
+message_page=$(curl -sS -o /tmp/ci-message-page.html -w '%{http_code}' \
+  -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/governance/messages")
+test "$message_page" = "200"
+grep -q 'Delivery disabled' /tmp/ci-message-page.html
+anon_messages=$(curl -sS -o /dev/null -w '%{http_code}' \
+  "http://localhost:4173/api/staff/messages")
+test "$anon_messages" = "401"
+teacher_messages=$(curl -sS -o /dev/null -w '%{http_code}' \
+  -b /tmp/teacher-ci-cookies "http://localhost:4173/api/staff/messages")
+test "$teacher_messages" = "403"
 # Source ERP audit page reads the same real D1 events with actor
 # identity, rather than showing an empty placeholder.
 original_audit=$(curl -sS -o /tmp/ci-source-audit.html -w '%{http_code}' \

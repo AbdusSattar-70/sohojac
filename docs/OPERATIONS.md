@@ -61,3 +61,7 @@ For each deployment, preserve the Actions URL, exact SHA, D1 name/UUID, schema c
 ## Held SMS queue: not a delivery system
 
 The sixth forward-only migration adds `guardian_message_outbox`. Staff with `audit.view` can review and stage consent-attested predefined templates with stable request IDs through `/api/staff/messages`. The recipient is resolved from student data and no phone numbers are returned. All messages remain `HELD` and `delivered:false`; no real SMS is sent. Provider dispatch, opt-out, delivery callbacks, staging allowlists and cost controls are separate release gates.
+
+## C5c guardian SMS safety and opt-out
+
+Migration 0007 is forward-only and does not reset mock dev data. The owner has `communications.manage` by default; other staff require an explicit named grant. Review staged messages at `/dashboard/governance/messages`. An authorised staff member may cancel a held message, or record a guardian opt-out (student + reason). Opt-out permanently suppresses future enqueues for that student and cancels existing held requests; re-enabling requires a separate approved process, not a hidden toggle. Do not use the outbox as evidence of SMS delivery. Provider sending, retries and callback verification are not enabled; no actual SMS should be sent during development acceptance.
