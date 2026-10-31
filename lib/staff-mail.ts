@@ -8,9 +8,9 @@ type EmailBindings = {
   STAFF_EMAIL_ALLOWLIST?: string;
 };
 
-const emailPattern = /^[^\\s@<>]+@[^\\s@<>]+\\.[A-Za-z]{2,}$/;
+const emailPattern = /^[^\s@<>]+@[^\s@<>]+\.[A-Za-z]{2,}$/;
 const senderPattern =
-  /^(?:[^\\s@<>]+@[^\\s@<>]+\\.[A-Za-z]{2,}|[A-Za-z0-9 .'-]{1,80} <[^\\s@<>]+@[^\\s@<>]+\\.[A-Za-z]{2,}>)$/;
+  /^(?:[^\s@<>]+@[^\s@<>]+\.[A-Za-z]{2,}|[A-Za-z0-9 .'-]{1,80} <[^\s@<>]+@[^\s@<>]+\.[A-Za-z]{2,}>)$/;
 
 function bindings(): EmailBindings {
   return env as typeof env & EmailBindings;
