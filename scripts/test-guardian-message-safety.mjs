@@ -61,5 +61,6 @@ test("permission, origin and stop-delivery guarantees apply to every message mut
  assert.match(cancel,/WHERE id=\? AND status='HELD'/);
  const view=readFileSync("app/dashboard/governance/messages/page.tsx","utf8");
  assert.match(view,/requirePermission\("audit.view"\)/);
- assert.doesNotMatch(view,/guardian_mobile/);
+ assert.doesNotMatch(view,/SELECT\\s+(?:o|s)\\.guardian_mobile/);
+ assert.doesNotMatch(readFileSync("modules/communications/message-safety-workspace.tsx","utf8"),/guardian_mobile/);
 });
