@@ -9,6 +9,7 @@ test("Subjects is one Academic Setup tab, not a duplicate or circular navigation
  const settings=read("app/dashboard/academics/settings/page.tsx");
  const legacy=read("app/dashboard/academics/subjects/page.tsx");
  const registry=read("modules/platform/navigation/erp-navigation.ts");
+ const workspace=read("modules/crm/manage/components/master-data-workspace.tsx");
  assert.doesNotMatch(extras,/id:\s*"subjects"/);
  assert.doesNotMatch(routes,/"\/dashboard\/academics\/subjects"/);
  assert.match(routes,/href: "\/dashboard\/academics\/settings"/);
@@ -16,6 +17,9 @@ test("Subjects is one Academic Setup tab, not a duplicate or circular navigation
  assert(!settings.includes("Review Subject Directory"),"No button that loops to the current page");
  assert(!settings.includes("One global subject catalogue"),"Avoid repeating a redundant explanatory card");
  assert.match(settings,/key=\{selectedEntity\}/,"Query-targeted tabs must reset correctly");
+ assert.match(settings,/const contextualTitle =/);
+ assert.match(workspace,/router\.replace\("\/dashboard\/academics\/settings\?section="/);
+ assert.match(workspace,/aria-pressed=\{entity === item\.entity\}/);
  for(const section of ["academic_year","class","group","subject","program","school","lead_source","guardian_relationship"])
   assert(settings.includes('"'+section+'"'));
  assert.match(registry,/isAvailableErpRoute\(route\.href\)/);
