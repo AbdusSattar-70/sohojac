@@ -92,7 +92,7 @@ const financeSnapshot = () => JSON.stringify([
   rows("finance_journals"), rows("finance_journal_lines"),
 ]);
 
-function seedLegacy() {
+function seedLegacy(enrolledAt = "2000-01-01T00:00:00Z") {
   db.prepare('INSERT INTO "user"(id,name,email,emailVerified,createdAt,updatedAt) VALUES (?,?,?,?,?,?)')
     .run("actor", "Synthetic authorized actor", "actor@example.test", 1, 1, 1);
   db.prepare('INSERT INTO "user"(id,name,email,emailVerified,createdAt,updatedAt) VALUES (?,?,?,?,?,?)')
@@ -115,9 +115,9 @@ function seedLegacy() {
   const admission = db.prepare("INSERT INTO academy_admissions(id,application_no,offering_id,student_id,status,prepared_by,student_full_name,guardian_full_name,guardian_mobile,batch_id,fee_plan_id) VALUES (?,?,?, ?,?,'actor',?,?,?,?,?)");
   admission.run(ids.admission, "APP-ORIGINAL", "student-offering", ids.student, "ENROLLED", "Synthetic canonical student", "Verified guardian", "01700000001", ids.batch, ids.fee);
   admission.run(ids.duplicateAdmission, "APP-HISTORICAL", "student-offering", ids.duplicate, "CANCELLED", "Historical spelling", "Same verified guardian", "01700000001", ids.batch, ids.fee);
-  const enrollment = db.prepare("INSERT INTO academy_enrollments(id,student_id,batch_id,admission_id,status,enrolled_at) VALUES (?,?,?,?,'ACTIVE','2000-01-01T00:00:00Z')");
-  enrollment.run(ids.enrollment, ids.student, ids.batch, ids.admission);
-  enrollment.run(ids.duplicateEnrollment, ids.duplicate, ids.batch, ids.duplicateAdmission);
+  const enrollment = db.prepare("INSERT INTO academy_enrollments(id,student_id,batch_id,admission_id,status,enrolled_at) VALUES (?,?,?,?,'ACTIVE',?)");
+  enrollment.run(ids.enrollment, ids.student, ids.batch, ids.admission, enrolledAt);
+  enrollment.run(ids.duplicateEnrollment, ids.duplicate, ids.batch, ids.duplicateAdmission, "2000-01-01T00:00:00Z");
   db.prepare("INSERT INTO academy_attendance(id,enrollment_id,class_on,state,recorded_by) VALUES ('attendance-preserve',?,'2000-01-02','PRESENT','actor')").run(ids.duplicateEnrollment);
   db.prepare("INSERT INTO academy_assessments(id,batch_id,title,subject,held_on,max_marks,created_by) VALUES ('assessment-preserve',?,'Historical exam','Maths','2000-01-02',100,'actor')").run(ids.batch);
   db.prepare("INSERT INTO academy_assessment_results(id,assessment_id,enrollment_id,obtained_marks,graded_by) VALUES ('grade-preserve','assessment-preserve',?,81,'actor')").run(ids.duplicateEnrollment);
@@ -282,7 +282,13 @@ test("ordinary state changes require the enrollment predicate and cannot erase h
 
 test("an enrollment starting on a future Dhaka day cannot be closed", async () => {
   const future = new Date(Date.now() + 2 * 86400000).toISOString();
-  db.prepare("UPDATE academy_enrollments SET enrolled_at=? WHERE id=?").run(future, ids.enrollment);
+  // Build the fixture with a future-dated admission *before* historical
+  // migration 0029. Once migrated, placement dates are intentionally immutable.
+  db.close();
+  db = new DatabaseSync(":memory:");
+  db.exec("PRAGMA foreign_keys=ON");
+  for (const sql of baselineSql) db.exec(sql);
+  seedLegacy(future);
   migrate();
   const result = await executeEnrollmentClosure({
     student_id: ids.student, enrollment_id: ids.enrollment,
