@@ -78,8 +78,10 @@ export async function POST(request:Request){
   return privateJson({id:row.id,status:row.status,delivered:false,replayed:!inserted},inserted?201:200);
  }catch{
   try{
-   const optedOut=await env.DB.prepare("SELECT 1 AS n FROM guardian_sms_optouts WHERE student_id=?")
-    .bind(body.studentId).first();
+   const optedOut=await env.DB.prepare("SELECT 1 AS n FROM guardian_sms_contact_suppressions g "+
+    "JOIN academy_students s ON s.guardian_mobile=g.guardian_mobile WHERE s.id=? "+
+    "UNION SELECT 1 AS n FROM guardian_sms_optouts WHERE student_id=? LIMIT 1")
+    .bind(body.studentId,body.studentId).first();
    if(optedOut)return privateJson({error:"Guardian has opted out of SMS"},409);
   }catch{/* Keep fail-closed if D1 is unavailable. */}
   return privateJson({error:"Outbox could not confirm the request. Retry using the same request ID."},503);
