@@ -38,7 +38,7 @@ jobs:
         run: pnpm run cf-typegen
       - name: Environment isolation and non-destructive migrations
         run: |
-          node --test scripts/test-canonical-baseline.mjs scripts/test-environment-isolation.mjs scripts/test-dev-reference-bootstrap.mjs scripts/test-canonical-subject-directory.mjs scripts/test-subject-impact-audit.mjs scripts/test-master-year-version.mjs scripts/test-branch-prune.mjs
+          node --test scripts/test-canonical-baseline.mjs scripts/test-environment-isolation.mjs scripts/test-dev-reference-bootstrap.mjs scripts/test-single-subject-master.mjs scripts/test-master-year-version.mjs scripts/test-branch-prune.mjs
           node scripts/check-d1-migrations.mjs
       - name: Business logic and security regressions
         run: |
@@ -61,7 +61,7 @@ jobs:
           DB=d6f3e4e9-2190-43bf-bc90-969687f6db78
           pnpm exec cf d1 migrations apply "$DB" --dir migrations --local --persist-to .cloudflare/state
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "$(sed '/^[[:space:]]*--/d' seeds/dev-reference.sql)"
-          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "$(sed '/^[[:space:]]*--/d' scripts/fixtures/local-legacy-offerings.sql)"
+          pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "$(sed '/^[[:space:]]*--/d' scripts/fixtures/local-subject-offerings.sql)"
           pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "INSERT INTO staff_owner_setup (id,email,display_name,token,expires_at) VALUES ('first-owner','staff-ci@example.invalid','Synthetic Staff Owner','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',strftime('%Y-%m-%dT%H:%M:%fZ','now','+30 minutes'))" >/tmp/sohojac-setup.json
       - name: Build and validate Cloudflare Worker
         run: |

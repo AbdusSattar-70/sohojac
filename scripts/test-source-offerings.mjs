@@ -44,13 +44,13 @@ const state=load("modules/offerings/state-actions.ts",["changeRecordState"],{z})
 const today=()=>new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Dhaka",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
 const uuid=()=>crypto.randomUUID();
 function create(overrides={}){return {branchId:ids.branch,programId:ids.program,academicYearId:ids.year,classId:ids.class,groupId:"",operationKind:"COACHING",teachingStartsOn:"",teachingEndsOn:"",code:"SCIENCE-A",name:"",reason:"Verified source learning context",requestId:uuid(),...overrides};}
-function publicInput(id,overrides={}){return {offeringId:id,showcaseTitle:"Science course",showcaseTitleBn:"",showcaseDescription:"Verified science learning programme",showcaseDescriptionBn:"",showcaseEyebrow:"",showcaseEyebrowBn:"",publicSchedule:"",publicScheduleBn:"",publicRequirements:"",publicRequirementsBn:"",admissionPolicy:"",admissionPolicyBn:"",showcaseIcon:"",showcaseSortOrder:10,isWebsiteVisible:true,isAcceptingApplications:true,applicationsOpenOn:"",applicationsCloseOn:"",subjectIds:["physics"],reason:"Verified source public settings",requestId:uuid(),...overrides};}
+function publicInput(id,overrides={}){return {offeringId:id,showcaseTitle:"Science course",showcaseTitleBn:"",showcaseDescription:"Verified science learning programme",showcaseDescriptionBn:"",showcaseEyebrow:"",showcaseEyebrowBn:"",publicSchedule:"",publicScheduleBn:"",publicRequirements:"",publicRequirementsBn:"",admissionPolicy:"",admissionPolicyBn:"",showcaseIcon:"",showcaseSortOrder:10,isWebsiteVisible:true,isAcceptingApplications:true,applicationsOpenOn:"",applicationsCloseOn:"",subjectIds:["61f850dd-0509-5a25-92de-9c0847785dea"],reason:"Verified source public settings",requestId:uuid(),...overrides};}
 function fee(id,overrides={}){return {offeringId:id,requestId:uuid(),expectedVersion:db.prepare("SELECT version FROM public_programme_offerings WHERE id=?").get(id).version,billingCycle:"MONTHLY",dueDay:10,effectiveFrom:today(),reason:"Approved source standard charges",components:[{code:"TUITION",name:"Tuition",amount:2500.01,chargeType:"TUITION",recurrence:"PER_CYCLE"},{code:"ADMISSION",name:"Admission",amount:100,chargeType:"ADMISSION",recurrence:"ONE_TIME"},{code:"EXAM",name:"Exam materials",amount:20.02,chargeType:"EXAM",recurrence:"ONE_TIME"}],...overrides};}
 function count(table){return db.prepare("SELECT COUNT(*) AS n FROM "+table).get().n;}
 beforeEach(()=>{
  db?.close();db=new DatabaseSync(":memory:");db.exec("PRAGMA foreign_keys=ON");
  for(const file of fs.readdirSync("migrations").filter(n=>/^\d{4}_.*\.sql$/.test(n)).sort())db.exec(fs.readFileSync("migrations/"+file,"utf8"));
- db.exec(fs.readFileSync("scripts/fixtures/local-legacy-offerings.sql","utf8"));
+ db.exec(fs.readFileSync("scripts/fixtures/local-subject-offerings.sql","utf8"));
  db.prepare('INSERT INTO "user"(id,name,email,"createdAt","updatedAt") VALUES (?,?,?,?,?)').run(ids.user,"Synthetic Owner","source-owner@example.invalid",0,0);
  db.prepare("INSERT INTO academy_branches(id,code,name) VALUES (?,?,?)").run(ids.branch,"MAIN","Verified Main Branch");
  db.prepare("INSERT INTO academy_programmes(id,code,name) VALUES (?,?,?)").run(ids.program,"SCIENCE","Science Preparation");
@@ -131,8 +131,8 @@ test("published source terms/components reject legacy edits, legacy new plans an
 test("public controls use real stable subject IDs, audit once despite triggers, and preserve failures",async()=>{
  const offering=await actions.createProgrammeOffering(create());await actions.publishFeePlan(fee(offering.reference));
  const input=publicInput(offering.reference);const result=await actions.updateProgrammeOfferingPublicControls(input);assert.equal(result.ok,true);
- assert.equal(db.prepare("SELECT COUNT(*) AS n FROM academy_offering_subjects WHERE offering_id=? AND subject_id='physics'").get(offering.reference).n,1);
- assert.deepEqual(JSON.parse(db.prepare("SELECT subjects_json FROM public_programme_offerings WHERE id=?").get(offering.reference).subjects_json),[{id:"physics",code:"PHY",name:"Physics"}]);
+ assert.equal(db.prepare("SELECT COUNT(*) AS n FROM academy_offering_subjects WHERE offering_id=? AND subject_id='61f850dd-0509-5a25-92de-9c0847785dea'").get(offering.reference).n,1);
+ assert.deepEqual(JSON.parse(db.prepare("SELECT subjects_json FROM public_programme_offerings WHERE id=?").get(offering.reference).subjects_json),[{id:"61f850dd-0509-5a25-92de-9c0847785dea",code:"SUB07",name:"Physics"}]);
  const n=count("erp_audit_events");assert.deepEqual(await actions.updateProgrammeOfferingPublicControls(input),result);assert.equal(count("erp_audit_events"),n);
  assert.equal((await actions.updateProgrammeOfferingPublicControls(publicInput(offering.reference,{subjectIds:["not-a-real-subject"]}))).ok,false);
  assert.equal(count("erp_audit_events"),n);
@@ -178,7 +178,7 @@ test("fee form defaults preserve the monthly/non-monthly due-day invariant",()=>
 test("inactive linked subjects can be retained or removed without blocking content edits, but cannot be newly assigned",async()=>{
  const offering=await actions.createProgrammeOffering(create());await actions.publishFeePlan(fee(offering.reference));
  assert.equal((await actions.updateProgrammeOfferingPublicControls(publicInput(offering.reference))).ok,true);
- db.exec("UPDATE academy_subjects SET active=0 WHERE id='physics'");
+ db.exec("UPDATE academic_subjects SET active=0 WHERE id='61f850dd-0509-5a25-92de-9c0847785dea'");
  assert.equal((await actions.updateProgrammeOfferingPublicControls(publicInput(offering.reference,{showcaseTitle:'Updated content'}))).ok,true);
  assert.equal((await actions.updateProgrammeOfferingPublicControls(publicInput(offering.reference,{subjectIds:[]}))).ok,true);
  assert.equal((await actions.updateProgrammeOfferingPublicControls(publicInput(offering.reference))).ok,false);

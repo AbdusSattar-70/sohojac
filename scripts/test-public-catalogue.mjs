@@ -136,7 +136,7 @@ test("fresh dev reference bootstrap has no historical reset marker and cannot ru
     "public_programme_offerings",
     "academy_batches",
     "academy_fee_plans",
-    "academy_subjects",
+    "academic_subjects",
     "erp_audit_events",
   ])
     assert.equal(n(table), 0, table);

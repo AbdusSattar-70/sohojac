@@ -1094,43 +1094,17 @@ test "$exam_page" = "200"
 pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM academy_assessments WHERE status='PUBLISHED' AND version=2),(SELECT COUNT(*) FROM academy_assessment_results WHERE obtained_marks=86 AND version=2),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type IN ('academy_assessment','academy_assessment_result'))" > /tmp/ci-assessments-verified.json
 node -e 'const r=require("/tmp/ci-assessments-verified.json")[0]?.results?.rows?.[0];if(r?.[0]!==1||r?.[1]!==1||r?.[2]!==4)process.exit(1);'
 
-echo 'CI entering dynamic subject catalogue checks'
-
-# Dynamic subject mapping keeps public programme subject JSON in D1.
-anon_subject=$(curl -sS -o /tmp/ci-anon-subject.json -w '%{http_code}' "http://localhost:4173/api/staff/subjects")
-test "$anon_subject" = "401"
-teacher_subject=$(curl -sS -o /tmp/ci-teacher-subject.json -w '%{http_code}' -b /tmp/teacher-ci-cookies -X POST "http://localhost:4173/api/staff/subjects" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{}')
-test "$teacher_subject" = "403"
-curl -fsS -b /tmp/staff-ci-cookies "http://localhost:4173/api/staff/subjects" > /tmp/ci-subject-baseline.json
-node -e 'const d=require("/tmp/ci-subject-baseline.json");if(d.items.filter(x=>x.class_grade===10).length!==4||d.links.filter(x=>x.offering_id==="sa-ssc-science").length!==4)process.exit(1);'
-# New grade-specific master creation is retired: the global academic_subjects
-# directory is the only master writer. Test 410 and then create a synthetic
-# *historical fixture directly in LOCAL disposable SQLite* solely to verify
-# existing offering-subject linking still preserves its old IDs and public JSON.
-legacy_create=$(curl -sS -o /tmp/ci-created-subject.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/subjects" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data '{"code":"ENG","name":"English","classGrade":10,"group":"GENERAL","reason":"Should be created globally instead"}')
-test "$legacy_create" = "410"
-pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "INSERT INTO academy_subjects(id,code,name,class_grade,group_name) VALUES('ci-legacy-subject','ENG','English',10,'GENERAL')" >/tmp/ci-local-legacy-subject.json
-subject_id="ci-legacy-subject"
-ssc_offering_version=$(node -e 'const d=require("/tmp/ci-subject-baseline.json");process.stdout.write(String(d.offerings.find(o=>o.id==="sa-ssc-science").version))')
-subject_link=$(curl -sS -o /tmp/ci-subject-link.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/subjects/assignment" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"offeringId\":\"sa-ssc-science\",\"subjectId\":\"$subject_id\",\"expectedOfferingVersion\":$ssc_offering_version,\"action\":\"ADD\",\"reason\":\"Offer the added English subject\"}")
-echo "Subject assignment HTTP: $subject_link"
-if [ "$subject_link" != "200" ]; then cat /tmp/ci-subject-link.json; fi
-test "$subject_link" = "200"
-stale_assignment=$(curl -sS -o /tmp/ci-stale-subject.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/subjects/assignment" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"offeringId\":\"sa-ssc-science\",\"subjectId\":\"$subject_id\",\"expectedOfferingVersion\":$ssc_offering_version,\"action\":\"REMOVE\",\"reason\":\"A stale offering cannot be modified\"}")
-test "$stale_assignment" = "409"
-pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT json_array_length(subjects_json) FROM public_programme_offerings WHERE id='sa-ssc-science'" > /tmp/ci-subject-five.json
-node -e 'const n=require("/tmp/ci-subject-five.json")[0]?.results?.rows?.[0]?.[0];if(n!==5)process.exit(1);'
-curl -fsS -b /tmp/staff-ci-cookies "http://localhost:4173/api/staff/subjects" > /tmp/ci-subject-after.json
-updated_offering_version=$(node -e 'const d=require("/tmp/ci-subject-after.json");process.stdout.write(String(d.offerings.find(o=>o.id==="sa-ssc-science").version))')
-subject_unlink=$(curl -sS -o /tmp/ci-subject-unlink.json -w '%{http_code}' -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/subjects/assignment" -H "Origin: http://localhost:4173" -H "Content-Type: application/json" --data "{\"offeringId\":\"sa-ssc-science\",\"subjectId\":\"$subject_id\",\"expectedOfferingVersion\":$updated_offering_version,\"action\":\"REMOVE\",\"reason\":\"Test reversible subject assignment\"}")
-test "$subject_unlink" = "200"
-subject_page=$(curl -sS -o /tmp/ci-subject-page.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/academics/subjects")
-test "$subject_page" = "200"
-grep -q "Subject Directory" /tmp/ci-subject-page.html
-teacher_subject_page=$(curl -sS --max-time 20 -o /dev/null -w '%{http_code}' -b /tmp/teacher-ci-cookies "http://localhost:4173/dashboard/academics/subjects")
-test "$teacher_subject_page" != "200"
-pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT json_array_length(subjects_json) FROM public_programme_offerings WHERE id='sa-ssc-science'),(SELECT COUNT(*) FROM academy_subjects),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type IN ('academy_subject','offering_subject'))" > /tmp/ci-subject-final.json
-node -e 'const x=require("/tmp/ci-subject-final.json")[0]?.results?.rows?.[0];if(x?.[0]!==4||x?.[1]!==5||x?.[2]!==2)process.exit(1);'
+echo 'CI checking one global Subject entity and removal of duplicate subject API'
+subject_page=$(curl -sS -D /tmp/ci-subject-headers -o /dev/null -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/academics/subjects")
+test "$subject_page" = "307"
+grep -qi 'location: /dashboard/academics/settings?section=subject' /tmp/ci-subject-headers
+subjects_settings=$(curl -sS -o /tmp/ci-subject-settings.html -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/academics/settings?section=subject")
+test "$subjects_settings" = "200"
+grep -q "Subjects" /tmp/ci-subject-settings.html
+subject_api=$(curl -sS -o /dev/null -w '%{http_code}' -b /tmp/staff-ci-cookies "http://localhost:4173/api/staff/subjects")
+test "$subject_api" = "404"
+pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state --sql "SELECT (SELECT COUNT(*) FROM academic_subjects),(SELECT COUNT(*) FROM academy_offering_subjects),(SELECT COUNT(*) FROM sqlite_schema WHERE type='table' AND name='academy_subjects')" > /tmp/ci-subject-master.json
+node -e 'const x=require("/tmp/ci-subject-master.json")[0]?.results?.rows?.[0];if(x?.[0]<20||x?.[1]!==4||x?.[2]!==0)process.exit(1);'
 
 echo 'CI entering teacher class scoping checks'
 

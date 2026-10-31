@@ -50,7 +50,8 @@ test("canonical fresh dev accepts reference seed without removing any business r
     assert.equal(db.prepare("SELECT count(*) n FROM academy_classes").get().n,12);
     assert.equal(db.prepare("SELECT count(*) n FROM academy_guardian_relationships").get().n,27);
     assert(db.prepare("SELECT count(*) n FROM academic_subjects").get().n>=20);
-    assert.equal(db.prepare("SELECT count(*) n FROM academy_subjects").get().n,0);
+    assert.equal(db.prepare("SELECT count(*) n FROM academy_offering_subjects").get().n,0);
+    assert.equal(db.prepare("SELECT COUNT(*) n FROM sqlite_schema WHERE name='academy_subjects'").get().n,0);
     assert.equal(db.prepare("SELECT count(*) n FROM public_programme_offerings").get().n,0);
     assert.equal(db.prepare('SELECT count(*) n FROM "user"').get().n,0);
     assert.equal(db.prepare("SELECT count(*) n FROM finance_payments").get().n,0);
