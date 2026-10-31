@@ -86,7 +86,6 @@ export function WebsiteWorkspace({
             {t("Close editor", "সম্পাদনা বন্ধ করুন")}
           </Button>
           <PublicControlsForm
-            allowSubjectEditing={false}
             key={offering.id}
             offering={offering}
             subjects={data.subjects}
