@@ -298,69 +298,42 @@ reused=$(curl -sS -o /tmp/ci-reused-invite.json -w '%{http_code}' \
   --data '{"token":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","password":"Employee123!"}')
 echo "staff invitation replay HTTP: $reused"
 test "$reused" = "403"
-# A staff identity is created atomically with a verified login.
-owner_staff_status=$(curl -sS -o /tmp/ci-owner-staff-directory.json -w '%{http_code}' \
-  -b /tmp/staff-ci-cookies "http://localhost:4173/api/staff/directory")
-echo "owner staff register HTTP: $owner_staff_status"
-test "$owner_staff_status" = "200"
+# An approved invitation creates a permanent staff identity automatically.
+# Obsolete direct staff registration must not exist as an API or page.
 original_staff_status=$(curl -sS -o /tmp/ci-original-staff.html -w '%{http_code}' \
   -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/staff")
-echo "original ERP staff register HTTP: $original_staff_status"
+echo "canonical staff access HTTP: $original_staff_status"
 test "$original_staff_status" = "200"
-node - <<'NODE'
-const fs=require("fs");
-const s=fs.readFileSync("/tmp/ci-original-staff.html","utf8");
-for(const term of ["SA-STF-000001","Staff ID / name","Staff access requests","Edit details","Mark inactive","NEXT_ERROR","Internal Server Error"]){
-  console.log("Staff preview contains "+term+": "+s.includes(term));
-}
-const i=s.indexOf("Staff");
-console.log("Staff preview HTML excerpt: "+s.slice(Math.max(i-60,0),i+450).replace(/[\r\n]/g," "));
-NODE
-grep -q 'SA-STF-000001' /tmp/ci-original-staff.html
-# Original source Staff Register and access queue appear together.
-grep -q 'Staff ID / name' /tmp/ci-original-staff.html
 grep -q 'Staff access requests' /tmp/ci-original-staff.html
-grep -q 'Edit details' /tmp/ci-original-staff.html
-grep -q 'Mark inactive' /tmp/ci-original-staff.html
-source_help_status=$(curl -sS -o /tmp/ci-source-help.html -w '%{http_code}' \
-  -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/help")
-test "$source_help_status" = "200"
-grep -q 'From first setup to daily work' /tmp/ci-source-help.html
-source_academic_help=$(curl -sS -o /tmp/ci-academic-help.html -w '%{http_code}' \
-  -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/help/academics")
-test "$source_academic_help" = "200"
-grep -q 'Assign a teacher and run a class' /tmp/ci-academic-help.html
-source_finance_help=$(curl -sS -o /tmp/ci-finance-help.html -w '%{http_code}' \
-  -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/help/finance")
-test "$source_finance_help" = "200"
-anon_help=$(curl -sS -o /dev/null -w '%{http_code}' \
-  "http://localhost:4173/dashboard/help")
-test "$anon_help" != "200"
-
-anonymous_original_staff=$(curl -sS -o /dev/null -w '%{http_code}' \
-  "http://localhost:4173/dashboard/staff")
-test "$anonymous_original_staff" != "200"
-
-account_page=$(curl -sS -o /tmp/ci-staff-account.html -w '%{http_code}' \
-  -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/account")
-test "$account_page" = "200"
-grep -q 'SA-STF-000001' /tmp/ci-staff-account.html
-
-node -e 'const r=require("/tmp/ci-owner-staff-directory.json").items;if(r.length!==2||r[0].staff_no!=="SA-STF-000002"||r[1].staff_no!=="SA-STF-000001"||r[0].staff_no===r[1].staff_no)process.exit(1)'
-anonymous_staff=$(curl -sS -o /dev/null -w '%{http_code}' \
-  "http://localhost:4173/api/staff/directory")
-test "$anonymous_staff" = "401"
-no_login_created=$(curl -sS -o /tmp/ci-offline-staff.json -w '%{http_code}' \
-  -b /tmp/staff-ci-cookies -X POST "http://localhost:4173/api/staff/directory" \
-  -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
-  --data '{"fullName":"No Login Staff","reason":"Register offline employee"}')
-echo "manual staff record HTTP: $no_login_created"
-test "$no_login_created" = "201"
-node -e 'const x=require("/tmp/ci-offline-staff.json").item;if(x.staff_no!=="SA-STF-000003")process.exit(1)'
+grep -q 'Staff ID / name' /tmp/ci-original-staff.html
+grep -q 'SA-STF-000001' /tmp/ci-original-staff.html
+grep -q 'Account setup and role assignment guide' /tmp/ci-original-staff.html
+if grep -q 'sohoj-academy/blob/feature/redesign_refactor' /tmp/ci-original-staff.html; then
+  echo 'Obsolete external account guide link remains'; exit 1
+fi
+guide_status=$(curl -sS -o /tmp/ci-staff-guide.html -w '%{http_code}' \
+  -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/help/staff-access")
+test "$guide_status" = "200"
+grep -q 'Staff account setup and role assignment' /tmp/ci-staff-guide.html
+for path in /dashboard/staff/directory /dashboard/staff/access; do
+  code=$(curl -sS -D /tmp/ci-staff-redirect-headers -o /dev/null -w '%{http_code}' \
+    -b /tmp/staff-ci-cookies "http://localhost:4173$path")
+  test "$code" = "307"
+  grep -qi 'location: /dashboard/staff' /tmp/ci-staff-redirect-headers
+done
+for method in GET POST; do
+  code=$(curl -sS -o /dev/null -w '%{http_code}' \
+    -b /tmp/staff-ci-cookies -X "$method" "http://localhost:4173/api/staff/directory" \
+    -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
+    --data '{}')
+  test "$code" = "404"
+done
 pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
-  --sql "SELECT (SELECT COUNT(*) FROM academy_staff),(SELECT COUNT(*) FROM \"user\"),(SELECT COUNT(*) FROM erp_audit_events WHERE entity_type='staff' AND action='CREATED')" > /tmp/ci-staff-counts.json
-node -e 'const n=require("/tmp/ci-staff-counts.json")[0]?.results?.rows?.[0];if(n?.[0]!==3||n?.[1]!==2||n?.[2]!==1)process.exit(1)'
-
+  --sql "SELECT staff_no,linked_user_id FROM academy_staff ORDER BY staff_seq" \
+  > /tmp/ci-staff-invitation-identities.json
+node -e 'const r=require("/tmp/ci-staff-invitation-identities.json")[0]?.results?.rows;
+ if(r?.length!==2||r[0][0]!=="SA-STF-000001"||r[1][0]!=="SA-STF-000002"||
+ !r[0][1]||!r[1][1]){console.error("Staff IDs or invitation identity linkage invalid",r);process.exit(1)}'
 teacher_login=$(curl -sS -o /tmp/ci-teacher.json -w '%{http_code}' \
   -c /tmp/teacher-ci-cookies -X POST "http://localhost:4173/api/auth/sign-in/email" \
   -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
@@ -371,14 +344,13 @@ teacher_access=$(curl -sS -o /tmp/teacher-forbidden.json -w '%{http_code}' \
   -b /tmp/teacher-ci-cookies "http://localhost:4173/api/staff/prospects")
 echo "teacher forbidden prospects HTTP: $teacher_access"
 test "$teacher_access" = "403"
-teacher_staff_register=$(curl -sS -o /dev/null -w '%{http_code}' \
-  -b /tmp/teacher-ci-cookies "http://localhost:4173/api/staff/directory")
-test "$teacher_staff_register" = "403"
-teacher_staff_create=$(curl -sS -o /dev/null -w '%{http_code}' \
-  -b /tmp/teacher-ci-cookies -X POST "http://localhost:4173/api/staff/directory" \
-  -H "Origin: http://localhost:4173" -H "Content-Type: application/json" \
-  --data '{"fullName":"Not Allowed","reason":"No permission granted"}')
-test "$teacher_staff_create" = "403"
+# Teachers cannot view the owner-only account request queue or setup guide.
+teacher_staff_requests=$(curl -sS -o /dev/null -w '%{http_code}' \
+  -b /tmp/teacher-ci-cookies "http://localhost:4173/api/staff/access-requests")
+test "$teacher_staff_requests" = "403"
+teacher_staff_guide=$(curl -sS -o /dev/null -w '%{http_code}' \
+  -b /tmp/teacher-ci-cookies "http://localhost:4173/dashboard/help/staff-access")
+test "$teacher_staff_guide" != "200"
 
 teacher_settings=$(curl -sS -o /dev/null -w '%{http_code}' \
   -b /tmp/teacher-ci-cookies "http://localhost:4173/dashboard/academics/settings")
