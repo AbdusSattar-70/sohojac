@@ -7,11 +7,11 @@ test("guardian messages are consent-attested, held, retry-safe and never sent",(
  const db=new DatabaseSync(":memory:");
  try{
   db.exec("PRAGMA foreign_keys=ON");
-  for(const file of readdirSync("migrations").filter(n=>/^\\d{4}_.*\\.sql$/.test(n)).sort())
+  for(const file of readdirSync("migrations").filter(n=>/^\d{4}_.*\.sql$/.test(n)).sort())
    db.exec(readFileSync("migrations/"+file,"utf8"));
   const schema=db.prepare("SELECT sql FROM sqlite_schema WHERE name='guardian_message_outbox'").get().sql;
-  assert.match(schema,/CHECK\\(consent_attested=1\\)/);
-  assert.match(schema,/status IN \\('HELD','CANCELLED'\\)/);
+  assert.match(schema,/CHECK\(consent_attested=1\)/);
+  assert.match(schema,/status IN \('HELD','CANCELLED'\)/);
   assert.doesNotMatch(schema,/SENT|DELIVERED|DISPATCHING/);
   assert.deepEqual(db.prepare("PRAGMA foreign_key_check").all(),[]);
   assert.equal(db.prepare("SELECT count(*) n FROM guardian_message_outbox").get().n,0);
@@ -32,5 +32,5 @@ test("staff message route cannot enable delivery or caller-selected phone",()=>{
  assert.match(route,/guardian_mobile FROM academy_students/);
  assert.match(route,/INSERT OR IGNORE INTO guardian_message_outbox/);
  assert.match(route,/delivered:false/);
- assert.doesNotMatch(route,/fetch\\s*\\(|\.sendSMS\\s*\\(|\.sendSms\\s*\\(/);
+ assert.doesNotMatch(route,/fetch\s*\(|\.sendSMS\s*\(|\.sendSms\s*\(/);
 });
