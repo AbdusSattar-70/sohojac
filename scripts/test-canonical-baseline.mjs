@@ -9,10 +9,11 @@ const expected = [
   "0002_schema_indexes.sql",
   "0003_domain_guards.sql",
   "0004_finance_reference.sql",
+  "0005_single_global_subject.sql",
 ];
-test("new development has exactly four canonical root migrations", () => {
+test("new development has four foundation files and one reviewed subject cutover migration", () => {
   assert.deepEqual(names,expected);
-  assert.equal(readdirSync("migrations").filter(f => /^\d{4}_.*\.sql$/.test(f)).length,4);
+  assert.equal(readdirSync("migrations").filter(f => /^\d{4}_.*\.sql$/.test(f)).length,5);
 });
 test("fresh canonical database has final domain schema and no historical records", () => {
   const db=new DatabaseSync(":memory:");
@@ -20,11 +21,12 @@ test("fresh canonical database has final domain schema and no historical records
     db.exec("PRAGMA foreign_keys=ON");
     for (const file of names) db.exec(readFileSync("migrations/"+file,"utf8"));
     const tables=db.prepare("SELECT name FROM sqlite_schema WHERE type='table'").all().map(x=>x.name);
-    for(const required of ["user","account","staff_memberships","staff_owner_setup","academy_students","academy_admissions","academy_batches","academy_subjects","academic_subjects","finance_invoices","finance_payments","finance_operating_expenses","finance_journals","finance_payment_commands","finance_expense_command_keys"])
+    for(const required of ["user","account","staff_memberships","staff_owner_setup","academy_students","academy_admissions","academy_batches","academy_offering_subjects","academic_subjects","finance_invoices","finance_payments","finance_operating_expenses","finance_journals","finance_payment_commands","finance_expense_command_keys"])
       assert(tables.includes(required),required);
     assert.equal(tables.filter(name=>/_pre_0029$/.test(name)).length,0,"no old student lifecycle snapshots");
+    assert(!tables.includes("academy_subjects"),"old per-class subject table removed");
     assert.equal(db.prepare("SELECT count(*) n FROM public_programme_offerings").get().n,0);
-    assert.equal(db.prepare("SELECT count(*) n FROM academy_subjects").get().n,0);
+    assert.equal(db.prepare("SELECT count(*) n FROM academy_offering_subjects").get().n,0);
     for(const name of ["user","staff_memberships","academy_students","academy_admissions","academy_batches","finance_invoices","finance_payments","finance_operating_expenses","finance_journals"])
       assert.equal(db.prepare('SELECT count(*) n FROM "'+name+'"').get().n,0,name);
     assert(db.prepare("SELECT count(*) n FROM finance_accounts").get().n>=5);
@@ -32,7 +34,7 @@ test("fresh canonical database has final domain schema and no historical records
     assert.equal(db.prepare("SELECT count(*) n FROM academy_classes").get().n,12);
     assert.equal(db.prepare("SELECT count(*) n FROM academy_guardian_relationships").get().n,27);
     assert(db.prepare("SELECT count(*) n FROM academic_subjects").get().n>=20);
-    assert.equal(db.prepare("SELECT count(*) n FROM academy_subjects").get().n,0);
+    assert.equal(db.prepare("SELECT count(*) n FROM academy_offering_subjects").get().n,0);
     assert.deepEqual(db.prepare("PRAGMA foreign_key_check").all(),[]);
     // One-time first-owner ticket exists as a schema contract, not as a seeded identity.
     assert.equal(db.prepare("SELECT count(*) n FROM staff_owner_setup").get().n,0);
