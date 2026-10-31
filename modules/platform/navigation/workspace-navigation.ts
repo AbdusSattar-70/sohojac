@@ -65,6 +65,7 @@ export const navigationGroups: Record<string, string> = {
   "access-security": "Administration",
   "operating-rules": "Administration",
   audit: "Administration",
+  "guardian-messages": "Administration",
   "admin-review-queue": "Administration",
   help: "Support",
   account: "Support",
@@ -104,6 +105,7 @@ export const navigationOrder = [
   "access-security",
   "operating-rules",
   "audit",
+  "guardian-messages",
   "help",
   "account",
 ];
@@ -157,6 +159,7 @@ export const navigationWords: Record<string, [string, string]> = {
   "access-security": ["Settings & access", "সেটিংস ও প্রবেশাধিকার"],
   "operating-rules": ["Operating rules", "পরিচালনার নিয়ম"],
   audit: ["Activity history", "পরিবর্তনের ইতিহাস"],
+  "guardian-messages": ["Guardian messages", "অভিভাবক এসএমএস"],
   help: ["Help & workflows", "সহায়তা ও কাজের ধাপ"],
   account: ["My account", "আমার অ্যাকাউন্ট"],
 };
