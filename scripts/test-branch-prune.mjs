@@ -14,6 +14,7 @@ const entries=[
  ["feature/operator-first-programme-launch","51c8707f89b20aa1cfc7b30dc54eb3193d976af0",54,true],
  ["fix/programme-launch-final-readiness","c750eca7b79cb1f04536c4fee516f8224f185fd9",55,true],
  ["feature/operator-first-subject-catalogue","aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",56,true],
+ ["fix/pinned-historical-ci-fixtures","c039b34beb3bff903320cd0753860e8aa915f1c6",57,false],
 ];
 async function simulate({env={},open=[],changed={},missing=[]}={}){
  const deletes=[],messages=[];
@@ -52,7 +53,7 @@ async function simulate({env={},open=[],changed={},missing=[]}={}){
 test("only exact verified closed PR heads are deleted, never master or dev",async()=>{
  const r=await simulate();
  assert.equal(r.error,undefined);
- assert.equal(r.deletes.length,6);
+ assert.equal(r.deletes.length,7);
  assert(!r.deletes.includes("dev")&&!r.deletes.includes("master"));
 });
 test("open PR and changed branch SHA are protected against cleanup",async()=>{

@@ -43,6 +43,8 @@ const entries = [
   { name: "feature/operator-first-programme-launch", sha: "51c8707f89b20aa1cfc7b30dc54eb3193d976af0", pr: 54 },
   { name: "fix/programme-launch-final-readiness", sha: "c750eca7b79cb1f04536c4fee516f8224f185fd9", pr: 55 },
   { name: "feature/operator-first-subject-catalogue", currentMergedHead: true },
+  // Obsolete alternative to rebuilding historical SQL on CI: replaced by the validated canonical baseline.
+  { name: "fix/pinned-historical-ci-fixtures", sha: "c039b34beb3bff903320cd0753860e8aa915f1c6", pr: 57, allowSuperseded: true },
 ];
 for (const item of entries) {
   const name = item.name;
