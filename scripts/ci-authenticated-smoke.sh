@@ -1263,6 +1263,9 @@ anon_report=$(curl -sS -o /dev/null -w '%{http_code}' \
 test "$anon_report" = "401"
 echo "C4 Today + C5 reconciled reports verified with real authenticated local HTTP."
 
+# C10: exercise real authenticated held-only messaging on synthetic local D1.
+bash scripts/ci-guardian-message-smoke.sh
+
 # Revoking a staff membership removes access even with a live
 # Better Auth session cookie; do not rely on client-side role state.
 pnpm exec cf d1 raw "$DB" --local --persist-to .cloudflare/state \
