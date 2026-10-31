@@ -20,7 +20,7 @@ export default async function SubjectsPage() {
         eyebrow="Academic setup"
         title="Subject Directory"
         description="Maintain one global subject definition. Classes, groups and teaching packages will use separate curriculum relationships—not new copies of the same subject."
-        actions={<Link href="/dashboard/academics/settings" className={action}>
+        actions={<Link href="/dashboard/academics/settings?section=subject" className={action}>
           Manage global subjects
         </Link>}
       />
@@ -50,7 +50,7 @@ export default async function SubjectsPage() {
               Each subject is defined once. Manage its name and active status through Academic Settings.
             </p>
           </div>
-          <Link className={action} href="/dashboard/academics/settings">Edit subjects</Link>
+          <Link className={action} href="/dashboard/academics/settings?section=subject">Edit subjects</Link>
         </div>
         {directory.subjects.length === 0 ? (
           <p className="mt-5 rounded-xl border border-border bg-muted p-4 text-sm">
