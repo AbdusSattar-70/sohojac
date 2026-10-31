@@ -20,7 +20,7 @@ The [verified dev deployment on commit `a971a790`](https://github.com/AbdusSatta
 
 ### Database schema rule
 
-- **Active dev migrations:** four clean foundation files with a global `academic_subjects` master from the start. The independent dev D1 is recreated once for this baseline; no obsolete migration 0005 or legacy subject history remains.
+- **Active dev migrations:** four clean Subject foundation files, plus **`0005_master_versions.sql`** for optimistic concurrency on seven Academic Setup master tables. No obsolete subject migration or class-scoped subject master remains.
 - **Environment isolation:** recreate only `sohojac_dev` once and retain four clean migrations. `master` retains its separate production schema and history. Never apply dev SQL rewrites to production.
 - **New owner authorization, 31 October 2026:** the current dev records are mock data and may be reset. The branch/name/UUID-guarded one-time reset recreates only the known obsolete `sohojac_dev`, then uses four clean migrations; later releases leave a clean dev D1 unchanged.
 - Schema changes after this baseline use a fifth non-destructive forward migration for academic master versioning; future migrations with parity/foreign-key tests, backfill audits, idempotency and separately approved production equivalents. The target of 3–5 baseline files does not justify editing production's applied migration history.
@@ -30,13 +30,13 @@ The [verified dev deployment on commit `a971a790`](https://github.com/AbdusSatta
 | Area | Current status | Evidence / next gate |
 |---|---|---|
 | **0E — Dev/prod isolation** | **Deployed** | Dev Worker binding verified. Production never shares dev D1 or secrets. |
-| **0F — Fresh D1 baseline** | Clean rebuild planned in PR #60 | Exactly four clean migrations and one global Subject; Classes 1–12 and guardian relationships seed after reset. First OWNER must re-enroll. |
+| **0F — Fresh D1 baseline** | **Deployed** | [PR #60](https://github.com/AbdusSattar-70/sohojac/pull/60): mock-only dev D1 rebuilt, four clean foundation migrations, one reusable Subject master. Dev first-OWNER ticket must be reissued after reset. |
 | **2 — Payment / expense / batch commands** | **Deployed to dev** | [PR #52](https://github.com/AbdusSattar-70/sohojac/pull/52): stable request identities, permission checks, balanced journals, 12-seat and version guards; full operation acceptance remains owner-led. |
 | **C1 — Guided Programme Launch** | **Deployed to dev** | [PR #54](https://github.com/AbdusSattar-70/sohojac/pull/54): coaching draft → fee plan → batch activation → website/intake → readiness. |
 | **C1a — Correct fifth-step completion** | **Deployed to dev** | [PR #55](https://github.com/AbdusSattar-70/sohojac/pull/55): the Review check is tied to actual live intake, not the first four steps only. |
 | **C2a — Single global subject directory** | Previously deployed | One reusable subject master under Academic Setup, shared with Classes, Groups and Programmes. |
-| **C2b — Remove duplicate subject model** | Implemented in PR #60; pending verified dev release | One reusable Subject entity, no class-specific subject master, no obsolete subject APIs/audits/migrations; dev mock D1 rebuilt without production impact. |
-| **C3 — Master-data concurrency** | **C3b implemented, release pending** | Academic years and seven other Academic Setup entities use D1 revision locks with stale-save rejection, retry guidance, audit on committed writes and regression tests. |
+| **C2b — Remove duplicate subject model** | **Deployed** | One reusable Subject entity, no class-specific subject master, no obsolete subject APIs/audits/migrations; dev mock D1 rebuilt without production impact. |
+| **C3 — Master-data concurrency** | **Deployed** | Academic years and seven other Academic Setup entities use D1 revision locks with stale-save rejection, retry guidance, audit on committed writes and regression tests. |
 | **C4 — Operator daily journeys** | **Daily work queue implemented, release pending** | A permission-scoped Today workspace shows live, complete counts for new enquiries, follow-ups, admissions, outstanding invoices, scheduled sessions and near-full batches. Deep links go to existing guided admission, collections, teacher and academic workflows; remaining hands-on role/mobile acceptance is still needed. |
 | **C5 — Finance/reports and messages** | **C5a reporting implemented, release pending** | All-record per-journal and receipt-allocation exception checks, monthly payment-method breakdown and dark ERP reporting. SMS delivery/outbox, recovery drill and complete performance acceptance remain separate unfinished C5b gates. |
 | **Production acceptance** | **Not authorized** | Owner must manually test and approve the exact dev revision. No automatic merge or production release. |
@@ -59,7 +59,7 @@ The existing academic-year API already used `version` checks, but the Academic S
 
 1. Branch from current `dev`, change one coherent workflow, and preserve role/grant checks, audit, retry and immutable business IDs.
 2. Run schema/reference tests, real named-permission and financial regressions, TypeScript, Worker build and authenticated local HTTP smoke against disposable D1.
-3. Review PR and merge to **dev only after the exact source revision passes**. Deploy to `sohojac_dev`; verify actual Worker D1 binding, the reviewed four-migration schema, application routes and private access, preserving records.
+3. Review PR and merge to **dev only after the exact source revision passes**. Deploy to `sohojac_dev`; verify actual Worker D1 binding, the current reviewed migration set, application routes and private access, preserving records.
 4. Publish verified PR/Actions evidence and request **manual owner testing**. Changes may be rejected or refined on dev.
 5. **Never** merge or deploy to `master` until the owner explicitly approves the tested revision. Production uses its own recovery bookmark, migration history, deployment and restore plan.
 
