@@ -45,7 +45,7 @@ const businessTables = [
   "academy_student_merges", "academy_enrollment_transfers",
   "academy_student_enrollment_closures", "academy_attendance",
   "academy_class_sessions", "academy_assessments", "academy_assessment_results",
-  "academy_batch_teachers", "academy_subjects", "finance_invoices",
+  "academy_batch_teachers", "academy_offering_subjects", "finance_invoices",
   "finance_payments", "finance_allocations", "finance_journals",
   "finance_journal_lines", "finance_operating_expenses",
   "finance_collection_promises", "finance_collection_events",
@@ -61,7 +61,7 @@ const sql = devReferenceSeedSql();
 if (/\bDELETE\s+FROM\b|\bDROP\s+(?:TABLE|TRIGGER|INDEX)\b|\bTRUNCATE\b/i.test(sql))
   throw Error("Dev reference seed must be strictly additive.");
 await query(sql);
-const row = (await query("SELECT (SELECT count(*) FROM academy_classes) classes,(SELECT count(*) FROM academy_guardian_relationships) relationships,(SELECT count(*) FROM academic_subjects) subjects,(SELECT count(*) FROM academy_subjects) legacy_grade_subjects,(SELECT count(*) FROM academy_students) students,(SELECT count(*) FROM finance_payments) payments,(SELECT count(*) FROM public_programme_offerings) offerings"))[0].results[0];
+const row = (await query("SELECT (SELECT count(*) FROM academy_classes) classes,(SELECT count(*) FROM academy_guardian_relationships) relationships,(SELECT count(*) FROM academic_subjects) subjects,(SELECT count(*) FROM sqlite_schema WHERE type='table' AND name='academy_subjects') legacy_grade_subjects,(SELECT count(*) FROM academy_students) students,(SELECT count(*) FROM finance_payments) payments,(SELECT count(*) FROM public_programme_offerings) offerings"))[0].results[0];
 if (row.classes < 12 || row.relationships < 27 || row.subjects < 20 ||
     row.legacy_grade_subjects !== 0 || row.students !== 0 || row.payments !== 0 || row.offerings !== 0)
   throw Error("Fresh-development reference validation failed; no completion marker written.");
