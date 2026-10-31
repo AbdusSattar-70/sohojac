@@ -14,18 +14,18 @@ type RequestRow = {
   status: string;
   assigned_role: string | null;
 };
-export function AccessRequestRegister({ rows, emptyMessage = "No staff requests yet." }: { rows: RequestRow[]; emptyMessage?: string }) {
+export function AccessRequestRegister({ rows, emptyMessage = "No staff requests yet.", emailReady = false }: { rows: RequestRow[]; emptyMessage?: string; emailReady?: boolean }) {
   return (
     <div className="space-y-4">
       {rows.length ? (
-        rows.map((r) => <RequestCard key={r.id} row={r} />)
+        rows.map((r) => <RequestCard key={r.id} row={r} emailReady={emailReady} />)
       ) : (
         <p className="rounded-xl border p-6">{emptyMessage}</p>
       )}
     </div>
   );
 }
-function RequestCard({ row: r }: { row: RequestRow }) {
+function RequestCard({ row: r, emailReady }: { row: RequestRow; emailReady: boolean }) {
   const {locale}=useLanguage();const t=(en:string,bn:string)=>locale==="bn"?bn:en;
   const [role, setRole] = useState(r.assigned_role ?? r.requested_role),
     [note, setNote] = useState(
@@ -77,9 +77,10 @@ function RequestCard({ row: r }: { row: RequestRow }) {
               onChange={(e) => setRole(e.target.value)}
               className="ml-3 rounded-lg border bg-background p-2"
             >
-              {["ADMIN", "OPERATOR", "TEACHER", "ACCOUNTANT"].map((v) => (
-                <option key={v}>{v}</option>
+              {["ADMIN", "OPERATOR", "TEACHER"].map((v) => (
+                <option key={v} value={v}>{v}</option>
               ))}
+              <option value="ACCOUNTANT" disabled>Accountant (role not available yet)</option>
             </select>
           </label>
           <label className="block text-sm">
@@ -90,6 +91,13 @@ function RequestCard({ row: r }: { row: RequestRow }) {
               className="mt-1 w-full rounded-lg border bg-background p-3"
             />
           </label>
+          {(r.requested_role === "ACCOUNTANT" || role === "ACCOUNTANT") && (
+            <p role="note" className="rounded-lg border border-amber-400/30 bg-amber-500/10 p-3 text-sm text-amber-100">
+              Accountant sign-in is not supported by the current access policy.
+              Select a permitted role only if that truly matches the verified job responsibilities,
+              then save the updated verification. Do not grant broader access just to bypass this restriction.
+            </p>
+          )}
           {r.assigned_role && role!==r.assigned_role && <p className="text-sm">{t("Verify the changed role before sending account setup instructions.","পরিবর্তিত ভূমিকা যাচাই করে তারপর অ্যাকাউন্ট চালুর নির্দেশনা পাঠান।")}</p>}
           <div className="flex flex-wrap gap-3">
             {r.status !== "INVITED" && (
@@ -110,9 +118,14 @@ function RequestCard({ row: r }: { row: RequestRow }) {
                 </button>
               </>
             )}
+            {!emailReady && ["VERIFIED", "INVITED"].includes(r.status) && (
+              <p role="note" className="w-full text-sm text-amber-200">
+                Email is not configured for this environment. See the Email delivery setup section above.
+              </p>
+            )}
             {["VERIFIED", "INVITED"].includes(r.status) && (
               <button
-                disabled={pending || role!==r.assigned_role}
+                disabled={pending || !emailReady || role === "ACCOUNTANT" || role!==r.assigned_role}
                 className="rounded-lg bg-primary p-3 text-sm text-primary-foreground"
                 onClick={() => act("INVITE")}
               >
