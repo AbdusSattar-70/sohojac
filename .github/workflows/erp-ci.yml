@@ -111,6 +111,8 @@ jobs:
           latest=$(git ls-remote https://github.com/AbdusSattar-70/sohojac.git refs/heads/dev | cut -f1)
           test "$latest" = "$GITHUB_SHA"
       - run: pnpm install --frozen-lockfile
+      - name: One-time owner-approved reset of obsolete mock-only dev D1
+        run: node scripts/reset-obsolete-dev-d1.mjs
       - name: Create or confirm independent dev D1
         run: node scripts/prepare-dev-deployment.mjs
       - name: Verify dev database identity before any migration
