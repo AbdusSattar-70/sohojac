@@ -66,8 +66,8 @@ test("all staff editor writers carry a version to the database and audit only co
  for(const fragment of ["UPDATE academy_classes SET","UPDATE academic_subjects SET",
    "UPDATE academy_programmes SET","UPDATE academy_schools SET"])
   assert(action.includes(fragment));
- assert.equal((action.match(/AND version=\?/g)??[]).length,5,
-  "five action cases cover years/classes/subject/program/school; generic tables share a sixth guard");
+ assert.equal((action.match(/AND version=\?/g)??[]).length,6,
+  "all six update cases are revision checked, including generic master tables");
  assert.match(action,/UPDATE "\+table\+" SET code=\?,name=\?,is_active=\?,version=version\+1 WHERE id=\? AND version=\?/);
  assert.match(action,/SELECT \?,\?,\?,\?,\?,\?,\?,\? WHERE changes\(\)=1/);
  assert.match(action,/system\.master_data\.manage/);
