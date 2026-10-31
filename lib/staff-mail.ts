@@ -56,8 +56,8 @@ export function staffMailRecipientAllowed(recipient: string): boolean {
 }
 
 export async function sendStaffEmail({
-  recipient, subject, text, idempotencyKey,
-}: { recipient: string; subject: string; text: string; idempotencyKey: string }) {
+  recipient, subject, text, html, replyTo, idempotencyKey,
+}: { recipient: string; subject: string; text: string; html?: string; replyTo?: string; idempotencyKey: string }) {
   const e = bindings();
   if (!staffMailConfigured()) throw new Error("Staff email delivery not configured");
   if (!staffMailRecipientAllowed(recipient))
@@ -77,6 +77,8 @@ export async function sendStaffEmail({
       to: [recipient],
       subject,
       text,
+      ...(html ? { html } : {}),
+      ...(replyTo ? { reply_to: replyTo } : {}),
     }),
     signal: AbortSignal.timeout(10000),
   });
