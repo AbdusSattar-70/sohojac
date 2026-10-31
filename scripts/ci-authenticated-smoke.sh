@@ -210,6 +210,8 @@ dashboard_status=$(curl -sS --max-time 20 -o /tmp/ci-legacy-dashboard.html -w '%
 echo "original ERP dashboard HTTP: $dashboard_status"
 test "$dashboard_status" = "200"
 grep -q "Digital Campus" /tmp/ci-legacy-dashboard.html
+# First-run academy identity belongs on the dashboard, not every academic page.
+grep -q "First-time academy setup" /tmp/ci-legacy-dashboard.html
 launch_status=$(curl -sS --max-time 20 -o /tmp/ci-programme-launch.html -w '%{http_code}' \
   -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/academics/launch")
 echo "operator-first programme launch HTTP: $launch_status"
@@ -224,6 +226,17 @@ original_settings=$(curl -sS --max-time 20 -o /tmp/ci-original-settings.html -w 
 echo "source academic settings on D1 HTTP: $original_settings"
 test "$original_settings" = "200"
 grep -q "Academic &amp; registration settings\|Academic & registration settings" /tmp/ci-original-settings.html
+if grep -q "Confirm academy identity first" /tmp/ci-original-settings.html; then
+  echo "Repeated academy identity editor on Academic Setup"; exit 1
+fi
+if grep -q "Review Subject Directory" /tmp/ci-original-settings.html; then
+  echo "Redundant circular Subject Directory link remains"; exit 1
+fi
+subject_tab_status=$(curl -sS --max-time 20 -o /tmp/ci-canonical-subject-tab.html -w '%{http_code}' \
+  -b /tmp/staff-ci-cookies "http://localhost:4173/dashboard/academics/settings?section=subject")
+test "$subject_tab_status" = "200"
+grep -q "Subjects" /tmp/ci-canonical-subject-tab.html
+
 anonymous_dashboard=$(curl -sS -o /dev/null -w '%{http_code}' \
   "http://localhost:4173/dashboard")
 echo "anonymous ERP dashboard HTTP: $anonymous_dashboard"
