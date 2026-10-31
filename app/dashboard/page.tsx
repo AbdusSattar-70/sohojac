@@ -13,6 +13,8 @@ import { PageHeader } from "@/components/erp/page-header";
 import { StatCard } from "@/components/erp/stat-card";
 import { StatusBadge } from "@/components/erp/status-badge";
 import { getDashboardOverview } from "@/modules/dashboard/queries";
+import { getDailyWorkOverview } from "@/modules/dashboard/daily-work-queries";
+import { DailyWorkPanel } from "@/components/dashboard/daily-work-panel";
 import { requirePermission } from "@/modules/platform/auth/erp-context";
 
 export default async function DashboardPage({
@@ -23,7 +25,8 @@ export default async function DashboardPage({
   const context = await requirePermission("dashboard.view");
   const home = workspaceHome(context);
   if (home !== "/dashboard") redirect(home);
-  const overview = await getDashboardOverview(context);
+  const [overview,daily] = await Promise.all([getDashboardOverview(context),getDailyWorkOverview(context)]);
+  const dueFollowups = daily.queues.find((item) => item.id === "followups")?.count ?? null;
   const { access } = await searchParams;
 
   const cards = [
@@ -71,6 +74,8 @@ export default async function DashboardPage({
         title="Digital Campus"
         description="A concise view of work that needs attention. Every number comes from the same governed ERP records used by the underlying workflows."
       />
+
+      <DailyWorkPanel work={daily} />
 
       {context.permissions.includes("system.master_data.manage") && (
         <div className="flex flex-wrap items-center gap-3 rounded-2xl border bg-card px-5 py-4 text-sm">
@@ -213,12 +218,12 @@ export default async function DashboardPage({
           </div>
 
           <div className="mt-5 space-y-3">
-            {overview.dueFollowups !== null && (
+            {dueFollowups !== null && (
               <Link
-                href="/dashboard/action-center"
+                href="/dashboard/today"
                 className="block rounded-xl border p-4 hover:bg-muted"
               >
-                <p className="text-2xl font-bold">{overview.dueFollowups}</p>
+                <p className="text-2xl font-bold">{dueFollowups}</p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   CRM follow-ups due
                 </p>
@@ -240,7 +245,7 @@ export default async function DashboardPage({
           </div>
 
           <Link
-            href="/dashboard/action-center"
+            href="/dashboard/today"
             className="mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-xl border px-4 text-sm font-semibold hover:bg-muted"
           >
             Open Action Center

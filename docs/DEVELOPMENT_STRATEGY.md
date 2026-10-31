@@ -37,7 +37,7 @@ The [verified dev deployment on commit `a971a790`](https://github.com/AbdusSatta
 | **C2a — Single global subject directory** | Previously deployed | One reusable subject master under Academic Setup, shared with Classes, Groups and Programmes. |
 | **C2b — Remove duplicate subject model** | Implemented in PR #60; pending verified dev release | One reusable Subject entity, no class-specific subject master, no obsolete subject APIs/audits/migrations; dev mock D1 rebuilt without production impact. |
 | **C3 — Master-data concurrency** | **C3a in development** | Academic-year editor now carries the authoritative D1 version to the permission-gated save; stale edits fail without an audit entry. Remaining class/group/subject/programme versioning and reconciliation are C3b. |
-| **C4 — Operator daily journeys** | Planned | Admission and returning student, due follow-up and receipts, teacher session/attendance/marks, role/desktop/mobile testing. |
+| **C4 — Operator daily journeys** | **Daily work queue implemented, release pending** | A permission-scoped Today workspace shows live, complete counts for new enquiries, follow-ups, admissions, outstanding invoices, scheduled sessions and near-full batches. Deep links go to existing guided admission, collections, teacher and academic workflows; remaining hands-on role/mobile acceptance is still needed. |
 | **C5 — Finance/reports and messages** | Planned | Whole-ledger aggregates rather than latest-200 headlines; reconciled reports, SMS outbox/retries, recovery drill, accessibility/performance checks. |
 | **Production acceptance** | **Not authorized** | Owner must manually test and approve the exact dev revision. No automatic merge or production release. |
 
