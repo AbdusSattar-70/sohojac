@@ -185,9 +185,9 @@ export const erpRouteRegistry: ErpRouteDefinition[] = [
   },
   {
     id: "action-center",
-    title: "Action centre",
-    eyebrow: "Workspace",
-    href: "/dashboard/action-center",
+    title: "Today",
+    eyebrow: "Daily work",
+    href: "/dashboard/today",
     navGroup: "Workspace",
     permission: "action_center.view",
     icon: "action-center",
@@ -383,7 +383,7 @@ export const erpRouteRegistry: ErpRouteDefinition[] = [
  * Keep this list synchronized with scripts/check-dashboard-navigation.mjs.
  */
 export const implementedErpRoutes = [
- "/dashboard", "/dashboard/help", "/dashboard/account",
+ "/dashboard", "/dashboard/today", "/dashboard/help", "/dashboard/account",
  "/dashboard/admissions", "/dashboard/students", "/dashboard/crm/prospects",
  "/dashboard/crm/manage", "/dashboard/academics/settings",
  "/dashboard/staff", "/dashboard/governance/audit",
