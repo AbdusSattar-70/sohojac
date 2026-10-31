@@ -204,6 +204,7 @@ export function MasterDataWorkspace({
   initialEntity?: MasterEntity;
 }) {
   const { locale } = useLanguage();
+  const router = useRouter();
   const [entity, setEntity] = useState<MasterEntity>(initialEntity);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -218,6 +219,7 @@ export function MasterDataWorkspace({
           <button
             key={item.entity}
             type="button"
+            aria-pressed={entity === item.entity}
             onClick={(event) => {
               if (entity === item.entity) return;
               guardWorkspaceNavigation(event, locale);
@@ -226,6 +228,7 @@ export function MasterDataWorkspace({
               setEditingId(null);
               setFormOpen(false);
               setNotice("");
+              router.replace("/dashboard/academics/settings?section=" + encodeURIComponent(item.entity), { scroll: false });
             }}
             className={`min-h-11 rounded-xl border px-3 text-sm font-medium transition ${
               entity === item.entity

@@ -101,10 +101,12 @@ test("guided launch is permission-scoped, non-destructive and connected to the r
   // must never be checked merely because the operator visited the step.
   assert(component.includes('const done = index === 4 ? readiness?.publishReady === true : completed[index];'));
   assert(component.includes('description: "Publication status"'));
-  assert(component.includes('"Live & accepting applications"'));
+  assert(component.includes("Congratulations! Your programme is launched."));
   assert(!component.includes('description: "Ready to launch?"'));
   assert(component.includes("RecordStateButton"));
   assert(component.includes('selectedBatches'));
+  assert(component.includes("Finish &amp; return to dashboard"));
+  assert(component.includes("Launch another programme"));
   assert(!component.includes("env.DB"));
   assert(!forms.includes("env.DB"));
 });

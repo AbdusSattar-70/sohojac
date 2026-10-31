@@ -88,3 +88,9 @@ A management-only read-only card reports all-record `finance_operating_expenses`
 ## C11 — Verified feature branch housekeeping
 
 After each successful `dev` deployment, the existing noncritical housekeeping job can retire historical C7–C10 branches **only** when GitHub reports a closed merged PR into `dev`, the branch still points to that PR's exact head SHA, and no open PR uses it. This preserves `master`, `dev`, current work, divergent refs and open PRs. Removing a Git ref does not remove the reviewed commits or modify D1.
+
+## Academic experience refinement — first-time setup and launch completion
+
+- The canonical Academic Setup workspace owns the reusable Subjects tab; the redundant sidebar Subjects link and circular directory banner are gone. Old subject bookmarks retain a redirect to the correct tab. Query parameters select all eight master-data tabs reliably.
+- Academy identity is confirmed one time through the dashboard and stored in the existing identity and MAIN campus records. The editor disappears on successful confirmation. Later changes are available explicitly through Academic Setup, without another first-time prompt or data reset.
+- Programme Launch completion uses the existing server-derived readiness facts: active offering, effective fee plan, active batches with seats, visible website card and open application window. Successful Review shows congratulations, permission-aware next steps, and a Finish action returning to the dashboard. Incomplete offerings continue to display actual blockers. No new business state or artificial completion flag is stored.

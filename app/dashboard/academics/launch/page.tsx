@@ -45,6 +45,9 @@ export default async function ProgrammeLaunchPage({
         canManage={can(context, "academics.manage")}
         canBill={can(context, "finance.billing.manage") && can(context, "finance.view")}
         canViewFees={can(context, "finance.view")}
+        canStartAdmissions={can(context, "admissions.create")}
+        canViewEnquiries={can(context, "crm.prospects.view")}
+        canScheduleClasses={can(context, "academics.sessions.manage")}
       />
     </div>
   );
