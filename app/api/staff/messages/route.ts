@@ -55,8 +55,10 @@ export async function POST(request:Request){
   ).bind(body.studentId).first<{id:string;guardian_mobile:string}>();
   if(!student||!/^01[3-9][0-9]{8}$/.test(student.guardian_mobile))
    return privateJson({error:"Active student and valid guardian mobile required"},400);
-  const optedOut=await env.DB.prepare("SELECT 1 AS n FROM guardian_sms_optouts WHERE student_id=?")
-   .bind(body.studentId).first();
+  const optedOut=await env.DB.prepare("SELECT 1 AS n FROM guardian_sms_contact_suppressions g "+
+   "JOIN academy_students s ON s.guardian_mobile=g.guardian_mobile WHERE s.id=? "+
+   "UNION SELECT 1 AS n FROM guardian_sms_optouts WHERE student_id=? LIMIT 1")
+   .bind(body.studentId,body.studentId).first();
   if(optedOut)return privateJson({error:"Guardian has opted out of SMS"},409);
   const id=crypto.randomUUID();
   const results=await env.DB.batch([
