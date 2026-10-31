@@ -50,6 +50,7 @@ export const navigationGroups: Record<string, string> = {
   "student-accounts": "Fees & expenses",
   receivables: "Fees & expenses",
   "finance-overview": "Fees & expenses",
+  "cost-per-student": "Fees & expenses",
   "operating-money": "Fees & expenses",
   payroll: "Fees & expenses",
   "teaching-pay": "Fees & expenses",
@@ -94,6 +95,7 @@ export const navigationOrder = [
   "teaching-pay",
   "reimbursements",
   "finance-overview",
+  "cost-per-student",
   "academic-directory",
   "programme-launch",
   "programme-offerings",
@@ -145,6 +147,7 @@ export const navigationWords: Record<string, [string, string]> = {
   "teaching-pay": ["Teaching earnings & payments", "পাঠদানের আয় ও পরিশোধ"],
   reimbursements: ["Expense claims", "খরচ ফেরতের আবেদন"],
   "finance-overview": ["Income, expenses & profit", "আয়, খরচ ও লাভ"],
+  "cost-per-student": ["Cost per active student", "শিক্ষার্থীপ্রতি পরিচালন ব্যয়"],
   "academic-directory": [
     "Academic & registration settings",
     "শিক্ষা ও নিবন্ধনের তালিকা",
