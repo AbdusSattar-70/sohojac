@@ -36,20 +36,10 @@ test("actual D1 binding supports draft → fee publication → public controls �
   );
   try {
     const DB = await mf.getD1Database("DB");
-    for (const file of fs
-      .readdirSync("migrations/history")
-      .filter((f) => /^\d{4}.*sql$/.test(f))
-      .sort()) {
-      const sql = fs
-        .readFileSync("migrations/history/" + file, "utf8")
-        .replace(/--[^\n]*/g, "")
-        .trim();
-      if (sql)
-        try {
-          await DB.prepare(sql).run();
-        } catch (e) {
-          throw new Error(file + ": " + e.message, { cause: e });
-        }
+    for (const file of fs.readdirSync("migrations").filter(f => /^\d{4}_.*\.sql$/.test(f)).sort()) {
+      const sql=fs.readFileSync("migrations/"+file,"utf8").replace(/--[^\n]*/g,"").trim();
+      if (sql) try { await DB.prepare(sql).run(); }
+      catch(error) { throw new Error(file+": "+error.message,{cause:error}); }
     }
     const uid = crypto.randomUUID();
     await DB.prepare(

@@ -10,11 +10,8 @@ beforeEach(() => {
   db?.close();
   db = new DatabaseSync(":memory:");
   db.exec("PRAGMA foreign_keys=ON");
-  for (const f of fs
-    .readdirSync("migrations/history")
-    .filter((f) => /^\d{4}.*sql$/.test(f))
-    .sort())
-    db.exec(fs.readFileSync("migrations/history/" + f, "utf8"));
+  for (const f of fs.readdirSync("migrations").filter(f=>/^\d{4}_.*\.sql$/.test(f)).sort())
+    db.exec(fs.readFileSync("migrations/"+f,"utf8"));
   db.exec(
     `INSERT INTO "user"(id,name,email,"createdAt","updatedAt") VALUES ('owner','Existing Owner','owner@example.invalid',0,0); INSERT INTO staff_memberships(user_id,role,active) VALUES ('owner','OWNER',1);`,
   );

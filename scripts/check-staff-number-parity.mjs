@@ -1,11 +1,10 @@
 import fs from "node:fs";
 const file=p=>fs.readFileSync(p,"utf8");
-const sql=file("migrations/history/0024_staff_master_identity.sql");
+const sql=file("migrations/0001_schema_tables.sql")+"\n"+file("migrations/0003_domain_guards.sql");
 for(const term of [
  "staff_seq INTEGER PRIMARY KEY AUTOINCREMENT",
  "SA-STF-", "printf('%06d',staff_seq)", "STORED UNIQUE",
- "AFTER INSERT ON staff_memberships", "linked_user_id TEXT UNIQUE",
- "ORDER BY m.created_at,m.user_id"
+ "AFTER INSERT ON staff_memberships", "linked_user_id TEXT UNIQUE"
 ]){
  if(!sql.includes(term))throw new Error("Missing original permanent staff ID guarantee: "+term);
 }

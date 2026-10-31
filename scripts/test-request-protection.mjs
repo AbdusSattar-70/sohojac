@@ -82,10 +82,8 @@ function request(path = "/api/auth/sign-in/email", options = {}) {
 beforeEach(() => {
   db?.close();
   db = new DatabaseSync(":memory:");
-  db.exec(fs.readFileSync("migrations/history/0034_request_protection.sql", "utf8"));
-  db.exec(
-    fs.readFileSync("migrations/history/0035_maintenance_operations.sql", "utf8"),
-  );
+  for(const file of fs.readdirSync("migrations").filter(name=>/^\d{4}_.*\.sql$/.test(name)).sort())
+    db.exec(fs.readFileSync("migrations/"+file,"utf8"));
   Object.assign(env, bindings);
   verification = {
     success: true,
