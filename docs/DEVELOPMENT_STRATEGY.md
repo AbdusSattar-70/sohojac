@@ -21,7 +21,7 @@ The [verified dev deployment on commit `a971a790`](https://github.com/AbdusSatta
 ### Database schema rule
 
 - **Active dev migrations:** exactly four files in `migrations/`: `0001_schema_tables.sql`, `0002_schema_indexes.sql`, `0003_domain_guards.sql` and `0004_finance_reference.sql`.
-- **Production compatibility:** preserve the **36 original immutable migration files** under `migrations/history/`. Production already records those filenames in `d1_migrations`. **Do not delete this history or apply the four-file fresh dev baseline to production.**
+- **Environment isolation:** remove historical SQL files from `dev`, retain the four canonical development migrations, and keep production migration history on `master`. Never apply the dev baseline to production.
 - The initial one-time `sohojac_dev` reset was completed and verified in [run #41137793638](https://github.com/AbdusSattar-70/sohojac/actions/runs/41137793638). **That reset is finished, and its destructive command has been retired.** Future dev deployments must preserve existing identities and records; CI checks schema parity, branch/ID guards and separate recovery bookmarks.
 - Schema changes after this baseline must be non-destructive forward migrations with parity/foreign-key tests, backfill audits, idempotency and separately approved production equivalents. The target of 3–5 baseline files does not justify editing production's applied migration history.
 

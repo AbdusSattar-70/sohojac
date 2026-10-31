@@ -1,35 +1,21 @@
-/**
- * Canonical operator-first D1 migration verification.
- *
- * Root migrations/ contains ONLY four clean, current-schema files.
- * migrations/history preserves the 36 immutable names already recorded by
- * production D1. The four must be byte-identical to a regenerated final
- * schema snapshot from those historic files; no invented data or DDL drift.
- */
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync, mkdtempSync, rmSync } from "node:fs";
-import { createHash } from "node:crypto";
-import { execFileSync } from "node:child_process";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-
-const root = "migrations", history = "migrations/history";
-const canonical = readdirSync(root).filter(n=>/^\d{4}_[a-z0-9_-]+\.sql$/.test(n)).sort();
-assert.deepEqual(canonical,[
-  "0001_schema_tables.sql","0002_schema_indexes.sql",
-  "0003_domain_guards.sql","0004_finance_reference.sql",
-],"Unexpected canonical D1 migration files; review database drift before deployment.");
-const legacy = readdirSync(history).filter(n=>/^\d{4}_[a-z0-9_-]+\.sql$/.test(n)).sort();
-assert.equal(legacy.length,36,"Production migration archive must contain the 36 known files.");
-assert.equal(legacy[0],"0001_public_website.sql");
-assert.equal(legacy.at(-1),"0037_operator_expense_commands.sql");
-const studentLifecycle = createHash("sha256").update(readFileSync(join(history,"0029_student_lifecycle.sql"))).digest("hex");
-assert.equal(studentLifecycle,"9f7796f6ca25a07e20d1d8f44fc9f842fb8a55756fd78f7593d9bc4f384d6436",
-  "Reviewed production student preservation migration changed.");
-const temp = mkdtempSync(join(tmpdir(),"sohojac-canonical-"));
-try{
-  execFileSync(process.execPath,["scripts/generate-canonical-migrations.mjs",history,temp],{stdio:"pipe",maxBuffer:8*1024*1024});
-  for(const name of canonical)assert.equal(readFileSync(join(root,name),"utf8"),readFileSync(join(temp,name),"utf8"),
-    "Canonical schema differs from verified final historical schema: "+name);
-}finally{rmSync(temp,{recursive:true,force:true});}
-console.log("Checked four canonical dev migration files against 36 immutable production-history files. No schema drift.");
+import { readdirSync,readFileSync } from "node:fs";
+import { DatabaseSync } from "node:sqlite";
+// Only the canonical development baseline. No production credentials or history.
+const names=readdirSync("migrations").filter(x=>/^\d{4}_[a-z0-9_-]+\.sql$/.test(x)).sort();
+assert.deepEqual(names,["0001_schema_tables.sql","0002_schema_indexes.sql","0003_domain_guards.sql","0004_finance_reference.sql"]);
+const db=new DatabaseSync(":memory:");
+try {
+ db.exec("PRAGMA foreign_keys=ON");
+ for(const name of names){
+   const sql=readFileSync("migrations/"+name,"utf8");
+   if(/\b(?:DROP\s+(?:TABLE|INDEX|VIEW|TRIGGER)|TRUNCATE|DELETE\s+FROM)\b/i.test(sql))throw Error("Destructive canonical SQL: "+name);
+   db.exec(sql);
+ }
+ const tables=new Set(db.prepare("SELECT name FROM sqlite_schema WHERE type='table'").all().map(x=>x.name));
+ for(const name of ["user","staff_owner_setup","academy_students","academy_admissions","finance_invoices","finance_payments","finance_accounts"])assert(tables.has(name),"Missing "+name);
+ assert.deepEqual(db.prepare("PRAGMA foreign_key_check").all(),[]);
+ assert.equal(db.prepare("SELECT COUNT(*) n FROM academy_students").get().n,0);
+ assert.equal(db.prepare("SELECT COUNT(*) n FROM finance_payments").get().n,0);
+ console.log("Four clean canonical development migrations validated in memory.");
+}finally{db.close();}

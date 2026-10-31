@@ -11,7 +11,7 @@ Updated: **31 October 2026**. This is the **active operational reference**, not 
 
 **Verified:** [dev release #41145393378](https://github.com/AbdusSattar-70/sohojac/actions/runs/41145393378) showed correct Cloudflare D1 name/ID and deployed Worker binding, healthy public routes and unauthenticated private API denial. **No `master` promotion or production D1 reset.** Do not copy credentials, actual student/guardian personal data, consent documents, invoices, receipts or SMS recipient lists between environments.
 
-## Schema and seed: four active migrations, 36 production-history files
+## Schema and seed: four active development migrations
 
 Development uses **only** `migrations/0001_schema_tables.sql`, `0002_schema_indexes.sql`, `0003_domain_guards.sql`, `0004_finance_reference.sql`:
 
@@ -19,13 +19,7 @@ Development uses **only** `migrations/0001_schema_tables.sql`, `0002_schema_inde
 pnpm exec cf d1 migrations apply "$SOHOJAC_DEV_D1_ID" --dir migrations --mode staging
 ```
 
-The **36 immutable historical production migration files** remain in `migrations/history/`. Production already has those names in `d1_migrations`. After a future separately approved production release:
-
-```bash
-pnpm exec cf d1 migrations apply "$SOHOJAC_D1_ID" --dir migrations/history --mode production
-```
-
-**Never** apply the four-file dev baseline to production, delete the history directory, edit an applied migration or reset production as a way to catch up. The canonical checker regenerates the baseline in disposable SQLite from the 36 original source files and compares its table/index/trigger schema byte-for-byte.
+The development branch keeps four canonical SQL migrations and no old SQL archive. The original migration history remains on `master`, which is independently maintained. Do not use these four development migrations on production. The development checker validates the actual fresh schema in disposable SQLite rather than reconstructing old history.
 
 The authorized one-time development reset **already happened** and was verified in [release #41137793638](https://github.com/AbdusSattar-70/sohojac/actions/runs/41137793638). The original dev D1 UUID `f6331cbc-fff5-43be-9588-2269d8942342` was replaced by the current dev UUID; its one-time deletion script is now **retired from code and CI**. Ordinary feature deployments must **preserve** the dev OWNER, student records and payments. Development's `seeds/dev-reference.sql` inserts classes, guardian relationships and global subjects idempotently; it does not generate real people, financial postings or demo programmes. A previously completed seed does not run over staff edits.
 
@@ -38,7 +32,7 @@ The only active deployment workflow is `.github/workflows/erp-ci.yml`.
 - **Feature PR → `dev`:** local SQLite/D1 regression and authenticated HTTP smoke, schema parity, named permission/financial tests, TypeScript and Worker build. No remote DB mutation.
 - **`dev` push:** re-run checks, validate dev secrets, retrieve/verify independent `sohojac_dev` ID, capture dev-only recovery bookmark, apply **only** pending dev canonical migrations, preserve references, build/deploy dev Worker, verify actual Worker D1 binding and the four canonical migration names, then check public pages and anonymous private API denial. **No reset or production deployment.**
 - **Closed-PR branch housekeeping:** only after the dev deployment succeeds, a separate job with limited `contents: write` token checks a fixed list of historical feature branches, the closed PR status and exact branch HEAD before removing a ref. Never remove `dev`, `master`, changed branches or branches with open PRs. The cleanup is noncritical to application data.
-- **`master`:** **no automatic production deployment on push**. The owner must manually test the dev site, explicitly approve the tested revision, review/merge the production PR, and dispatch Actions on `master` with `APPROVE_SOHOJAC_PRODUCTION` and the exact approved master SHA. The production job checks branch/ID, captures a separate production bookmark, uses original production-history migrations, deploys and verifies the production Worker. Green CI alone is not permission to promote.
+- **`master`:** **no automatic production deployment on push**. The owner must manually test the dev site, explicitly approve the tested revision, review/merge the production PR, and dispatch Actions on `master` with `APPROVE_SOHOJAC_PRODUCTION` and the exact approved master SHA. The production job checks branch/ID, captures a separate production bookmark, uses the production migrations independently maintained on `master`, deploys and verifies the production Worker. Green CI alone is not permission to promote.
 
 Before changing a production command, verify scope, approvals, D1 Time Travel retention and an actual recovery strategy; bookmarks are **not** tested restores. Keep the D1 account/Worker secrets separate, never expose them in build logs, documents or chat, and do not copy live financial/guardian records into local tests.
 

@@ -12,7 +12,7 @@ const expected = [
 ];
 test("new development has exactly four canonical root migrations", () => {
   assert.deepEqual(names,expected);
-  assert.equal(readdirSync("migrations/history").filter(f => /^\d{4}_.*\.sql$/.test(f)).length,36);
+  assert.equal(readdirSync("migrations").filter(f => /^\d{4}_.*\.sql$/.test(f)).length,4);
 });
 test("fresh canonical database has final domain schema and no historical records", () => {
   const db=new DatabaseSync(":memory:");
