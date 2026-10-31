@@ -93,6 +93,7 @@ jobs:
       # Empty values intentionally keep sending disabled until configured.
       DEV_STAFF_EMAIL_FROM: ${{ vars.DEV_STAFF_EMAIL_FROM }}
       DEV_STAFF_EMAIL_ALLOWLIST: ${{ vars.DEV_STAFF_EMAIL_ALLOWLIST }}
+      DEV_STAFF_EMAIL_POSTAL_ADDRESS: ${{ vars.DEV_STAFF_EMAIL_POSTAL_ADDRESS }}
       DEV_RESEND_API_KEY: ${{ secrets.DEV_RESEND_API_KEY }}
       CF_SEND_TELEMETRY: "false"
     steps:
