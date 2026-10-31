@@ -117,9 +117,11 @@ CREATE TRIGGER publish_subject_assignment
 AFTER INSERT ON academy_offering_subjects
 BEGIN
   UPDATE public_programme_offerings SET
-    subjects_json=(SELECT json_group_array(json_object('id',s.id,'code',s.code,'name',s.name))
-      FROM academy_offering_subjects j JOIN academy_subjects s ON s.id=j.subject_id
-      WHERE j.offering_id=NEW.offering_id AND s.active=1),
+    subjects_json=(SELECT json_group_array(json_object('id',id,'code',code,'name',title))
+      FROM (SELECT s.id,s.code,s.title FROM academy_offering_subjects j
+       JOIN academic_subjects s ON s.id=j.subject_id
+       WHERE j.offering_id=NEW.offering_id AND s.active=1
+       ORDER BY j.sort_order,j.subject_id)),
     version=version+1
   WHERE id=NEW.offering_id;
 END;
@@ -128,20 +130,24 @@ CREATE TRIGGER unpublish_subject_assignment
 AFTER DELETE ON academy_offering_subjects
 BEGIN
   UPDATE public_programme_offerings SET
-    subjects_json=(SELECT json_group_array(json_object('id',s.id,'code',s.code,'name',s.name))
-      FROM academy_offering_subjects j JOIN academy_subjects s ON s.id=j.subject_id
-      WHERE j.offering_id=OLD.offering_id AND s.active=1),
+    subjects_json=(SELECT json_group_array(json_object('id',id,'code',code,'name',title))
+      FROM (SELECT s.id,s.code,s.title FROM academy_offering_subjects j
+       JOIN academic_subjects s ON s.id=j.subject_id
+       WHERE j.offering_id=OLD.offering_id AND s.active=1
+       ORDER BY j.sort_order,j.subject_id)),
     version=version+1
   WHERE id=OLD.offering_id;
 END;
 
 CREATE TRIGGER update_linked_subject_cards
-AFTER UPDATE OF name,active ON academy_subjects
+AFTER UPDATE OF title,code,active ON academic_subjects
 BEGIN
   UPDATE public_programme_offerings SET
-    subjects_json=(SELECT json_group_array(json_object('id',s.id,'code',s.code,'name',s.name))
-      FROM academy_offering_subjects j JOIN academy_subjects s ON s.id=j.subject_id
-      WHERE j.offering_id=public_programme_offerings.id AND s.active=1),
+    subjects_json=(SELECT json_group_array(json_object('id',id,'code',code,'name',title))
+      FROM (SELECT s.id,s.code,s.title FROM academy_offering_subjects j
+       JOIN academic_subjects s ON s.id=j.subject_id
+       WHERE j.offering_id=public_programme_offerings.id AND s.active=1
+       ORDER BY j.sort_order,j.subject_id)),
     version=version+1
   WHERE id IN (SELECT offering_id FROM academy_offering_subjects WHERE subject_id=NEW.id);
 END;

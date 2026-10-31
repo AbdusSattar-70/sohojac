@@ -9,11 +9,10 @@ const expected = [
   "0002_schema_indexes.sql",
   "0003_domain_guards.sql",
   "0004_finance_reference.sql",
-  "0005_single_global_subject.sql",
 ];
-test("new development has four foundation files and one reviewed subject cutover migration", () => {
+test("new development has four clean foundation migrations with one global Subject entity", () => {
   assert.deepEqual(names,expected);
-  assert.equal(readdirSync("migrations").filter(f => /^\d{4}_.*\.sql$/.test(f)).length,5);
+  assert.equal(readdirSync("migrations").filter(f => /^\d{4}_.*\.sql$/.test(f)).length,4);
 });
 test("fresh canonical database has final domain schema and no historical records", () => {
   const db=new DatabaseSync(":memory:");

@@ -153,7 +153,7 @@ jobs:
         run: node scripts/enable-dev-worker.mjs
       - name: Verify actual deployed Worker D1 binding
         run: node scripts/verify-release-target.mjs development --worker
-      - name: Verify five dev migrations and one global Subject master
+      - name: Verify four clean dev migrations and one global Subject master
         run: node scripts/verify-canonical-dev-state.mjs
       - name: Smoke-check dev without logging in or creating real financial data
         run: |

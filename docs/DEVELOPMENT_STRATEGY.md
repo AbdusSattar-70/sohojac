@@ -20,8 +20,8 @@ The [verified dev deployment on commit `a971a790`](https://github.com/AbdusSatta
 
 ### Database schema rule
 
-- **Active dev migrations:** four existing foundation files plus `0005_single_global_subject.sql`, which removes the old class-scoped subject table and rewires offering links to the one `academic_subjects` master. Five files total; preserve applied migration names.
-- **Environment isolation:** keep the existing four applied development foundation files immutable and use a fifth reviewed forward migration. `master` retains its separate production schema and history. Never apply this cutover migration to production automatically.
+- **Active dev migrations:** four clean foundation files with a global `academic_subjects` master from the start. The independent dev D1 is recreated once for this baseline; no obsolete migration 0005 or legacy subject history remains.
+- **Environment isolation:** recreate only `sohojac_dev` once and retain four clean migrations. `master` retains its separate production schema and history. Never apply this cutover migration to production automatically.
 - The initial one-time `sohojac_dev` reset was completed and verified in [run #41137793638](https://github.com/AbdusSattar-70/sohojac/actions/runs/41137793638). **That reset is finished, and its destructive command has been retired.** Future dev deployments must preserve existing identities and records; CI checks schema parity, branch/ID guards and separate recovery bookmarks.
 - Schema changes after this baseline must be non-destructive forward migrations with parity/foreign-key tests, backfill audits, idempotency and separately approved production equivalents. The target of 3–5 baseline files does not justify editing production's applied migration history.
 
@@ -47,7 +47,7 @@ A Subject is **one ordinary master record**, just like a Class, Group or Program
 
 The old `academy_subjects` table, old subject-assignment API routes, read-only legacy ID audit, duplicate subject directory and per-grade filtering are removed from `dev`. The offering-to-subject relationship remains a lightweight join (`academy_offering_subjects`) but its foreign key now points to `academic_subjects`. It is a link, not a second subject definition.
 
-The reviewed dev-only migration clears legacy offering-subject links and stale public-card subject JSON rather than inventing matches between different identities. This is an intentional removal of **subject-only** historical development data, not a reset of staff logins, students, admissions, fees or finance. The four previously applied foundation SQL files remain untouched for upgrade safety; after applying the fifth migration, old subject tables/columns/triggers are absent from the live schema. No production database migration is authorized.
+`sohojac_dev` contains mock/testing data, so the owner authorized a full isolated dev reset. The old class-specific subject master, assignments and compatibility migrations are absent from the clean four-file baseline. This also resets development owner sign-in and mock staff/student/admission/finance records. Recreate the dev first-owner ticket after deployment; never reset production.
 
 Teaching assessments may still use free-text subject labels until a separate normal subject picker is implemented; these text labels do not justify reintroducing a second master.
 
@@ -71,7 +71,7 @@ The existing academic-year API already used `version` checks, but the Academic S
 
 1. Branch from current `dev`, change one coherent workflow, and preserve role/grant checks, audit, retry and immutable business IDs.
 2. Run schema/reference tests, real named-permission and financial regressions, TypeScript, Worker build and authenticated local HTTP smoke against disposable D1.
-3. Review PR and merge to **dev only after the exact source revision passes**. Deploy to `sohojac_dev`; verify actual Worker D1 binding, the reviewed five-migration schema, application routes and private access, preserving records.
+3. Review PR and merge to **dev only after the exact source revision passes**. Deploy to `sohojac_dev`; verify actual Worker D1 binding, the reviewed four-migration schema, application routes and private access, preserving records.
 4. Publish verified PR/Actions evidence and request **manual owner testing**. Changes may be rejected or refined on dev.
 5. **Never** merge or deploy to `master` until the owner explicitly approves the tested revision. Production uses its own recovery bookmark, migration history, deployment and restore plan.
 

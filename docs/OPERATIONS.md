@@ -11,7 +11,7 @@ Updated: **31 October 2026**. This is the **active operational reference**, not 
 
 **Verified:** [dev release #41145393378](https://github.com/AbdusSattar-70/sohojac/actions/runs/41145393378) showed correct Cloudflare D1 name/ID and deployed Worker binding, healthy public routes and unauthenticated private API denial. **No `master` promotion or production D1 reset.** Do not copy credentials, actual student/guardian personal data, consent documents, invoices, receipts or SMS recipient lists between environments.
 
-## Schema and seed: four foundation migrations plus one subject simplification
+## Schema and seed: four clean foundation migrations
 
 Development uses **only** `migrations/0001_schema_tables.sql`, `0002_schema_indexes.sql`, `0003_domain_guards.sql`, `0004_finance_reference.sql`:
 
@@ -19,7 +19,7 @@ Development uses **only** `migrations/0001_schema_tables.sql`, `0002_schema_inde
 pnpm exec cf d1 migrations apply "$SOHOJAC_DEV_D1_ID" --dir migrations --mode staging
 ```
 
-The four original development foundation files remain immutable. A fifth migration, `0005_single_global_subject.sql`, removes the retired class-specific subject definition and points offering subject links at `academic_subjects`. The five-file schema is tested using disposable SQLite and local D1. `master` and its separate production database remain unchanged; do not apply development migrations to production.
+The owner approved full reset of the disposable `sohojac_dev` test database for this redesign. There are four clean source migrations, containing only the one global `academic_subjects` master and its offering join. One-time dev database recreation is branch/name/UUID gated; production never runs this workflow.
 
 The authorized one-time development reset **already happened** and was verified in [release #41137793638](https://github.com/AbdusSattar-70/sohojac/actions/runs/41137793638). The original dev D1 UUID `f6331cbc-fff5-43be-9588-2269d8942342` was replaced by the current dev UUID; its one-time deletion script is now **retired from code and CI**. Ordinary feature deployments must **preserve** the dev OWNER, student records and payments. Development's `seeds/dev-reference.sql` inserts classes, guardian relationships and global subjects idempotently; it does not generate real people, financial postings or demo programmes. A previously completed seed does not run over staff edits.
 
@@ -52,7 +52,7 @@ Development OWNER already registered a new account after the canonical reset. **
 
 Every Subject is a single global record in `academic_subjects` (ID, code, title, active). Configure it through Academic Setup → Subjects, alongside Classes and Groups. The guided Programme Launch and advanced website settings select the same records without class/stream filters. Changing a global subject updates linked public-card subject summaries; inactive subjects cannot be newly added.
 
-Migration 0005 drops `academy_subjects`, removes its old triggers and re-creates only the offering-to-global-subject relationship. Historic development links and cached card subject JSON are intentionally cleared instead of inferred; no identity or financial data is cleared. The database release must capture a dev-only recovery bookmark and verify foreign keys, the removed table and the exact five migration names. No old API or mapping screen remains.
+The clean schema never creates `academy_subjects` or grade-specific subject columns. A one-time `sohojac_dev` rebuild clears mock records and old migration tracking, then initializes four migrations and the reference seed. First-owner onboarding must be repeated after a reset. No old API or mapping screen remains.
 
 ## Operational recovery and release evidence
 

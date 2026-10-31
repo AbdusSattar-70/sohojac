@@ -4,16 +4,16 @@ import {readdirSync,readFileSync,existsSync} from "node:fs";
 import {test} from "node:test";
 
 const migrations=readdirSync("migrations").filter(x=>/^\d{4}_.+\.sql$/.test(x)).sort();
-function database({preCutover=false}={}){
+function database(){
  const db=new DatabaseSync(":memory:");
  db.exec("PRAGMA foreign_keys=ON");
- for(const file of (preCutover?migrations.filter(x=>!x.startsWith("0005")):migrations))
+ for(const file of migrations)
   db.exec(readFileSync("migrations/"+file,"utf8"));
  return db;
 }
 const physicsId="61f850dd-0509-5a25-92de-9c0847785dea";
 
-test("five migrations produce one reusable Subject entity with no old master",()=>{
+test("four clean migrations produce one reusable Subject entity with no old master",()=>{
  const db=database();
  try {
   const names=new Set(db.prepare("SELECT name FROM sqlite_schema WHERE type='table'").all().map(x=>x.name));
@@ -56,27 +56,6 @@ test("the same global Subject works across two classes and updates public cards"
   db.prepare("DELETE FROM academy_offering_subjects WHERE offering_id='class8'").run();
   assert.equal(cards().filter(x=>x.length===0).length,1);
   assert.equal(cards().filter(x=>x.length===1 && x[0].id===physicsId).length,1);
-  assert.deepEqual(db.prepare("PRAGMA foreign_key_check").all(),[]);
- }finally{db.close();}
-});
-
-test("existing dev subject-only history is cleared on cutover without removing offerings, finance accounts or global subjects",()=>{
- const db=database({preCutover:true});
- try {
-  db.exec(readFileSync("seeds/dev-reference.sql","utf8"));
-  db.prepare("INSERT INTO public_programme_offerings(id,code,name) VALUES('offering-old','OFF-OLD','Existing programme')").run();
-  db.prepare("INSERT INTO academy_subjects(id,code,name,class_grade,group_name) VALUES('old-physics','PHY','Physics',10,'SCIENCE')").run();
-  db.prepare("INSERT INTO academy_offering_subjects(offering_id,subject_id) VALUES('offering-old','old-physics')").run();
-  assert.equal(JSON.parse(db.prepare("SELECT subjects_json FROM public_programme_offerings WHERE id='offering-old'").get().subjects_json)[0].id,"old-physics");
-  const refs=db.prepare("SELECT COUNT(*) n FROM academic_subjects").get().n;
-  const finance=db.prepare("SELECT COUNT(*) n FROM finance_accounts").get().n;
-  db.exec(readFileSync("migrations/0005_single_global_subject.sql","utf8"));
-  assert.equal(db.prepare("SELECT COUNT(*) n FROM sqlite_schema WHERE type='table' AND name='academy_subjects'").get().n,0);
-  assert.equal(db.prepare("SELECT COUNT(*) n FROM academy_offering_subjects").get().n,0);
-  assert.equal(db.prepare("SELECT COUNT(*) n FROM academic_subjects").get().n,refs);
-  assert.equal(db.prepare("SELECT COUNT(*) n FROM finance_accounts").get().n,finance);
-  assert.equal(db.prepare("SELECT COUNT(*) n FROM public_programme_offerings WHERE id='offering-old'").get().n,1);
-  assert.equal(db.prepare("SELECT subjects_json FROM public_programme_offerings WHERE id='offering-old'").get().subjects_json,"[]");
   assert.deepEqual(db.prepare("PRAGMA foreign_key_check").all(),[]);
  }finally{db.close();}
 });
