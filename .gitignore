@@ -38,3 +38,7 @@ next-env.d.ts
 /dist/
 .vinext/
 .cloudflare/
+
+# Pinned original production migrations are restored temporarily for CI only.
+# Dev tracks just four canonical schema files in migrations/.
+migrations/history/
